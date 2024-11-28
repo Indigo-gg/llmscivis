@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+<script type="text/javascript" src="https://unpkg.com/vtk.js"></script>
+<script type="text/javascript" src="https://d3js.org/d3.v6.js"></script>
+<script type="text/javascript">
+// ----------------------------------------------------------------------------
+// Standard rendering code setup
+// ----------------------------------------------------------------------------
+
+const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+  background: [0.2, 0.3, 0.4],
+});
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderer.getRenderWindow();
+
+// ----------------------------------------------------------------------------
+// Simple pipeline ConeSource --> Mapper --> Actor
+// ----------------------------------------------------------------------------
+
+//import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
+//import vtkCubeAxesActor from '@kitware/vtk.js/Rendering/Core/CubeAxesActor';
+//import vtkConeSource from '@kitware/vtk.js/Filters/Sources/ConeSource';
+//import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
+//import vtkFullScreenRenderWindow from '@kitware/vtk.js/Rendering/Misc/FullScreenRenderWindow';
+
+
+const coneSource = vtk.Filters.Sources.vtkConeSource.newInstance({ height: 1.0 });
+
+var mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+mapper.setInputConnection(coneSource.getOutputPort());
+
+var actor = vtk.Rendering.Core.vtkActor.newInstance()
+actor.setMapper(mapper);
+
+// ----------------------------------------------------------------------------
+// Add the actor to the renderer and set the camera based on it
+// ----------------------------------------------------------------------------
+
+renderer.addActor(actor);
+var vtkCubeAxesActor = vtk.Rendering.Core.vtkCubeAxesActor
+const cubeAxes = vtkCubeAxesActor.newInstance();
+cubeAxes.setCamera(renderer.getActiveCamera());
+cubeAxes.setDataBounds(actor.getBounds());
+// Replace ticks from axis 0
+function myGenerateTicks(dataBounds) {
+  const res = vtkCubeAxesActor.defaultGenerateTicks(dataBounds);
+  const scale = d3.scaleLinear().domain([dataBounds[0], dataBounds[1]]);
+  res.ticks[0] = d3.range(dataBounds[0], dataBounds[1], 0.1);
+  const format = scale.tickFormat(res.ticks[0].length);
+  res.tickStrings[0] = res.ticks[0].map(format);
+  return res;
+}
+cubeAxes.setGenerateTicks(myGenerateTicks);
+renderer.addActor(cubeAxes);
+
+renderer.resetCamera();
+renderWindow.render();
+
+// make the cubeAxes global visibility in case you want to try changing
+// some values
+global.cubeAxes = cubeAxes;
+
+</script>
+</body>
+</html>
