@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Run ollama as the server mode
 
 use
@@ -102,3 +103,8 @@ using chat api, not generate api
 Ollam api page
 
 https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
+=======
+# LLMSciVis
+
+A project for LLM2sciVis
+>>>>>>> 682a4fa238ca9ae0964bf78bc5b5dd0c47092fc6
