@@ -1,14 +1,10 @@
 from langchain_ollama import OllamaLLM
 from config import app_config
-from config.ollama_config import modals
 
-async def get_llm_response(prompt: str) -> str:
-    """调用Ollama获取回答"""
-    model = OllamaLLM(
-        base_url=app_config.ollama_url,
-        model= modals[0]
-    )
-    return model.invoke(prompt) 
+
+'''
+提示词分析，将用户input进行拓展，返回一个更详细的prompt
+'''
 
 async def analyze_query(query: str) -> dict:
     """分析用户查询"""

@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from RAG.langserver import VTKSearcher
-from llm_agent.prompt_analyze import get_llm_response
+from RAG.retriever import VTKSearcher
+from llm_agent.ollma_chat import get_llm_response
 
 class RAGAgent:
     def __init__(self):
