@@ -1,9 +1,12 @@
 import json
 import requests
 import config.ollama_config as url
+from langchain_ollama import OllamaLLM
+from config import app_config
+from config.ollama_config import modals
 
 '''
-根据模型、用户输入和modal返回数据
+直接和ollama交互的函数
 '''
 
 
@@ -12,6 +15,15 @@ class MyEncoder(json.JSONEncoder):
         if isinstance(obj, bytes):
             return str(obj, encoding='utf-8')
         return json.JSONEncoder.default(self, obj)
+
+
+async def get_llm_response(prompt: str) -> str:
+    """调用Ollama获取回答"""
+    model = OllamaLLM(
+        base_url=app_config.ollama_url,
+        model=modals[0]
+    )
+    return model.invoke(prompt)
 
 
 def get_message(user_input, modal, system):
@@ -28,6 +40,7 @@ def get_message(user_input, modal, system):
         return 'ok', response
     else:
         return 'error', response.text
+
 
 def show_answer(response):
     for line in response.iter_lines():

@@ -3,7 +3,7 @@ import json
 from flask import Flask, render_template, stream_with_context, jsonify
 from flask import request, Response
 # from llm_agent.ollma_chat import get_message, show_answer, MyEncoder
-from llm_agent.rag import get_response
+from llm_agent.rag_agent import RAGAgent
 from config.app_config import system
 from flask_cors import CORS, cross_origin
 import sys
@@ -22,7 +22,7 @@ def get_code():
     data = request.json
     user_input = data.get('input')
     print(user_input)
-    msg, response = get_response(user_input)
+    msg, response = RAGAgent.get_response(user_input)
     print(msg, response)
 
 
