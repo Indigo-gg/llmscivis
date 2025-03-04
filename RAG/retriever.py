@@ -1,7 +1,7 @@
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from llm_agent.prompt_agent import analyze_query
-from config.ollama_config import embedding_modals
+from llm_agent.prompt_agent import analyze_query,merge_analysis
+from config.ollama_config import embedding_models
 from config.ollama_config import faissDB_path
 import os
 
@@ -18,7 +18,7 @@ class VTKSearcher:
 
         # 初始化embedding模型
         self.embeddings = HuggingFaceEmbeddings(
-            model_name=embedding_modals[0],
+            model_name=embedding_models["bge"],
             model_kwargs={'device': 'cpu'},
             encode_kwargs={'normalize_embeddings': False}
         )
@@ -30,15 +30,12 @@ class VTKSearcher:
             allow_dangerous_deserialization=True
         )
 
-    def search(self, query: str, k: int = 3) -> str:
+    def search(self, analysis: dict, query: str) -> str:
         """搜索相关的VTK示例"""
-        # 首先分析查询，分析方法在prompt_analyze中
-        analysis = analyze_query(query)
-
-        print('返回分析结果',analysis)
+        k = 3
         # 对查询和函数API进行相关性搜索
         all_docs = []
-        search_terms = [analysis["main_goal"]]  + analysis["key_apis"]
+        search_terms = [analysis["main_goal"]] + analysis["key_apis"]
 
         for term in search_terms:
             docs = self.db.similarity_search(term, k=1)  # 每个方面找一个最相关的
@@ -65,32 +62,14 @@ class VTKSearcher:
                 context_parts.append(f"示例 '{example_name}' 的代码:\n{doc.page_content}\n")
 
         context = "\n".join(context_parts)
-        # 构建完整的prompt
-        prompt = f"""你是一个VTK.js专家，精通科学可视化和VTK.js编程。
-
-用户需求分析：
-1. 主要目标：{analysis["main_goal"]}
-2.数据来源：{analysis['data_source']}
-3. 关键API：{', '.join(analysis["key_apis"]) if analysis["key_apis"] else '待确定'}
-请遵循以下规则：
-1. 回答的内容是带有vtkjs脚本的html代码，如有说明以注释形式给出
-2. 如果示例代码与用户需求相关，基于示例代码实现用户的需求
-3. 回答要基于提供的示例信息，不要编造不存在的功能
-
-相关的VTK.js示例信息如下：
-
-{context}
-
-用户问题: {query}
-
-请根据上述分析和示例信息，提供详细的解答。在注释中重点说明如何实现用户的具体需求。
-"""
-        return prompt
+        final_prompt = merge_analysis(analysis)+f"""
+        The relevant VTK.js example information is as follows: {context}
+        User question: {query}
+        Please provide a detailed answer based on the above analysis and example information. Highlight how to meet the user's specific needs in the comments.
+        """
+        return final_prompt
 
 
 # 使用示例
 if __name__ == "__main__":
-    searcher = VTKSearcher()
-    query = "使用vtkJs实现Filter-ImageMarchingSquares"
-    prompt = searcher.search(query)
-    print(prompt)
+    pass
