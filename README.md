@@ -48,8 +48,13 @@ python app.py
     npm run dev
 ```
 
-
+# 一键运行(linux/windows)
+```shell
+    bash run.sh
+```
 ## 以下文件包含测试函数
 
-- rag_agent.py
+- llm_agent/rag_agent.py
+- llm_agent/ollma_chat.py
+- llm_agent/prompt_agent.py
 - retriever.py
