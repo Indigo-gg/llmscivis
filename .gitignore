@@ -1,3 +1,6 @@
 __pycache__
 .DS_Store
 data/
+front/
+    node_modules/
+node_modules/

@@ -1,1 +1,11 @@
-TODO
+flask==3.0.0
+flask-cors==4.0.0
+requests==2.31.0
+faiss-cpu==1.7.4
+sentence-transformers==2.5.1
+python-dotenv==1.0.0
+numpy==1.24.3
+pandas==2.1.1
+langchain==0.1.0
+langchain-ollama==0.0.3
+openai==1.12.0

@@ -15,6 +15,10 @@ from llm_agent import evaluator_agent
 from utils.dataset import add_data, get_all_data, modify_object
 from llm_agent.prompt_agent import analyze_query, merge_analysis
 from config import ollama_config
+import os
+import base64
+from datetime import datetime
+
 app = Flask(__name__)
 # 配置跨域
 
@@ -75,8 +79,6 @@ def generation():
         }
     add_data(data_dict)
     final_prompt=obj['prompt']
-    # final_prompt=obj['generatorPrompt'].replace(app_config.keywords['QUESTION'], obj['generator_prompt'])
-    # print('received prompt',final_prompt)
     analysis=''
     if obj['workflow']['inquiryExpansion']:
         analysis=analyze_query(obj['prompt'],model_name=obj['generator'],system=obj['generatorPrompt'])
@@ -91,6 +93,44 @@ def generation():
     response = get_deepseek_response(final_prompt, ollama_config.models[obj['generator']],system=obj['generatorPrompt'])
     data_dict['generated_code']=response
     return Response(json.dumps(data_dict), content_type='application/json')
+
+@app.route('/code_error', methods=["POST"])
+def handle_code_error():
+    from llm_agent.code_agent import ErrorAnalyzer
+    error_data = request.json
+    analyzer = ErrorAnalyzer()
+    
+    # 分析错误并生成修复建议
+    analysis_result = analyzer.analyze_log(json.dumps(error_data['errors']))
+    
+    if analysis_result['should_continue']:
+        # 获取最新的错误提示
+        error_prompts = [error['prompt'] for error in analysis_result['errors']]
+        
+        # 构建新的生成提示
+        enhancement_prompt = "\n".join([
+            "请根据以下错误修复代码：",
+            *error_prompts,
+            "原始代码：",
+            error_data.get('current_code', '')
+        ])
+        
+        # 重新生成代码
+        new_code = get_deepseek_response(enhancement_prompt, ollama_config.models['deepseek'])
+        
+        return jsonify({
+            'success': True,
+            'should_continue': True,
+            'new_code': new_code,
+            'iteration': analysis_result['iteration'],
+            'error_summary': analyzer.get_error_summary()
+        })
+    
+    return jsonify({
+        'success': True,
+        'should_continue': False,
+        'error_summary': analyzer.get_error_summary()
+    })
 
 
 @app.route('/generateStream', methods=["POST"])
@@ -187,6 +227,50 @@ def save():
     f.close()
     return Response("{}", status=200, mimetype='application/json')
 
+@app.route('/export', methods=['POST'])
+def export_results():
+    try:
+        data = request.json
+        
+        # 创建导出目录
+        export_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        export_dir = f"exports/case_{data['evalId']}_{export_time}"
+        os.makedirs(export_dir, exist_ok=True)
+        
+        # 保存图片
+        for image_type in ['generatedImage', 'truthImage']:
+            if data.get(image_type):
+                # 解码base64图片数据
+                img_data = base64.b64decode(data[image_type].split(',')[1])
+                with open(f"{export_dir}/{image_type}.png", 'wb') as f:
+                    f.write(img_data)
+        
+        # 保存用例数据
+        case_data = {
+            'evalId': data['evalId'],
+            'prompt': data['prompt'],
+            'groundTruth': data['groundTruth'],
+            'generatedCode': data['generatedCode'],
+            'evaluatorEvaluation': data['evaluatorEvaluation'],
+            'score': data['score'],
+            'consoleOutput': data['consoleOutput'],
+            'exportTime': data['exportTime']
+        }
+        
+        with open(f"{export_dir}/case_data.json", 'w', encoding='utf-8') as f:
+            json.dump(case_data, f, ensure_ascii=False, indent=2)
+            
+        return jsonify({
+            'success': True,
+            'message': '导出成功',
+            'exportPath': export_dir
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'导出失败: {str(e)}'
+        }), 500
 
 
 if __name__ == '__main__':
