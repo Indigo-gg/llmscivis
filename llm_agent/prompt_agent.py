@@ -17,7 +17,7 @@ def analyze_query(query: str,model_name, system) -> dict:
     You are a question expansion assistant. You need to expand on the user's question based on vtkjs. Requirements: Provide
 1. Main goal
 2. Data source
-3. VTK.js interfaces (separated by ", ") 
+3. VTK.js interfaces (separated by ",") 
     """
     analysis_prompt = f"""The query to be expanded:{query}"""
     # 从LLM回答提取检索参数 TODO：LLM回答具有不稳定性，如果没有按照格式回答怎么处理
@@ -37,7 +37,7 @@ def analyze_query(query: str,model_name, system) -> dict:
         key_apis_match = re.search(r"VTK.js interfaces?(.*)", response) or \
                          re.search(r"vtkjs interfaces?(.*)", response) or \
                          re.search(r"vtkJs interfaces?(.*)", response)
-        key_apis = key_apis_match.group(1).split("、") if key_apis_match else []
+        key_apis = key_apis_match.group(1).split(",") if key_apis_match else []
 
     except Exception as e:
         print(f"Error in analyze_query: {e}")
