@@ -1,9 +1,10 @@
 import json
+from pydantic_core.core_schema import model_ser_schema
 import requests
 import config.ollama_config as url
 from langchain_ollama import OllamaLLM
 from config import app_config, ollama_config
-from config.ollama_config import models
+from config.ollama_config import  models_deepseek, models_ollama
 from openai import OpenAI
 
 '''
@@ -13,7 +14,7 @@ from openai import OpenAI
 app = OpenAI(api_key=app_config.apikey, base_url=app_config.deepseek_url)
 
 
-#
+
 
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -22,14 +23,28 @@ class MyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-async def get_llm_response(prompt: str) -> str:
-    """调用Ollama获取回答"""
-    model = OllamaLLM(
-        base_url=app_config.ollama_url,
-        model=models["llama3.2_1B"]
-    )
-    return model.invoke(prompt)
+# 获取模型回答的入口函数
 
+def get_llm_response(prompt: str, model_name, system) -> str:
+    if model_name in models_ollama.keys():
+        return get_ollama_response(prompt, models_ollama[model_name], system)
+    elif model_name in models_deepseek.keys():
+        return get_deepseek_response(prompt, models_deepseek[model_name], system)
+
+#!!! 提前开启ollama服务
+def get_ollama_response(prompt: str, model_name, system):
+    """调用ollama获取回答"""
+    # 使用 OllamaLLM 类初始化，指定基础 URL 和模型名称
+    llm = OllamaLLM(
+        base_url=app_config.ollama_url,
+        model=model_name
+    )
+    try:
+        # 调用 Ollama API 获取回答
+        response = llm.invoke(prompt, config={"system": system,"stream":False})
+        return response
+    except Exception as e:
+        print(f"调用 Ollama 出错: {e}")
 
 def get_deepseek_response(prompt: str, model_name, system):
     """调用deepseek获取回答"""
@@ -89,9 +104,6 @@ def show_answer(response):
         print(response_part, end='', flush=True)
         # print('\n')
 
-
-# def get_prompt_llm_response(prompt):
-#     return get_deepseek_response(prompt, model_name=models['deepseek-v3'])
 
 
 if __name__ == "__main__":

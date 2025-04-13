@@ -1,6 +1,6 @@
 # ... existing code ...
 from config.ollama_config import models
-from llm_agent.ollma_chat import get_deepseek_response
+from llm_agent.ollma_chat import get_llm_response
 import re
 
 
@@ -37,7 +37,7 @@ def evaluate(generated_code, ground_truth, evaluator_prompt, evaluator):
     Ground truth: {ground_truth}\n
     Generated code: {generated_code}\n
     """
-    response = get_deepseek_response(prompt, model_name=models[evaluator], system=evaluator_prompt)
+    response = get_llm_response(prompt, model_name=evaluator, system=evaluator_prompt)
     score = extract_score(response)
     return {
         'score': score,

@@ -32,13 +32,13 @@ class VTKSearcher:
 
     def search(self, analysis: dict, query: str) -> str:
         """搜索相关的VTK示例"""
-        k = 3
+        k = 5
         # 对查询和函数API进行相关性搜索
         all_docs = []
         search_terms = [analysis["main_goal"]] + analysis["key_apis"]
 
         for term in search_terms:
-            docs = self.db.similarity_search(term, k=1)  # 每个方面找一个最相关的
+            docs = self.db.similarity_search(term, k=5)  # 每个方面找五个最相关的
             all_docs.extend(docs)
 
         # 去重

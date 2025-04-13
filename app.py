@@ -8,7 +8,7 @@ from flask import Flask, render_template, stream_with_context, jsonify
 from flask import request, Response
 
 from config import app_config
-from llm_agent.ollma_chat import get_deepseek_response
+from llm_agent.ollma_chat import get_llm_response
 from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
@@ -89,8 +89,8 @@ def generation():
         rag_agent = RAGAgent()
         final_prompt = rag_agent.search(analysis,obj['prompt'])
         print('rag prompt',final_prompt)
-
-    response = get_deepseek_response(final_prompt, ollama_config.models[obj['generator']],system=obj['generatorPrompt'])
+    
+    response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
     data_dict['generated_code']=response
     return Response(json.dumps(data_dict), content_type='application/json')
 
@@ -116,7 +116,7 @@ def handle_code_error():
         ])
         
         # 重新生成代码
-        new_code = get_deepseek_response(enhancement_prompt, ollama_config.models['deepseek'])
+        new_code = get_llm_response(enhancement_prompt, ollama_config.models_deepseek['deepseek-v3'])
         
         return jsonify({
             'success': True,

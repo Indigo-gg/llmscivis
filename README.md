@@ -11,8 +11,18 @@
 
 通过RAG增强LLM生成可视化的能力
 
+
+
 ## 构建向量数据库
 
+### 需要把待处理的文件放入data目录
+> data
+>   - fassi_cache(里面内容在执行embedding.py后自动生成)
+>   - vtk-example(样本代码)
+>      - vtk_api
+>          - code.html
+>          - description.txt
+### 执行构建代码
 ```shell
 python RAG\embedding.py 
 #因缺乏依赖执行失败时，尝试执行以下命令
