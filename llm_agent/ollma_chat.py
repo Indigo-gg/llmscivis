@@ -73,11 +73,6 @@ def get_deepseek_response_stream(prompt: str, model_name, system=app_config.syst
         ],
     )
     return response
-    # for chunk in response:
-    #     if not chunk.choices:
-    #         continue
-    #     print(chunk.choices[0].delta.content, end="")
-
 
 def get_message(user_input, modal, system):
     data = {"model": modal,
