@@ -12,14 +12,15 @@ class RAGAgent:
     def __init__(self):
         self.searcher = VTKSearcher()
 
-    def search(self, analysis,prompt) -> str:
+    def search(self, analysis: dict, prompt: str, metadata_filters: dict = None) -> str:
         """
-        检索数据
-        :param prompt:
-        :param analysis:
-        :return:
+        检索数据，支持元数据过滤。
+        :param analysis: 查询分析结果
+        :param prompt: 原始用户查询
+        :param metadata_filters: 用于过滤的元数据字典 (可选)
+        :return: 结合了上下文信息的最终提示
         """
-        return self.searcher.search(analysis,prompt)
+        return self.searcher.search(analysis, prompt, metadata_filters=metadata_filters)
 # 使用示例
 
 

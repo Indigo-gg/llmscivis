@@ -4,7 +4,6 @@ import requests
 import config.ollama_config as url
 from langchain_ollama import OllamaLLM
 from config import app_config, ollama_config
-from config.ollama_config import  models_deepseek, models_ollama
 from openai import OpenAI
 
 '''
@@ -26,10 +25,10 @@ class MyEncoder(json.JSONEncoder):
 # 获取模型回答的入口函数
 
 def get_llm_response(prompt: str, model_name, system) -> str:
-    if model_name in models_ollama.keys():
-        return get_ollama_response(prompt, models_ollama[model_name], system)
-    elif model_name in models_deepseek.keys():
-        return get_deepseek_response(prompt, models_deepseek[model_name], system)
+    if model_name in ollama_config.models_ollama.keys():
+        return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
+    elif model_name in ollama_config.models_deepseek.keys():
+        return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
 
 #!!! 提前开启ollama服务
 def get_ollama_response(prompt: str, model_name, system):

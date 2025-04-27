@@ -1,19 +1,21 @@
 from openai import models
-from config import app_config
+from config.app_config import app_config
 
-models_deepseek = {
-    # "deepseek": 'deepseek-chat',
-    'deepseek-v3':'deepseek-v3-241226',
-    'deepseek-r1':'deepseek-r1-250120',
-    'deepseek-r1-distill-qwen-32b':'deepseek-r1-distill-qwen-32b-250120'
-}
-models_ollama = {
-    "llama3.2-1b": 'llama3.2:1b',
-}
-embedding_models = {
-    "bge": 'BAAI/bge-small-en-v1.5',
+class OllamaConfig:
+    def __init__(self):
+        self.models_deepseek = {
+            # "deepseek": 'deepseek-chat',
+            'deepseek-v3':'deepseek-v3-241226',
+            'deepseek-r1':'deepseek-r1-250120',
+            'deepseek-r1-distill-qwen-32b':'deepseek-r1-distill-qwen-32b-250120'
+        }
+        self.models_ollama = {
+            "llama3.2-1b": 'llama3.2:1b',
+        }
+        self.embedding_models = {
+            "bge": 'BAAI/bge-small-en-v1.5',
+        }
+        self.base = app_config.ollama_url + '/api'
+        self.generate = self.base + '/generate'
 
-}
-base = app_config.ollama_url + '/api'
-faissDB_path = 'data/faiss_cache'
-generate = base + '/generate'
+ollama_config = OllamaConfig()
