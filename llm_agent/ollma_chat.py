@@ -1,17 +1,19 @@
 import json
+import sys
 from pydantic_core.core_schema import model_ser_schema
 import requests
-import config.ollama_config as url
 from langchain_ollama import OllamaLLM
-from config import app_config, ollama_config
+from urllib3 import response
+from config.app_config import app_config
+from config.ollama_config import ollama_config
 from openai import OpenAI
 
 '''
 直接和LLM交互的函数
 '''
-#
-app = OpenAI(api_key=app_config.apikey, base_url=app_config.deepseek_url)
 
+#
+# app = OpenAI(api_key=app_config.apikey, base_url=app_config.deepseek_url) # Moved initialization
 
 
 
@@ -29,6 +31,11 @@ def get_llm_response(prompt: str, model_name, system) -> str:
         return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
     elif model_name in ollama_config.models_deepseek.keys():
         return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
+    elif model_name in ollama_config.models_qwen.keys():
+        return get_qwen_response(prompt, ollama_config.models_qwen[model_name], system)
+    elif model_name in ollama_config.models_coreai.keys():
+        return get_coreai_response(prompt, ollama_config.models_coreai[model_name], system)
+
 
 #!!! 提前开启ollama服务
 def get_ollama_response(prompt: str, model_name, system):
@@ -47,6 +54,8 @@ def get_ollama_response(prompt: str, model_name, system):
 
 def get_deepseek_response(prompt: str, model_name, system):
     """调用deepseek获取回答"""
+    # Initialize OpenAI client here to avoid module-level initialization issues
+    app = OpenAI(api_key=app_config.deepseek_apikey, base_url=app_config.deepseek_url)
     response = app.chat.completions.create(
         model=model_name,
         stream=False,
@@ -56,12 +65,12 @@ def get_deepseek_response(prompt: str, model_name, system):
         ],
     )
     # data=json.loads(response)
-    print(response)
+    # print(response)
     content = response.choices[0].message.content
     return content
 
-
-def get_deepseek_response_stream(prompt: str, model_name, system=app_config.system[0]['prompt']):
+def get_deepseek_response_stream(prompt: str, model_name, system):
+    app = OpenAI(api_key=app_config.apikey, base_url=app_config.deepseek_url)
     """调用deepseek获取流式回答"""
     response = app.chat.completions.create(
         model=model_name,
@@ -73,15 +82,60 @@ def get_deepseek_response_stream(prompt: str, model_name, system=app_config.syst
     )
     return response
 
+def get_qwen_response(prompt: str, model_name, system):
+    """调用qwen获取回答"""
+
+    client = OpenAI(
+        # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
+        api_key=app_config.qwen_apikey,
+        base_url=app_config.qwen_url,
+    )
+
+    response = client.chat.completions.create(
+        # 模型列表：https://help.aliyun.com/zh/model-studio/getting-started/models
+        model=model_name,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        extra_body={"enable_thinking": False},
+        # 不开启思考模式：
+    )
+    content = response.choices[0].message.content
+    return content
+    # print(completion.model_dump_json()) 
+def get_coreai_response(prompt: str, model_name, system):
+    """调用coreai获取回答"""
+    client = OpenAI(
+    base_url=app_config.coreai_url,
+    api_key=app_config.coreai_apikey
+)
+    
+    completion = client.chat.completions.create(
+    model=model_name,
+    stream=False,
+
+    messages=[
+        {
+        "role":"system",
+        "content":system
+        },
+        {
+        "role": "user",
+        "content": prompt
+        }
+        
+    ]
+    )
+    return completion.choices[0].message.content
+
 def get_message(user_input, modal, system):
     data = {"model": modal,
             "prompt": user_input,
             "system": system,
-            # "context": context,
-            # "options": {"num_ctx": 2048}
             }
 
-    response = requests.post(url=url.generate, json=data)
+    response = requests.post(url=ollama_config.generate, json=data)
     if response.status_code == 200:
 
         return 'ok', response
@@ -101,5 +155,6 @@ def show_answer(response):
 
 
 if __name__ == "__main__":
-    get_deepseek_response_stream('生成椎体代码', model_name='deepseek-r1-distill-qwen-32b-250120')
+    answer=get_qwen_response('生成椎体代码', model_name='qwen-plus-latest',system='you are a programmer， you should give a code by user_query')
     # get_deepseek_response('hello','deepseek-v3')
+    print(answer)

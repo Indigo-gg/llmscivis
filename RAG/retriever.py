@@ -1,12 +1,12 @@
 # 导入所需的库
-from langchain_community.vectorstores import FAISS  # FAISS 向量存储库
+from langchain_community.vectorstores.faiss import FAISS  # FAISS 向量存储库
 from langchain_huggingface import HuggingFaceEmbeddings # Hugging Face 嵌入模型接口
 import sys # 系统相关功能库
 import os # 操作系统相关功能库
 
 from llm_agent.prompt_agent import analyze_query, merge_analysis # 从其他模块导入查询分析和合并函数
-from config.ollama_config import embedding_models # 从配置文件导入嵌入模型名称
-from config.ollama_config import faissDB_path # 从配置文件导入 FAISS 数据库路径
+from config.ollama_config import ollama_config # 导入 ollama 配置实例
+from config.app_config import app_config# 从配置文件导入 FAISS 数据库路径
 
 '''
 检索器，用于在vectorDB中检索prompt相关的知识
@@ -24,11 +24,11 @@ class VTKSearcher:
         # 设置fassi数据库的路径
         current_dir = os.path.dirname(os.path.abspath(__file__)) # 获取当前文件所在目录
         # 构建 FAISS 数据库的完整路径 (上一级目录 + 配置中的相对路径)
-        self.cache_dir = os.path.join(current_dir, "..", faissDB_path)
+        self.cache_dir = os.path.join(current_dir, "..", app_config.faissDB_path)
 
         # 初始化embedding模型
         self.embeddings = HuggingFaceEmbeddings(
-            model_name=embedding_models["bge"], # 使用配置文件中指定的 "bge" 模型
+            model_name=ollama_config.embedding_models["bge"], # 使用配置文件中指定的 "bge" 模型
             model_kwargs={'device': 'cpu'}, # 指定模型在 CPU 上运行
             encode_kwargs={'normalize_embeddings': False} # 指定不对嵌入向量进行归一化
         )

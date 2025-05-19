@@ -1,7 +1,7 @@
 # 处理dataset相关逻辑
 import json
 from datetime import time
-from config import app_config
+from config.app_config import app_config
 
 
 class EvalData:

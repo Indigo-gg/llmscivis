@@ -7,14 +7,14 @@ import time
 from flask import Flask, render_template, stream_with_context, jsonify
 from flask import request, Response
 
-from config import app_config
+from config.app_config import app_config
 from llm_agent.ollma_chat import get_llm_response
 from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
 from utils.dataset import add_data, get_all_data, modify_object
 from llm_agent.prompt_agent import analyze_query, merge_analysis
-from config import ollama_config
+from config.ollama_config import ollama_config
 import os
 import base64
 from datetime import datetime
@@ -22,7 +22,13 @@ from datetime import datetime
 app = Flask(__name__)
 # 配置跨域
 
-CORS(app, resources=r'/*')
+CORS(app, resources={
+    r'/*': {
+        'origins': '*',
+        'methods': ['GET', 'POST', 'OPTIONS'],
+        'allow_headers': ['Content-Type']
+    }
+})
 
 
 @app.route('/upload', methods=["POST"])
@@ -57,6 +63,7 @@ def generation():
         "ground_truth": obj["groundTruth"],
         "generated_code": None,
         "generator_prompt":obj["generatorPrompt"],
+        "final_prompt":None,
         "evaluator_prompt": obj["evaluatorPrompt"],
         "generator": obj["generator"],
         "evaluator": obj["evaluator"],
@@ -81,36 +88,65 @@ def generation():
     final_prompt=obj['prompt']
     analysis=''
     if obj['workflow']['inquiryExpansion']:
-        analysis=analyze_query(obj['prompt'],model_name=obj['generator'],system=obj['generatorPrompt'])
+        analysis=analyze_query(obj['prompt'],model_name=obj['generator'],system=None)
         final_prompt=merge_analysis(analysis)
-        print('analysis\n',final_prompt)
+        print('after_analysis\n',final_prompt)
 
     if obj['workflow']['rag']:
         rag_agent = RAGAgent()
         final_prompt = rag_agent.search(analysis,obj['prompt'])
-        print('rag prompt',final_prompt)
+        print('rag prompt\n',final_prompt)
     
     response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
     data_dict['generated_code']=response
+    data_dict['final_prompt']=final_prompt
     return Response(json.dumps(data_dict), content_type='application/json')
+
+@app.route('/error_analysis', methods=["POST"])
+def handle_error_analysis():
+    from llm_agent.fix_agent import FixAgent
+    error_data = request.json
+    analyzer = FixAgent()
+    
+    # 使用FixAgent分析错误并获取修复建议
+    fix_result = analyzer.analyze_and_fix({
+        'error_type': error_data.get('error_type', ''),
+        'error_message': json.dumps(error_data['errors']),
+        'code_snippet': error_data.get('current_code', ''),
+        'error_history': error_data.get('error_history', [])  # 添加错误历史
+    })
+    
+    # 获取错误分析摘要
+    error_summary = analyzer.get_error_summary()
+    
+    return jsonify({
+        'success': True,
+        'errors': fix_result['errors'],  # 包含错误的详细信息
+        'suggestion': fix_result['suggestion'],  # 综合修复建议
+        'new_code': fix_result['new_code'],  # 修复后的代码建议
+        'should_retry': fix_result['should_retry'],
+        'error_summary': error_summary,  # 添加错误分析摘要
+        'iteration': fix_result['iteration']  # 当前迭代次数
+    })
 
 @app.route('/code_error', methods=["POST"])
 def handle_code_error():
-    from llm_agent.code_agent import ErrorAnalyzer
+    from llm_agent.fix_agent import FixAgent
     error_data = request.json
-    analyzer = ErrorAnalyzer()
+    analyzer = FixAgent()
     
-    # 分析错误并生成修复建议
-    analysis_result = analyzer.analyze_log(json.dumps(error_data['errors']))
+    # 使用FixAgent分析错误并获取修复建议
+    fix_result = analyzer.analyze_and_fix({
+        'error_type': error_data.get('error_type', ''),
+        'error_message': json.dumps(error_data['errors']),
+        'code_snippet': error_data.get('current_code', '')
+    })
     
-    if analysis_result['should_continue']:
-        # 获取最新的错误提示
-        error_prompts = [error['prompt'] for error in analysis_result['errors']]
-        
+    if fix_result['should_retry']:
         # 构建新的生成提示
         enhancement_prompt = "\n".join([
             "请根据以下错误修复代码：",
-            *error_prompts,
+            *fix_result['suggestions'],
             "原始代码：",
             error_data.get('current_code', '')
         ])
@@ -122,7 +158,7 @@ def handle_code_error():
             'success': True,
             'should_continue': True,
             'new_code': new_code,
-            'iteration': analysis_result['iteration'],
+            'iteration': fix_result['iteration'],
             'error_summary': analyzer.get_error_summary()
         })
     
@@ -272,6 +308,54 @@ def export_results():
             'message': f'导出失败: {str(e)}'
         }), 500
 
+# 数据的位置在http://127.0.0.1:5000/dataset/filename
+@app.route('/dataset/<path:filename>', methods=['GET'])
+def get_dataset_file(filename):
+    # 构建文件路径
+    file_path = os.path.join('data', 'dataset', filename)
+
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+
+    # 根据文件扩展名确定内容类型和读取模式
+    file_ext = os.path.splitext(filename)[1].lower()
+    
+    # 文本文件类型
+    text_types = {
+        '.txt': 'text/plain',
+        '.json': 'application/json',
+        '.html': 'text/html',
+        '.csv': 'text/csv',
+        '.xml': 'application/xml'
+    }
+    
+    # 二进制文件类型
+    binary_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.vtp': 'application/octet-stream'
+    }
+    
+    # 确定内容类型和读取模式
+    if file_ext in text_types:
+        content_type = text_types[file_ext]
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+    elif file_ext in binary_types:
+        content_type = binary_types[file_ext]
+        with open(file_path, 'rb') as file:
+            content = file.read()
+    else:
+        # 默认处理为二进制文件
+        content_type = 'application/octet-stream'
+        with open(file_path, 'rb') as file:
+            content = file.read()
+    
+    # 返回文件内容
+    return Response(content, content_type=content_type)
 
 if __name__ == '__main__':
     app.run(debug=True)

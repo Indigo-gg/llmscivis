@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Volume Rendering with vtk.js</title>
+</head>
+<body>
+    <!-- The div where the rendering will take place -->
+    <div id="renderer"></div>
+    
+    <!-- Load vtk.js from CDN -->
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Import necessary classes from vtk.js
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkVolumeActor = vtk.Rendering.Core.vtkVolume;
+        const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+        const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+
+        // Initialize the full-screen render window
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0], // Set background color to black
+        });
+        const renderer = fullScreenRenderWindow.getRenderer();
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+        // Set the data path and initialize the reader
+        const dataPath = 'http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp';
+        const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+
+        // Load data from the specified path and render the results
+        reader.setUrl(dataPath, { loadData: true })
+            .then(() => {
+                const data = reader.getOutputData(0);
+
+                // Create the volume mapper and set its properties
+                const mapper = vtkVolumeMapper.newInstance();
+                mapper.setInputData(data);
+                mapper.setSampleDistance(0.7); // Adjust sample distance for better rendering quality
+
+                // Create the volume actor and set its properties
+                const actor = vtkVolumeActor.newInstance();
+                actor.setMapper(mapper);
+
+                // Set up the scalar opacity function
+                const ofun = vtkPiecewiseFunction.newInstance();
+                ofun.addPoint(0.0, 0.1); // Set opacity for minimum scalar value
+                ofun.addPoint(255.0, 1.0); // Set opacity for maximum scalar value
+                actor.getProperty().setScalarOpacity(0, ofun);
+
+                // Set up the color transfer function
+                const cfun = vtkColorTransferFunction.newInstance();
+                cfun.addRGBPoint(0.0, 0.0, 0.0, 1.0); // Blue for minimum scalar value
+                cfun.addRGBPoint(255.0, 1.0, 0.0, 0.0); // Red for maximum scalar value
+                actor.getProperty().setRGBTransferFunction(0, cfun);
+
+                // Add the actor to the renderer and reset the camera
+                renderer.addActor(actor);
+                renderer.resetCamera();
+
+                // Render the scene
+                renderWindow.render();
+            })
+            .catch((error) => {
+                console.error('Error loading dataset:', error);
+            });
+    </script>
+</body>
+</html>
