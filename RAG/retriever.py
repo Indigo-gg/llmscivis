@@ -129,7 +129,6 @@ class VTKSearcher:
         return final_prompt # 返回构建好的最终提示
 
 
-# 使用示例 (通常用于测试或独立运行脚本)
 if __name__ == "__main__":
     searcher = VTKSearcher()
     test_analysis = {"main_goal": "render a sphere", "key_apis": ["vtkSphereSource", "vtkPolyDataMapper", "vtkActor", "vtkRenderer", "vtkRenderWindow"]}

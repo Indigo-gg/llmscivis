@@ -85,7 +85,7 @@ def main():
     os.makedirs(data_dir, exist_ok=True)
     
     # 确保vtk-example目录存在
-    vtk_dir = os.path.join(data_dir, "vtk-example")
+    vtk_dir = os.path.join(data_dir, "vtk-examples","prompt-sample")
     os.makedirs(vtk_dir, exist_ok=True)
     
     # 确保faiss_cache目录存在

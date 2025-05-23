@@ -247,6 +247,41 @@ def get_all():
     data_list = get_all_data()
     return Response(json.dumps(data_list), content_type='application/json')
 
+def read_directory_structure(base_path, current_path):
+    structure = []
+    full_current_path = os.path.join(base_path, current_path)
+    if not os.path.exists(full_current_path):
+        return structure
+
+    for item_name in os.listdir(full_current_path):
+        item_path = os.path.join(full_current_path, item_name)
+        relative_item_path = os.path.join(current_path, item_name)
+        if os.path.isdir(item_path):
+            structure.append({
+                'name': item_name,
+                'type': 'directory',
+                'path': relative_item_path,
+                'children': read_directory_structure(base_path, relative_item_path)
+            })
+        else:
+            try:
+                with open(item_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                content = f"Error reading file: {e}"
+            structure.append({
+                'name': item_name,
+                'type': 'file',
+                'path': relative_item_path,
+                'content': content
+            })
+    return structure
+
+@app.route('/get_case_list', methods=["GET"])
+def get_case_list():
+    base_path = os.path.join('data', 'vtk-examples', 'benchmark')
+    tree_structure = read_directory_structure(base_path, '')
+    return jsonify(tree_structure)
 
 # save update the contents in file
 @app.route('/save', methods=["POST"])
