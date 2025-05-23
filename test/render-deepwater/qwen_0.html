@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>vtk.js Volume Rendering</title>
+    <!-- Include vtk.js from CDN -->
+    <script src="https://unpkg.com/vtk.js"></script>
+</head>
+
+<body>
+    <!-- Container for the vtk.js render area -->
+    <div id="container"></div>
+
+    <script>
+        // Import required vtk.js modules
+        const { vtkFullScreenRenderWindow, vtkXMLImageDataReader, vtkColorTransferFunction, vtkVolumeMapper, vtkVolumeProperty, vtkVolume, vtkPiecewiseFunction } = window.vtk;
+
+        // Create a full-screen render window and renderer
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Fetch and load the VTI file from the given URL
+        fetch('http://127.0.0.1:5000/dataset/deepwater.vti')
+            .then(res => res.arrayBuffer())
+            .then(data => {
+                // Parse the XML Image Data (VTI)
+                const reader = vtkXMLImageDataReader.newInstance();
+                reader.parseAsArrayBuffer(data);
+
+                const imageData = reader.getOutputData();
+
+                // Set up volume mapper
+                const mapper = vtkVolumeMapper.newInstance();
+                mapper.setInputData(imageData);
+                mapper.setSampleDistance(0.7); // Adjust for quality/performance
+
+                // Create color transfer function: Blue → White → Red gradient
+                const ctf = vtkColorTransferFunction.newInstance();
+                ctf.addRGBPoint(-1.0, 0.0, 0.0, 1.0); // Blue
+                ctf.addRGBPoint(0.0, 1.0, 1.0, 1.0);  // White
+                ctf.addRGBPoint(1.0, 1.0, 0.0, 0.0);  // Red
+
+                // Create opacity transfer function to enhance internal structure visibility
+                const ofun = vtkPiecewiseFunction.newInstance();
+                ofun.addPoint(0.0, 0.0);     // Transparent at low values
+                ofun.addPoint(0.5, 0.3);     // Semi-transparent in mid-values
+                ofun.addPoint(1.0, 0.8);     // Mostly opaque at high values
+
+                // Configure volume property with lighting & shading
+                const volumeProperty = vtkVolumeProperty.newInstance();
+                volumeProperty.setColor(ctf);
+                volumeProperty.setScalarOpacity(ofun);
+                volumeProperty.setInterpolationTypeToLinear(); // Smooth interpolation
+                volumeProperty.setShade(true);                 // Enable shading
+                volumeProperty.setUseSeparableApproximation(false); // Better quality
+                volumeProperty.setEnablePBR(true);             // Physically-Based Rendering (PBR)
+
+                // Create volume actor and set mapper + property
+                const volume = vtkVolume.newInstance();
+                volume.setMapper(mapper);
+                volume.addProperty(volumeProperty);
+
+                // Add volume to scene
+                renderer.addVolume(volume);
+
+                // Reset camera and render
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch(err => {
+                console.error('Failed to load or parse VTI file:', err);
+            });
+
+        // Optional: Handle window resize
+        window.addEventListener('resize', () => fullScreenRenderer.resize());
+    </script>
+</body>
+
+</html>

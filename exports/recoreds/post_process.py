@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 # 读取 Excel 文件
-    file_path = 'D://work//llmscivis//exports//recoreds//实验结果记录.xlsx'
+    file_path = 'E://Pcode//MLLM2V//LLMSciVis-main//exports//recoreds//实验结果记录.xlsx'
     df = pd.read_excel(file_path)
 
     # 过滤出 workflow 为 'query-expansion' 和 'rag' 的数据
@@ -23,4 +23,4 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     # 显示图表
-    plt.show()
+    plt.savefig("res.png")

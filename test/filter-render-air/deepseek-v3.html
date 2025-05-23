@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airfoil Cross-Section Visualization</title>
+    <style>
+        /* Container for the 3D renderer */
+        #renderer {
+            width: 100%;
+            height: 600px;
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Container div for the vtk.js render window -->
+    <div id="renderer"></div>
+
+    <!-- Load vtk.js from CDN -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // Import necessary modules from vtk.js
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLPolyDataReader = vtk.IO.XML.vtkXMLPolyDataReader;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPhongRepresentation = vtk.Rendering.Core.vtkPhongRepresentation;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+
+        // Create a full-screen render window and interactor
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0.0, 0.0, 0.0], // black background
+            rootContainer: document.body,
+            rendererSelector: '#renderer'
+        });
+
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Step 1: Load VTP file using vtkXMLPolyDataReader
+        const reader = vtkXMLPolyDataReader.newInstance();
+        fetch('http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp')
+            .then(res => res.arrayBuffer())
+            .then(data => {
+                reader.parseAsArrayBuffer(data);
+
+                // Step 2: Create mapper and set input data
+                const mapper = vtkMapper.newInstance();
+                mapper.setInputData(reader.getOutputData(0));
+
+                // Step 3: Set up color mapping (blue to red)
+                const lut = vtkColorTransferFunction.newInstance();
+                lut.addRGBPoint(0.0, 0.0, 0.0, 1.0); // Blue
+                lut.addRGBPoint(1.0, 1.0, 0.0, 0.0); // Red
+                mapper.setLookupTable(lut);
+                mapper.setColorModeToMapScalars(); // Use scalar values to map colors
+                mapper.setScalarVisibility(true);   // Enable scalar coloring
+
+                // Step 4: Create actor and apply Phong shading parameters
+                const actor = vtkActor.newInstance();
+                actor.setMapper(mapper);
+                actor.getProperty().setInterpolationToPhong(); // Enable Phong shading
+                actor.getProperty().setAmbient(0.3);
+                actor.getProperty().setDiffuse(0.7);
+                actor.getProperty().setSpecular(0.4);
+
+                // Step 5: Customize line width (if the dataset is wireframe or has lines)
+                actor.getProperty().setLineWidth(2.0);
+
+                // Step 6: Add actor to the scene
+                renderer.addActor(actor);
+
+                //TODO
+                // Step 7: Add XYZ axes widget for orientation reference
+                const axesActor = vtkAxesActor.newInstance();
+                const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                    actor: axesActor,
+                    interactor: fullScreenRenderer.getInteractor(),
+                    // Explicitly associate with the renderer's camera
+                    camera: renderer.getActiveCamera(),
+                });
+                orientationWidget.setInteractor(fullScreenRenderer.getInteractor());
+                orientationWidget.setEnabled(true);
+                orientationWidget.setViewportCorner([0, 0]); // Bottom left corner
+                orientationWidget.setViewportSize(0.15);   // Size of the widget
+
+                // Step 8: Reset camera and render the scene
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch(err => console.error('Error loading VTP file:', err));
+    </script>
+</body>
+
+</html>

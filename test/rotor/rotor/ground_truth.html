@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js streamtracing</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+        const Representation = vtk.Rendering.Core.vtkProperty.Representation;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const macro = vtk.macro;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        function addRepresentation(name, filter, props = {}) {
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(filter.getOutputPort());
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+            actor.getProperty().set(props);
+            renderer.addActor(actor);
+        }
+
+        // ----------------------------------------------------------------------------
+
+        // load testing data
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.setUrl('..\\..\\..\\vtkjs-benchmark-datasets\\rotor_simplified.vti').then(() => {
+            reader.loadData().then(() => {
+                const imageData = reader.getOutputData(0);
+
+                imageData.getPointData().setActiveScalars('Pressure');
+                const mc = vtkImageMarchingCubes.newInstance({
+                    contourValue: 92000,
+                });
+                mc.setInputData(imageData);
+
+                imageData.getPointData().setActiveVectors('Velocity');
+                const velocityArray = imageData.getPointData().getArrayByName('Velocity');
+                console.log(velocityArray.toJSON())
+
+                const bounds = imageData.getBounds()
+
+                const pointSource = vtk.Filters.Sources.vtkPointSource.newInstance();
+                pointSource.setNumberOfPoints(1000);  // adjust for density
+                pointSource.setCenter(
+                    (bounds[0] + bounds[1]) / 2,
+                    (bounds[2] + bounds[3]) / 2,
+                    (bounds[4] + bounds[5]) / 2
+                );
+                pointSource.setRadius(Math.max(
+                    bounds[1] - bounds[0],
+                    bounds[3] - bounds[2],
+                    bounds[5] - bounds[4],
+                ) / 1.5);
+
+                const spacing = imageData.getSpacing();
+
+                const streamline = vtkImageStreamline.newInstance();
+                streamline.setInputData(imageData);  // velocity field
+                streamline.setInputConnection(pointSource.getOutputPort(), 1); // seeds
+
+                streamline.set({
+                    maximumNumberOfSteps: 1500,
+                    integratorType: 1,        // RK4
+                    integrationDirection: 1,  // both directions
+                    integrationStep: 0.005 * Math.min(...spacing),
+                });
+
+
+                const outlineFilter = vtkOutlineFilter.newInstance();
+                outlineFilter.setInputData(imageData);
+
+                addRepresentation("mc", mc, { diffuseColor: [0.8, 0.8, 0.8] }); // grey shell
+                addRepresentation('streamLine', streamline, {
+                    diffuseColor: [0, 1, 1],
+                    lineWidth: 5,
+                });
+
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        });
+
+
+    </script>
+
+</body>
+
+</html>

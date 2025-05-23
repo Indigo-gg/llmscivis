@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airfoil Cross-section Visualization</title>
+    <style>
+        #renderer {
+            width: 100%;
+            height: 600px;
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <!-- 引入vtk.js库 -->
+    <!-- <script src="https://unpkg.com/vtk.js"></script> -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // vtk命名空间下的常用类引入（适用于浏览器全局环境）
+        const vtkXMLPolyDataReader = vtk.IO.XML.vtkXMLPolyDataReader;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
+
+        // 创建渲染器、渲染窗口和交互器
+        const renderer = vtkRenderer.newInstance();
+        const renderWindow = vtkRenderWindow.newInstance();
+        renderWindow.addRenderer(renderer);
+
+        // const interactor = vtkRenderWindowInteractor.newInstance();
+        // // interactor.setRenderWindow(renderWindow);
+        // interactor.setRenderWindow(renderWindow);
+
+
+        // // 设置交互方式为轨道相机
+        // const style = vtkInteractorStyleTrackballCamera.newInstance();
+        // interactor.setInteractorStyle(style); // 更正了方法名
+
+        // 加载远程VTP文件
+        const reader = vtkXMLPolyDataReader.newInstance();
+        fetch('http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp')
+            .then(res => res.arrayBuffer())
+            .then((arrayBuffer) => {
+                const data = arrayBuffer;
+                // reader.parse(data);
+                reader.parseAsArrayBuffer(data);
+
+                // 获取多边形数据
+                const polyData = reader.getOutputData(0);
+
+                // 创建颜色映射函数：从蓝色到红色
+                const colorMap = vtkColorTransferFunction.newInstance();
+                colorMap.addRGBPoint(0, 0, 0, 1);   // 蓝色
+                colorMap.addRGBPoint(1, 1, 0, 0);   // 红色
+
+                // 创建Mapper并设置颜色映射
+                const mapper = vtkMapper.newInstance();
+                mapper.setInputData(polyData);
+                mapper.setColorModeToMapScalars(); // 启用标量映射
+                mapper.setScalarModeToUsePointFieldData(); // 使用点数据作为标量
+                mapper.setLookupTable(colorMap);
+
+                // 创建Actor并应用Phong着色参数
+                const actor = vtkActor.newInstance();
+                actor.setMapper(mapper);
+                actor.getProperty().setAmbient(0.3);     // 环境光系数
+                actor.getProperty().setDiffuse(0.7);     // 漫反射系数
+                actor.getProperty().setSpecular(0.4);    // 镜面反射系数
+                actor.getProperty().setLineWidth(2.0);   // 设置线宽
+
+                // 添加Actor到渲染器中
+                renderer.addActor(actor);
+
+                // 添加XYZ坐标轴控件（Axes Actor）
+                const axes = vtkAxesActor.newInstance();
+                // axes.setTotalLength(1.0, 1.0, 1.0); // 设置三轴长度
+                axes.setScale([1.0, 1.0, 1.0]);
+                renderer.addActor(axes);
+
+                // 设置背景颜色
+                renderer.setBackground(0.1, 0.2, 0.3);
+
+                // 初始化渲染窗口
+                renderWindow.render();
+
+                // 启动交互
+                // interactor.initialize();
+                // interactor.start();
+            })
+            .catch((err) => {
+                console.error('无法加载或解析VTP文件:', err);
+            });
+    </script>
+</body>
+
+</html>

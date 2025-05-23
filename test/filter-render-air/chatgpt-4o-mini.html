@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js Airfoil Cross-section Visualization</title>
+    <style>
+        #renderer {
+            width: 100%;
+            height: 600px;
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Div element where the rendering will occur -->
+    <div id="renderer"></div>
+
+    <!-- Load vtk.js library -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // Import necessary vtk.js modules
+        const { vtkFullScreenRenderWindow } = vtk.Rendering.Misc;
+        const { vtkXMLPolyDataReader } = vtk.IO.XML;
+        const { vtkActor } = vtk.Rendering.Core;
+        const { vtkMapper } = vtk.Rendering.Core;
+        const { vtkPolyData } = vtk.Common.DataModel;
+        const { vtkColorTransferFunction } = vtk.Rendering.Core;
+        const { vtkOrientationMarkerWidget } = vtk.Rendering.Core;
+        const { vtkAxesActor } = vtk.Rendering.Core;
+
+        // Create a full-screen render window for displaying the 3D content
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            container: document.getElementById('renderer'),
+            background: [0.1, 0.1, 0.1],  // Dark background color
+        });
+
+        // Create a renderer, render window, and interactor
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+        const interactor = renderWindow.getInteractor();
+
+        // Load the polydata from the VTP file
+        const reader = vtkXMLPolyDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp').then(() => {
+            const polyData = reader.getOutputData();
+
+            // Create a color transfer function (Blue to Red color mapping)
+            const colorMap = vtkColorTransferFunction.newInstance();
+            colorMap.addRGBPoint(0, 0.0, 0.0, 1.0);  // Blue at min value
+            colorMap.addRGBPoint(1, 1.0, 0.0, 0.0);  // Red at max value
+
+            // Create a mapper for the polydata and apply the color map
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputData(polyData);
+            mapper.setLookupTable(colorMap);
+
+            // Create an actor to display the polydata
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+
+            // Set Phong shading properties (ambient, diffuse, and specular)
+            const properties = actor.getProperty();
+            properties.setAmbient(0.3);
+            properties.setDiffuse(0.7);
+            properties.setSpecular(0.4);
+
+            // Set line width for the actor
+            properties.setLineWidth(2.0);
+
+            // Add the actor to the renderer
+            renderer.addActor(actor);
+
+            // Add XYZ axes widget for orientation
+            const axes = vtkAxesActor.newInstance();
+            const axesWidget = vtkOrientationMarkerWidget.newInstance();
+            axesWidget.setInteractor(interactor);
+            axesWidget.setDataSet(polyData);
+            axesWidget.setAxes(axes);
+            axesWidget.setViewportSize(0.15);
+            axesWidget.setCornerOffset(10);
+            axesWidget.setEnabled(true);
+
+            // Start the rendering process
+            renderWindow.render();
+        });
+
+        // Ensure the renderer size and aspect ratio stay consistent
+        interactor.initialize();
+        interactor.start();
+    </script>
+</body>
+
+</html>
