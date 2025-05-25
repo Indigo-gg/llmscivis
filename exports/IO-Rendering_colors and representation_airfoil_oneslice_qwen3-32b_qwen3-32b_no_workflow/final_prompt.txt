@@ -1,0 +1,8 @@
+Generate HTML with vtk.js to visualize volume rendering
+
+Load from http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp
+Scalar Mapping:
+Activates the p scalar array for color encoding
+Visualization:
+Renders the colors and representation
+positions the camera to focus on the dataset bounds

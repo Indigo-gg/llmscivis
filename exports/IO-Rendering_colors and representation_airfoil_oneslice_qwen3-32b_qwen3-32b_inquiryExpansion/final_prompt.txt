@@ -1,0 +1,7 @@
+
+    用户需求分析：
+    1. 主要目标：三维体渲染可视化 - 使用VTK.js从指定URL加载数据集，并对体积数据进行颜色映射和渲染，设置相机位置以聚焦数据集边界
+    2. 数据来源：airfoil_oneslice.vtp (VTP文件)
+    3. 关键API：vtkHttpDataSetReader, vtkMapper, vtkActor, vtkRenderer, vtkRenderWindow
+    
+    

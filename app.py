@@ -12,7 +12,7 @@ from llm_agent.ollma_chat import get_llm_response
 from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
-from utils.dataset import add_data, get_all_data, modify_object
+from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id
 from llm_agent.prompt_agent import analyze_query, merge_analysis
 from config.ollama_config import ollama_config
 import os
@@ -59,6 +59,8 @@ def generation():
     eval_id = str(int(time.time()))
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     data_dict = {
+        "path":obj['path'],
+        "name":obj['name'],
         "prompt": obj["prompt"],
         "ground_truth": obj["groundTruth"],
         "generated_code": None,
@@ -72,8 +74,8 @@ def generation():
         "eval_id": eval_id,
         "eval_user": obj["evalUser"],
         "eval_time": current_time,
-        "eval_status": app_config.eval_status[0],
-        "manual_evaluation": None,
+        # "eval_status": app_config.eval_status[0],
+        # "manual_evaluation": None,
         "evaluator_evaluation": None,
         "options":None
     }
@@ -84,7 +86,6 @@ def generation():
             'loop_time':0,
             'error_log':''
         }
-    add_data(data_dict)
     final_prompt=obj['prompt']
     analysis=''
     if obj['workflow']['inquiryExpansion']:
@@ -100,6 +101,8 @@ def generation():
     response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
     data_dict['generated_code']=response
     data_dict['final_prompt']=final_prompt
+    add_data(data_dict)
+
     return Response(json.dumps(data_dict), content_type='application/json')
 
 @app.route('/error_analysis', methods=["POST"])
@@ -169,73 +172,19 @@ def handle_code_error():
     })
 
 
-@app.route('/generateStream', methods=["POST"])
-def generation_stream():
-
-    obj = request.json
-    print('case',obj)
-    eval_id = str(int(time.time()))
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    data_dict = {
-        "prompt": obj["prompt"],
-        "ground_truth": obj["groundTruth"],
-        "generated_code": None,
-        "evaluator_prompt": obj["evaluatorPrompt"],
-        "generator": obj["generator"],
-        "evaluator": obj["evaluator"],
-        "score": None,
-        "workflow": obj["workflow"],
-        "eval_id": eval_id,
-        "eval_user": obj["evalUser"],
-        "eval_time": current_time,
-        "eval_status": app_config.eval_status[0],
-        "manual_evaluation": None,
-        "evaluator_evaluation": None,
-        "options":None
-    }
-    add_data(data_dict)
-    rag_agent = RAGAgent()
-    response_generator = rag_agent.get_response_stream(obj['prompt'], obj['workflow'])  # 假设 get_response_stream 返回一个生成器
-
-    for chunk in response_generator:
-        if not chunk.choices:
-            continue
-        print(chunk, end="")
-
-    def generate():
-        try:
-            for chunkk in response_generator:
-                print(chunkk,'\n')
-                yield chunkk.choices[0].delta.content
-        except Exception as e:
-            yield json.dumps({"error": str(e)}).encode()
-    return Response(stream_with_context(generate()), content_type='text/event-stream')
-
-
-
 
 @app.route('/evaluate', methods=["POST"])
 def evaluation():
     obj = request.json
-    print('evaluation case',obj)
+    print('evaluation start')
     # 执行 evaluate
     eval_result = evaluator_agent.evaluate(obj['generatedCode'], obj["groundTruth"], obj['evaluatorPrompt'],obj['evaluator'])
     obj['score']=eval_result['score']
     obj['evaluatorEvaluation']=eval_result['evaluator_evaluation']
     data_dict = {
-        "prompt":obj['prompt'],
-        "ground_truth":obj['groundTruth'],
-        "generated_code":obj['generatedCode'],
-        "evaluator_prompt":obj['evaluatorPrompt'],
-        "generator":obj['generator'],
-        "evaluator":obj['evaluator'],
         "score":obj['score'],
-        "workflow":obj['workflow'],
         "eval_id":obj['evalId'],
-        "eval_user":obj['evalUser'],
-        "manual_evaluation":obj['manualEvaluation'],
         "evaluator_evaluation":obj['evaluatorEvaluation'],
-        "options":obj['options']
     }
     modify_object(data_dict)
     # 返回 evaluate 结果给前端
@@ -301,14 +250,62 @@ def save():
 @app.route('/export', methods=['POST'])
 def export_results():
     try:
-        data = request.json
-        
-        # 创建导出目录
-        export_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_dir = f"exports/case_{data['evalId']}_{export_time}"
-        os.makedirs(export_dir, exist_ok=True)
-        
-        # 保存图片
+        d = request.json
+        export_dir = "exports"
+        export_case_dir = ''
+        print(d["evalId"])
+        data=get_object_by_id(d)
+        # print(f"Type of data: {type(data)}, Data: {data}")
+        if 'generated_code' in data and 'path' in data and 'generator' in data and 'evaluator' in data and 'workflow' in data:
+            generated_code = data['generated_code']
+            path = data['path']
+            generator = data['generator']
+            evaluator = data['evaluator']
+            workflow = data['workflow']
+
+            
+            # 查找 workflow 中为 true 的变量名
+            workflow_name = ''
+            for key, value in workflow.items():
+                if value is True:
+                    workflow_name = key
+                    break
+                workflow_name = 'no_workflow'
+            
+            formatted_original_dir = os.path.dirname(path).replace('\\', '_').replace('/', '_')
+            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}"
+            
+            export_case_dir = os.path.join(export_dir, new_folder_name)
+            
+            # 确保目录存在
+            os.makedirs(export_case_dir, exist_ok=True)
+            print(f"Exporting to {export_case_dir}")
+            
+            # 生成文件路径
+            generated_code_file_path = os.path.join(export_case_dir, 'generated_code.html')
+            modified_code_file_path = os.path.join(export_case_dir, 'modified_code.html')
+            final_prompt_file_path = os.path.join(export_case_dir, 'final_prompt.txt')            
+            # 写入文件内容
+            try:
+                # 去除 markdown 代码块语法（如果存在）
+                generated_code = generated_code.replace('```html\n', '').replace('```', '')
+                with open(generated_code_file_path, 'w', encoding='utf-8') as f:
+                    f.write(generated_code)
+                print(f"Successfully created {generated_code_file_path}")
+
+                with open(modified_code_file_path, 'w', encoding='utf-8') as f:
+                    f.write(generated_code)
+                print(f"Successfully created {modified_code_file_path}")
+
+                with open(final_prompt_file_path, 'w', encoding='utf-8') as f:
+                    f.write(data['final_prompt'])
+
+                print(f"Successfully created {final_prompt_file_path}")
+                    
+            except Exception as e:
+                print(f"Error writing generated code files: {e}")
+
+      
         for image_type in ['generatedImage', 'truthImage']:
             if data.get(image_type):
                 # 解码base64图片数据
@@ -316,21 +313,12 @@ def export_results():
                 with open(f"{export_dir}/{image_type}.png", 'wb') as f:
                     f.write(img_data)
         
-        # 保存用例数据
-        case_data = {
-            'evalId': data['evalId'],
-            'prompt': data['prompt'],
-            'groundTruth': data['groundTruth'],
-            'generatedCode': data['generatedCode'],
-            'evaluatorEvaluation': data['evaluatorEvaluation'],
-            'score': data['score'],
-            'consoleOutput': data['consoleOutput'],
-            'exportTime': data['exportTime']
-        }
-        
-        with open(f"{export_dir}/case_data.json", 'w', encoding='utf-8') as f:
-            json.dump(case_data, f, ensure_ascii=False, indent=2)
+        # 确保 export_case_dir 已经被正确赋值后再使用
+        if export_case_dir:
+            with open(f"{export_case_dir}/case_export_data.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
             
+
         return jsonify({
             'success': True,
             'message': '导出成功',
@@ -338,6 +326,7 @@ def export_results():
         })
         
     except Exception as e:
+        print(f"Error exporting results: {e}")
         return jsonify({
             'success': False,
             'message': f'导出失败: {str(e)}'

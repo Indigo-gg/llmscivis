@@ -79,6 +79,28 @@ def delete_object(eval_id):
     except (FileNotFoundError, json.JSONDecodeError):
         pass
 
+def get_object_by_id(obj):
+    """
+    根据 eval_id 获取 JSON 文件中的数据。
+
+    :param eval_id: 要获取的数据的 eval_id
+    :param file_path: JSON 文件的路径
+    :return: 如果找到匹配的 eval_id，则返回 EvalData 对象，否则返回 None
+    """
+    try:
+        with open(app_config.DATASET_PATH, 'r', encoding='utf-8') as file:
+            existing_data = json.load(file)
+            for data_item in existing_data:
+                if data_item.get("eval_id") == obj.get("evalId"):
+                #    print('find',data_item)
+                   return data_item
+        # The following lines seem incorrect in a get function, they should be removed or moved elsewhere if needed.
+        # with open(app_config.DATASET_PATH, 'w', encoding='utf-8') as file:
+        #     json.dump(existing_data, file, ensure_ascii=False, indent=4)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print('ADD_ERROR', FileNotFoundError, json.JSONDecodeError)
+        return None
+
 
 def modify_object(obj):
     """
@@ -90,9 +112,11 @@ def modify_object(obj):
     try:
         with open(app_config.DATASET_PATH, 'r', encoding='utf-8') as file:
             existing_data = json.load(file)
-            for i, data in enumerate(existing_data):
-                if data["eval_id"] == obj['eval_id']:
-                    existing_data[i] = obj
+            for index, data_item in enumerate(existing_data):
+                if data_item.get("eval_id") == obj.get('eval_id') and data_item.get("evaluator_evaluation") is None:
+                    existing_data[index]["evaluatorEvaluation"] = obj.get("evaluator_evaluation")
+                    existing_data[index]["score"] = obj.get("score")
+                    print('\n update score and evaluatorEvaluation \n')
                     break
         with open(app_config.DATASET_PATH, 'w', encoding='utf-8') as file:
             json.dump(existing_data, file, ensure_ascii=False, indent=4)
