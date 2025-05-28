@@ -12,7 +12,7 @@ from llm_agent.ollma_chat import get_llm_response
 from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
-from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id
+from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id,modify_object_with_export
 from llm_agent.prompt_agent import analyze_query, merge_analysis
 from config.ollama_config import ollama_config
 import os
@@ -73,6 +73,8 @@ def generation():
         "workflow": obj["workflow"],
         "eval_id": eval_id,
         "eval_user": obj["evalUser"],
+        "export_time":None,
+        "console_output":None,
         "eval_time": current_time,
         # "eval_status": app_config.eval_status[0],
         # "manual_evaluation": None,
@@ -228,7 +230,7 @@ def read_directory_structure(base_path, current_path):
 
 @app.route('/get_case_list', methods=["GET"])
 def get_case_list():
-    base_path = os.path.join('data', 'vtk-examples', 'benchmark')
+    base_path = os.path.join('data', 'vtkjs-examples', 'benchmark')
     tree_structure = read_directory_structure(base_path, '')
     return jsonify(tree_structure)
 
@@ -254,6 +256,7 @@ def export_results():
         export_dir = "exports"
         export_case_dir = ''
         print(d["evalId"])
+        modify_object_with_export(d)
         data=get_object_by_id(d)
         # print(f"Type of data: {type(data)}, Data: {data}")
         if 'generated_code' in data and 'path' in data and 'generator' in data and 'evaluator' in data and 'workflow' in data:
@@ -273,7 +276,7 @@ def export_results():
                 workflow_name = 'no_workflow'
             
             formatted_original_dir = os.path.dirname(path).replace('\\', '_').replace('/', '_')
-            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}"
+            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}_{data.get("eval_id")}"
             
             export_case_dir = os.path.join(export_dir, new_folder_name)
             
@@ -316,6 +319,18 @@ def export_results():
         # 确保 export_case_dir 已经被正确赋值后再使用
         if export_case_dir:
             with open(f"{export_case_dir}/case_export_data.json", 'w', encoding='utf-8') as f:
+                # need_var={
+                #     'generator': data['generator'],
+                #     'evaluator': data['evaluator'],
+                #     'workflow': data['workflow'],
+                #     'final_prompt': data['final_prompt'],
+                #     'path': data['path'],
+                #     'eval_id': data['eval_id'],
+                #     'eval_user': data['eval_user'],
+                #     'eval_time': data['eval_time'],
+                #     'prompt':  data['prompt'],
+                #     'ground_truth'
+                # }
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
 
