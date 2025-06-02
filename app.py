@@ -91,7 +91,7 @@ def generation():
     final_prompt=obj['prompt']
     analysis=''
     if obj['workflow']['inquiryExpansion']:
-        analysis=analyze_query(obj['prompt'],model_name=obj['generator'],system=None)
+        analysis=analyze_query(obj['prompt'],model_name=ollama_config.inquiry_expansion_model,system=None)
         final_prompt=merge_analysis(analysis)
         print('after_analysis\n',final_prompt)
 
@@ -261,6 +261,7 @@ def export_results():
         # print(f"Type of data: {type(data)}, Data: {data}")
         if 'generated_code' in data and 'path' in data and 'generator' in data and 'evaluator' in data and 'workflow' in data:
             generated_code = data['generated_code']
+            ground_truth = data['ground_truth']
             path = data['path']
             generator = data['generator']
             evaluator = data['evaluator']
@@ -287,6 +288,7 @@ def export_results():
             # 生成文件路径
             generated_code_file_path = os.path.join(export_case_dir, 'generated_code.html')
             modified_code_file_path = os.path.join(export_case_dir, 'modified_code.html')
+            ground_truth_file_path = os.path.join(export_case_dir, 'ground_truth.html')
             final_prompt_file_path = os.path.join(export_case_dir, 'final_prompt.txt')            
             # 写入文件内容
             try:
@@ -302,6 +304,8 @@ def export_results():
 
                 with open(final_prompt_file_path, 'w', encoding='utf-8') as f:
                     f.write(data['final_prompt'])
+                with  open(ground_truth_file_path, 'w', encoding='utf-8') as f:
+                    f.write(ground_truth)
 
                 print(f"Successfully created {final_prompt_file_path}")
                     

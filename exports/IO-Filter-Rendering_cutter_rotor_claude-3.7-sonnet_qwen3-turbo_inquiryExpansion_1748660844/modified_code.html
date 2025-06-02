@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Rotor Data Visualization</title>
+    <style>
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+
+    <script src="https://unpkg.com/vtk.js@25.18.0/dist/vtk.js"></script>
+    <script>
+        // Import required vtk.js modules
+        const { vtkFullScreenRenderWindow, vtkOrientationMarkerWidget } = vtk.Rendering.Misc;
+        const { vtkImageSlice, vtkImageMapper } = vtk.Rendering.Core;
+        const { vtkXMLImageDataReader } = vtk.IO.XML;
+        const { vtkColorTransferFunction } = vtk.Rendering.Core;
+        const { vtkPiecewiseFunction } = vtk.Common.DataModel;
+        const { vtkAxesActor } = vtk.Rendering.Core;
+
+        // Create full screen render window
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            rootContainer: document.getElementById('container'),
+            background: [0.1, 0.1, 0.1],
+        });
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+        const renderer = fullScreenRenderWindow.getRenderer();
+
+        // Create reader to load the data
+        const reader = vtkXMLImageDataReader.newInstance();
+
+        // Load the data from the specified URL
+        fetch('http://127.0.0.1:5000/dataset/rotor.vti')
+            .then((response) => response.arrayBuffer())
+            .then((arrayBuffer) => {
+                // Parse the VTI data
+                reader.parseAsArrayBuffer(arrayBuffer);
+
+                // Get the image data
+                const imageData = reader.getOutputData();
+
+                // Set "Pressure" as the active scalar
+                imageData.getPointData().setActiveScalars('Pressure');
+
+                // Create image mapper and slice
+                const imageMapper = vtkImageMapper.newInstance();
+                imageMapper.setInputData(imageData);
+
+                // Set Y-axis slicing mode
+                imageMapper.setSlicingMode(1); // 0=X, 1=Y, 2=Z
+
+                // Calculate 80% depth for Y-axis
+                const bounds = imageData.getBounds();
+                const yRange = bounds[3] - bounds[2];
+                const ySlice = bounds[2] + yRange * 0.8;
+                imageMapper.setSlice(ySlice);
+
+                // Create image slice actor
+                const imageSlice = vtkImageSlice.newInstance();
+                imageSlice.setMapper(imageMapper);
+
+                // Create color transfer function (blue→white→red gradient)
+                const ctfun = vtkColorTransferFunction.newInstance();
+
+                // Get pressure range for proper color mapping
+                const pressureArray = imageData.getPointData().getScalars();
+                const pressureRange = pressureArray.getRange();
+                const min = pressureRange[0];
+                const max = pressureRange[1];
+                const mid = (min + max) / 2;
+
+                // Set color points for blue→white→red gradient
+                ctfun.addRGBPoint(min, 0.0, 0.0, 1.0);  // Blue for minimum
+                ctfun.addRGBPoint(mid, 1.0, 1.0, 1.0);  // White for middle
+                ctfun.addRGBPoint(max, 1.0, 0.0, 0.0);  // Red for maximum
+
+                // Create opacity transfer function (full opacity)
+                const ofun = vtkPiecewiseFunction.newInstance();
+                ofun.addPoint(min, 1.0);
+                ofun.addPoint(max, 1.0);
+
+                // Apply color and opacity functions
+                imageSlice.getProperty().setRGBTransferFunction(0, ctfun);
+                imageSlice.getProperty().setPiecewiseFunction(0, ofun);
+                imageSlice.getProperty().setInterpolationTypeToLinear();
+
+                // Add the slice to the renderer
+                renderer.addActor(imageSlice);
+
+                // Add orientation marker (XYZ axes)
+                const axesActor = vtkAxesActor.newInstance();
+                const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                    actor: axesActor,
+                    interactor: renderWindow.getInteractor(),
+                });
+                orientationWidget.setEnabled(true);
+                orientationWidget.setViewportCorner(
+                    vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+                );
+                orientationWidget.setViewportSize(0.15);
+                orientationWidget.setMinPixelSize(100);
+                orientationWidget.setMaxPixelSize(300);
+
+                // Reset camera and render
+                renderer.resetCamera();
+                renderWindow.render();
+
+                console.log('Visualization complete. Pressure range:', min, 'to', max);
+            })
+            .catch((error) => {
+                console.error('Error loading or processing the data:', error);
+            });
+    </script>
+</body>
+
+</html>
+`

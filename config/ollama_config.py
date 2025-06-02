@@ -23,9 +23,10 @@ class OllamaConfig:
         self.models_coreai={
             'claude-3.7-sonnet':'claude-3-7-sonnet-20250219',
             'gemini-2.5':'gemini-2.5-pro-preview-05-06',
-            'chatGPT-4o-mini':"gpt-4o-mini"
+            'chatGPT-4o-mini':"gpt-4o-mini",
+            'chatGPT-4o':' chatGPT-4o-latest'
         }
-        self.inquiry_expansion="qwen-turbo-latest"
+        self.inquiry_expansion_model="qwen-turbo-latest"
         self.base = app_config.ollama_url + '/api'
         self.generate = self.base + '/generate'
 

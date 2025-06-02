@@ -1,71 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Volume Rendering with vtk.js</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG 流程图</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #FCFCFC;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .box {
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 20px 24px;
+            min-width: 180px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .box h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+        }
+
+        .box ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .box ul li {
+            margin: 6px 0;
+            font-size: 15px;
+            color: #444;
+            text-align: center;
+        }
+
+        .arrow {
+            font-size: 28px;
+            color: #607D8B;
+        }
+
+        /* 区域配色 */
+        .outline {
+            background-color: #E1F5FE;
+            border-color: #81D4FA;
+        }
+
+        .quality {
+            background-color: #FFF9C4;
+            border-color: #FFF59D;
+        }
+
+        .visual {
+            background-color: #E8F5E9;
+            border-color: #A5D6A7;
+        }
+    </style>
 </head>
+
 <body>
-    <!-- The div where the rendering will take place -->
-    <div id="renderer"></div>
-    
-    <!-- Load vtk.js from CDN -->
-    <script src="https://unpkg.com/vtk.js"></script>
-    <script>
-        // Import necessary classes from vtk.js
-        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-        const vtkVolumeActor = vtk.Rendering.Core.vtkVolume;
-        const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
-        const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
-        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
-        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
-
-        // Initialize the full-screen render window
-        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
-            background: [0, 0, 0], // Set background color to black
-        });
-        const renderer = fullScreenRenderWindow.getRenderer();
-        const renderWindow = fullScreenRenderWindow.getRenderWindow();
-
-        // Set the data path and initialize the reader
-        const dataPath = 'http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp';
-        const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
-
-        // Load data from the specified path and render the results
-        reader.setUrl(dataPath, { loadData: true })
-            .then(() => {
-                const data = reader.getOutputData(0);
-
-                // Create the volume mapper and set its properties
-                const mapper = vtkVolumeMapper.newInstance();
-                mapper.setInputData(data);
-                mapper.setSampleDistance(0.7); // Adjust sample distance for better rendering quality
-
-                // Create the volume actor and set its properties
-                const actor = vtkVolumeActor.newInstance();
-                actor.setMapper(mapper);
-
-                // Set up the scalar opacity function
-                const ofun = vtkPiecewiseFunction.newInstance();
-                ofun.addPoint(0.0, 0.1); // Set opacity for minimum scalar value
-                ofun.addPoint(255.0, 1.0); // Set opacity for maximum scalar value
-                actor.getProperty().setScalarOpacity(0, ofun);
-
-                // Set up the color transfer function
-                const cfun = vtkColorTransferFunction.newInstance();
-                cfun.addRGBPoint(0.0, 0.0, 0.0, 1.0); // Blue for minimum scalar value
-                cfun.addRGBPoint(255.0, 1.0, 0.0, 0.0); // Red for maximum scalar value
-                actor.getProperty().setRGBTransferFunction(0, cfun);
-
-                // Add the actor to the renderer and reset the camera
-                renderer.addActor(actor);
-                renderer.resetCamera();
-
-                // Render the scene
-                renderWindow.render();
-            })
-            .catch((error) => {
-                console.error('Error loading dataset:', error);
-            });
-    </script>
+    <div class="container">
+        <div class="box outline">
+            <h3>大纲生成</h3>
+            <ul>
+                <li>RAG workflow</li>
+                <li>语料库</li>
+            </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="box quality">
+            <h3>质量评估</h3>
+            <ul>
+                <li>打分准则</li>
+                <li>Mini Benchmark</li>
+            </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="box visual">
+            <h3>可视分析</h3>
+            <ul>
+                <li>自动打分</li>
+                <li>评分结果</li>
+                <li>辅助评细</li>
+                <li>辅助诊分析</li>
+            </ul>
+        </div>
+    </div>
 </body>
+
 </html>

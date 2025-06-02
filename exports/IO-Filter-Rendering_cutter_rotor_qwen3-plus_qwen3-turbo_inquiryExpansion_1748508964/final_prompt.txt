@@ -1,0 +1,142 @@
+
+    用户需求分析：
+    1. 主要目标：三维切片可视化 - 使用VTK.js加载VTI数据并进行Y轴方向切片，以压力值映射颜色和透明度，并添加空间参考坐标系
+    2. 数据来源：Remote VTIData (VTI (VTK Image Data))
+    3. 关键API：vtkXMLImageDataReader, vtkSlice, vtkMapper, vtkActor, vtkRenderer, vtkRenderWindow, vtkOrientationMarkerWidget
+    
+    
+        The relevant VTK.js example information is as follows: 示例 'ManyRenderers' (code):
+<script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // 假设vtk.js已经通过某种方式被加载到全局变量vtk中
+        // 例如，通过<script>标签在HTML中引入vtk.js，或者通过模块加载器
+
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkCubeSource = vtk.Filters.Sources.vtkCubeSource;
+        const vtkCylinderSource = vtk.Filters.Sources.vtkCylinderSource;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
+
+        // ----------------------------------------------------------------------------
+        // Meshes
+
+示例 'Rendering-ManyRenderers' (code):
+<script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // 假设vtk.js已经通过某种方式被加载到全局变量vtk中
+        // 例如，通过<script>标签在HTML中引入vtk.js，或者通过模块加载器
+
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkCubeSource = vtk.Filters.Sources.vtkCubeSource;
+        const vtkCylinderSource = vtk.Filters.Sources.vtkCylinderSource;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
+
+        // ----------------------------------------------------------------------------
+        // Meshes
+
+示例 'IO-StickMapper' (code):
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+示例 'Rendering-StickMapper' (code):
+<script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>`;
+
+示例 'StickMapper' (code):
+<script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>`;
+
+        User question: Generate HTML with vtk.js to visualize sliced rotor data
+
+Load from http://127.0.0.1:5000/dataset/rotor.vti
+
+Processing:
+- Slice ：Set as active scalar "Pressure"
+- Applies a Y-axis slice at 80% depth (setSlice, setSlicingMode).
+Visualization:
+- Maps pressure values to colors (blue→white→red gradient) and opacity (full opacity).
+- UI: Adds an orientation marker (XYZ axes) for spatial reference.
+6. No GUI controls required
+        Please provide a detailed answer based on the above analysis and example information. Highlight how to meet the user's specific needs in the comments.
+        
