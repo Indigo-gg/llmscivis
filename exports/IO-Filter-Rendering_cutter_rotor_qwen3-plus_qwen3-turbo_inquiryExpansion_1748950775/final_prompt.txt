@@ -1,8 +1,8 @@
 
     用户需求分析：
-    1. 主要目标：三维切片可视化 - 使用VTK.js在HTML中渲染切片的转子数据，并根据压力值映射颜色和不透明度，同时添加方向标记
-    2. 数据来源：http://127.0.0.1:5000/dataset/rotor.vti (VTI文件)
-    3. 关键API：vtkHttpDataSetReader, vtkImageSliceMapper, vtkImageSlice, vtkColorTransferFunction, vtkPiecewiseFunction, vtkOrientationMarkerWidget, vtkRenderer, vtkRenderWindow
+    1. 主要目标：三维切片可视化 - 使用VTK.js在HTML中可视化切割的转子数据，并根据压力值映射颜色和不透明度，同时添加方向标记。
+    2. 数据来源：rotor.vti (图像数据)
+    3. 关键API：vtkHttpDataSetReader, vtkImageResample, vtkImageSliceMapper, vtkImageSlice, vtkColorTransferFunction, vtkPiecewiseFunction, vtkAxesActor, vtkRenderer, vtkRenderWindow
     
     
         The relevant VTK.js example information is as follows: 示例 'ManyRenderers' (code):
@@ -119,7 +119,7 @@
 
         User question: Generate HTML with vtk.js to visualize sliced rotor data
 
-Load from http://127.0.0.1:5000/dataset/rotor_simplified.vti
+Load from http://127.0.0.1:5000/dataset/rotor.vti
 
 Processing:
 - Slice ：Set as active scalar "Pressure"

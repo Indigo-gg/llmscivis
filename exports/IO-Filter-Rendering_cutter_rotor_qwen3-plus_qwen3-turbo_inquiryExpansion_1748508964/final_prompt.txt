@@ -1,8 +1,8 @@
 
     用户需求分析：
-    1. 主要目标：三维切片可视化 - 使用VTK.js加载VTI数据并进行Y轴方向切片，以压力值映射颜色和透明度，并添加空间参考坐标系
-    2. 数据来源：Remote VTIData (VTI (VTK Image Data))
-    3. 关键API：vtkXMLImageDataReader, vtkSlice, vtkMapper, vtkActor, vtkRenderer, vtkRenderWindow, vtkOrientationMarkerWidget
+    1. 主要目标：三维切片可视化 - 使用VTK.js在HTML中渲染切片的转子数据，并根据压力值映射颜色和不透明度，同时添加方向标记
+    2. 数据来源：http://127.0.0.1:5000/dataset/rotor.vti (VTI文件)
+    3. 关键API：vtkHttpDataSetReader, vtkImageSliceMapper, vtkImageSlice, vtkColorTransferFunction, vtkPiecewiseFunction, vtkOrientationMarkerWidget, vtkRenderer, vtkRenderWindow
     
     
         The relevant VTK.js example information is as follows: 示例 'ManyRenderers' (code):
@@ -73,63 +73,53 @@
         const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
         const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
 
-示例 'Rendering-StickMapper' (code):
-<script>
+示例 'ImageLabelOutline' (code):
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
         // 使用vtk命名空间来引用各个类
         const vtkActor = vtk.Rendering.Core.vtkActor;
         const vtkCalculator = vtk.Filters.General.vtkCalculator;
         const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
-        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
 
+        // 使用vtk命名空间来引用常量
         const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
         const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
 
-        const controlPanel = `<table>
-  <tr>
-    <td>X Resolution</td>
-    <td>
-      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
-    </td>
-  </tr>
-  <tr>
-    <td>Y Resolution</td>
-    <td>
-      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
-    </td>
-  </tr>
-</table>`;
+示例 'Filter-Calculator' (code):
+<!DOCTYPE html>
+<html lang="en">
 
-示例 'StickMapper' (code):
-<script>
-        // 使用vtk命名空间来引用各个类
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // using vtk namespace
         const vtkActor = vtk.Rendering.Core.vtkActor;
         const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
         const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
         const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
-        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
-
+        const vtkPolyData = vtk.Common.DataModel.vtkPolyData;
+        const vtkPoints = vtk.Common.Core.vtkPoints;
         const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
-        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
-
-        const controlPanel = `<table>
-  <tr>
-    <td>X Resolution</td>
-    <td>
-      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
-    </td>
-  </tr>
-  <tr>
-    <td>Y Resolution</td>
-    <td>
-      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
-    </td>
-  </tr>
-</table>`;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
 
         User question: Generate HTML with vtk.js to visualize sliced rotor data
 
-Load from http://127.0.0.1:5000/dataset/rotor.vti
+Load from http://127.0.0.1:5000/dataset/rotor_simplified.vti
 
 Processing:
 - Slice ：Set as active scalar "Pressure"

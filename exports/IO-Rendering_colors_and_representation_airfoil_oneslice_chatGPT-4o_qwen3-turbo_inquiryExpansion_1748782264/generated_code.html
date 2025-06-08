@@ -1,20 +1,95 @@
-
-        <!DOCTYPE html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>error page</title>
+    <meta charset="UTF-8" />
+    <title>Visualize Airfoil with Scalar p</title>
+    <style>
+        html,
+        body,
+        #container {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>error</h1>
+    <div id="container"></div>
 
-    <div class="error-box">
-        <h2>error_message</h2>
-        <pre><code>Error code: 401 - {'error': {'message': '无效的令牌 (request id: 20250601205300343281416Qwyi6iv8)', 'type': 'new_api_error'}}</code></pre>
-    </div>
+    <!-- 引入 vtk.js -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        /////// 初始化模块引用 ///////
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLPolyDataReader = vtk.IO.XML.vtkXMLPolyDataReader;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+
+        /////// 渲染视窗 初始化 ///////
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            rootContainer: document.getElementById("container"),
+            background: [0.1, 0.1, 0.1],
+        });
+
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        /////// 创建 Reader 加载 .vtp 文件 ///////
+        const reader = vtkXMLPolyDataReader.newInstance();
+
+        fetch("http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp")
+            .then((res) => res.arrayBuffer())
+            .then((buffer) => {
+                reader.parseAsArrayBuffer(buffer);
+
+                // 获取数据
+                const polyData = reader.getOutputData();
+                const pointData = polyData.getPointData();
+
+                /////// 设置标量字段为 'p' ///////
+                pointData.setActiveScalars("p");
+
+                /////// 获取标量值范围，用于映射颜色 ///////
+                const pArray = pointData.getScalars();
+                const [min, max] = pArray.getRange();
+                const mid = (min + max) / 2;
+
+                /////// 创建颜色传输函数 蓝→白→红 ///////
+                const ctf = vtkColorTransferFunction.newInstance();
+                ctf.addRGBPoint(min, 0.0, 0.0, 1.0);  // Blue
+                ctf.addRGBPoint(mid, 1.0, 1.0, 1.0);  // White
+                ctf.addRGBPoint(max, 1.0, 0.0, 0.0);  // Red
+
+                /////// 创建 Mapper 和 Actor ///////
+                const mapper = vtkMapper.newInstance();
+                mapper.setInputConnection(reader.getOutputPort());
+                mapper.setLookupTable(ctf);
+                mapper.setScalarRange(min, max);
+
+                const actor = vtkActor.newInstance();
+                actor.setMapper(mapper);
+
+                /////// 优化材质属性提升可视化效果 ///////
+                actor.getProperty().setInterpolationToPhong();
+                actor.getProperty().setSpecular(0.5);
+                actor.getProperty().setSpecularPower(10);
+
+                /////// 渲染 ///////
+                renderer.addActor(actor);
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch((err) => {
+                console.error("数据加载失败:", err);
+            });
+    </script>
 </body>
 
 </html>
-        

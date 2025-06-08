@@ -1,96 +1,125 @@
 
     用户需求分析：
-    1. 主要目标：Generate HTML with vtk.js to visualize sliced rotor data
-
-Load from http://127.0.0.1:5000/dataset/rotor.vti
-
-Processing:
-- Slice ：Set as active scalar "Pressure"
-- Applies a Y-axis slice at 80% depth (setSlice, setSlicingMode).
-Visualization:
-- Maps pressure values to colors (blue→white→red gradient) and opacity (full opacity).
-- UI: Adds an orientation marker (XYZ axes) for spatial reference.
-6. No GUI controls required
-    2. 数据来源：
-    3. 关键API：待确定
+    1. 主要目标：三维切片可视化 - 使用VTK.js在HTML中渲染切片的转子数据，并根据压力值映射颜色和不透明度，同时添加方向标记
+    2. 数据来源：http://127.0.0.1:5000/dataset/rotor.vti (VTI文件)
+    3. 关键API：vtkHttpDataSetReader, vtkImageSliceMapper, vtkImageSlice, vtkColorTransferFunction, vtkPiecewiseFunction, vtkOrientationMarkerWidget, vtkRenderer, vtkRenderWindow
     
     
-        The relevant VTK.js example information is as follows: 示例 'Filter-ImageStreamline' 的描述:
-使用vtk.js创建了一个图像流线可视化工具，允许用户通过控件调整平面源的分辨率。
-creates an image streamline visualization tool using vtk.js, with controls for the user to adjust the resolution of the plane source.
+        The relevant VTK.js example information is as follows: 示例 'ManyRenderers' (code):
+<script src="https://unpkg.com/vtk.js"></script>
 
-示例 'ImageStreamline' 的描述:
-使用vtk.js创建了一个图像流线可视化工具，允许用户通过控件调整平面源的分辨率。
-creates an image streamline visualization tool using vtk.js, with controls for the user to adjust the resolution of the plane source.
+    <script>
+        // 假设vtk.js已经通过某种方式被加载到全局变量vtk中
+        // 例如，通过<script>标签在HTML中引入vtk.js，或者通过模块加载器
 
-示例 'Rendering-GlyphMapper' (code):
-// Mark the output vtkDataArray as modified
-                arraysOut.forEach((x) => x.modified());
-            },
-        });
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkCubeSource = vtk.Filters.Sources.vtkCubeSource;
+        const vtkCylinderSource = vtk.Filters.Sources.vtkCylinderSource;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
 
+        // ----------------------------------------------------------------------------
+        // Meshes
 
-        // console.log("planeSource", planeSource.getOutputPort)
-        // The generated 'temperature' array will become the default scalars, so the plane mapper will color by 'temperature':
-        simpleFilter.setInputConnection(planeSource.getOutputPort());
+示例 'Rendering-ManyRenderers' (code):
+<script src="https://unpkg.com/vtk.js"></script>
 
-        mapper.setInputConnection(simpleFilter.getOutputPort(), 0);
+    <script>
+        // 假设vtk.js已经通过某种方式被加载到全局变量vtk中
+        // 例如，通过<script>标签在HTML中引入vtk.js，或者通过模块加载器
 
-        const coneSource = vtkConeSource.newInstance();
-        coneSource.setResolution(12);
-        mapper.setInputConnection(coneSource.getOutputPort(), 1);
-        mapper.setOrientationArray('pressure');
-        mapper.setScalarRange(0.0, 0.1);
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkCubeSource = vtk.Filters.Sources.vtkCubeSource;
+        const vtkCylinderSource = vtk.Filters.Sources.vtkCylinderSource;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
 
-        actor.setMapper(mapper);
+        // ----------------------------------------------------------------------------
+        // Meshes
 
-        renderer.addActor(actor);
-        renderer.resetCamera();
-        renderWindow.render();
+示例 'IO-StickMapper' (code):
+<!DOCTYPE html>
+<html lang="en">
 
-示例 'IO-XMLImageDataWriter' (code):
-mapper.setInputConnection(writerReader.getOutputPort());
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 
-        // create color and opacity transfer functions
-        const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
-        ctfun.addRGBPoint(200.0, 1.0, 1.0, 1.0);
-        ctfun.addRGBPoint(2000.0, 0.0, 0.0, 0.0);
-        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
-        ofun.addPoint(200.0, 0.0);
-        ofun.addPoint(1200.0, 0.2);
-        ofun.addPoint(4000.0, 0.4);
-        actor.getProperty().setRGBTransferFunction(0, ctfun);
-        actor.getProperty().setScalarOpacity(0, ofun);
-        actor.getProperty().setScalarOpacityUnitDistance(0, 4.5);
-        // actor.getProperty().setInterpolationTypeToNearest();
-        // actor.getProperty().setInterpolationTypeToFastLinear();
-        actor.getProperty().setInterpolationTypeToLinear();
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
 
-        renderer.addActor(actor);
+    <script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
 
-示例 'XMLImageDataWriter' (code):
-mapper.setInputConnection(writerReader.getOutputPort());
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
 
-        // create color and opacity transfer functions
-        const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
-        ctfun.addRGBPoint(200.0, 1.0, 1.0, 1.0);
-        ctfun.addRGBPoint(2000.0, 0.0, 0.0, 0.0);
-        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
-        ofun.addPoint(200.0, 0.0);
-        ofun.addPoint(1200.0, 0.2);
-        ofun.addPoint(4000.0, 0.4);
-        actor.getProperty().setRGBTransferFunction(0, ctfun);
-        actor.getProperty().setScalarOpacity(0, ofun);
-        actor.getProperty().setScalarOpacityUnitDistance(0, 4.5);
-        // actor.getProperty().setInterpolationTypeToNearest();
-        // actor.getProperty().setInterpolationTypeToFastLinear();
-        actor.getProperty().setInterpolationTypeToLinear();
+示例 'ImageLabelOutline' (code):
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
 
-        renderer.addActor(actor);
+        // 使用vtk命名空间来引用常量
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+示例 'Filter-Calculator' (code):
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // using vtk namespace
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkPolyData = vtk.Common.DataModel.vtkPolyData;
+        const vtkPoints = vtk.Common.Core.vtkPoints;
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
 
         User question: Generate HTML with vtk.js to visualize sliced rotor data
 
-Load from http://127.0.0.1:5000/dataset/rotor.vti
+Load from http://127.0.0.1:5000/dataset/rotor_simplified.vti
 
 Processing:
 - Slice ：Set as active scalar "Pressure"

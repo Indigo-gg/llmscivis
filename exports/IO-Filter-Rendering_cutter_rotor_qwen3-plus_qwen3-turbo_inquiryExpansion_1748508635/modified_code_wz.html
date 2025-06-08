@@ -44,10 +44,7 @@
 
     // 初始化全屏渲染窗口
     const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
-      background: [0, 0, 0],
-      rootContainer: document.body,
-      containerStyle: { height: '100%' },
-      renderWindowSize: { width: window.innerWidth, height: window.innerHeight },
+      background: [0.1, 0.1, 0.1],
     });
 
     const renderer = fullScreenRenderer.getRenderer();
@@ -60,8 +57,8 @@
     // 设置数据读取器（加载远程VTI文件）
     const reader = vtkXMLImageDataReader.newInstance();
     // const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
-    reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
-      reader.update();
+    reader.setUrl('./datasets/rotor_simplified.vti').then(() => {
+      reader.loadData().then(() => {
 
       const imageData = reader.getOutputData(0);
       imageData.getPointData().setActiveScalars('Pressure');
@@ -75,11 +72,6 @@
       // 设置图像切片的映射器
       imageSlice.setMapper(mapper);
 
-      // // 创建颜色映射函数：蓝 -> 白 -> 红
-      // const colorMap = vtkColorTransferFunction.newInstance();
-      // colorMap.addRGBPoint(-1000, 0.0, 0.0, 1.0); // 蓝色
-      // colorMap.addRGBPoint(0, 1.0, 1.0, 1.0);     // 白色
-      // colorMap.addRGBPoint(1000, 1.0, 0.0, 0.0);  // 红色
       // 创建颜色映射函数：蓝 -> 白 -> 红
       const pressureArray = imageData.getPointData().getArrayByName('Pressure');
       const [pMin, pMax] = pressureArray.getRange();
@@ -92,15 +84,14 @@
       const opacityFunction = vtkPiecewiseFunction.newInstance();
       opacityFunction.addPoint(0, 1.0);
       opacityFunction.addPoint(1000, 1.0);
-      mapper.setUseLookupTableScalarRange(true); // 自动使用标量范围
 
       // 将颜色和不透明度应用到图像属性
       const prop = imageSlice.getProperty();
       prop.setRGBTransferFunction(0, colorMap);
       prop.setScalarOpacity(0, opacityFunction);
-      prop.setUseLookupTableScalarRange(true);
       // prop.setColor(colorMap);
       // prop.setOpacity(opacityFunction);
+      prop.setUseLookupTableScalarRange(true);
 
       // 将图像添加到渲染器中
       renderer.addActor(imageSlice);
@@ -124,28 +115,30 @@
       //   actor: cubeActor,
       //   interactor:null,
       // });
-      const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();
-      const orientationWidget = vtkOrientationMarkerWidget.newInstance({
-        actor: axes,
-        interactor: renderWindow.getInteractor(),
-      });
+      // const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();
+      // const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+      //   actor: axes,
+      //   interactor: renderWindow.getInteractor(),
+      // });
 
 
 
       // orientationWidget.setInteractor(renderWindow.getInteractor());
 
-      orientationWidget.setViewportCorner(0, 0, 0.2, 0.2); // 左下角显示
+      // orientationWidget.setViewportCorner(0, 0, 0.2, 0.2); // 左下角显示
 
 
       // 初始渲染
       renderer.resetCamera();
       renderWindow.render();
-    });
+          });
+      });
 
     // 监听窗口大小变化以更新渲染器尺寸
-    window.addEventListener('resize', () => {
-      fullScreenRenderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    // window.addEventListener('resize', () => {
+    //   fullScreenRenderer.setSize(window.innerWidth, window.innerHeight);
+    // });
+
   </script>
 </body>
 

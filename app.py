@@ -277,7 +277,7 @@ def export_results():
                 workflow_name = 'no_workflow'
             
             formatted_original_dir = os.path.dirname(path).replace('\\', '_').replace('/', '_')
-            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}_{data.get("eval_id")}"
+            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}_{data.get('eval_id')}"
             
             export_case_dir = os.path.join(export_dir, new_folder_name)
             
@@ -351,6 +351,43 @@ def export_results():
             'message': f'导出失败: {str(e)}'
         }), 500
 
+
+def read_directory_structure(base_path, current_path):
+    structure = []
+    full_current_path = os.path.join(base_path, current_path)
+    if not os.path.exists(full_current_path):
+        return structure
+
+    for item_name in os.listdir(full_current_path):
+        item_path = os.path.join(full_current_path, item_name)
+        relative_item_path = os.path.join(current_path, item_name)
+        if os.path.isdir(item_path):
+            structure.append({
+                'name': item_name,
+                'type': 'directory',
+                'path': relative_item_path,
+                'children': read_directory_structure(base_path, relative_item_path)
+            })
+        else:
+            # 对于文件，我们只返回其名称、类型和路径，不读取内容以避免过大的响应
+            structure.append({
+                'name': item_name,
+                'type': 'file',
+                'path': relative_item_path
+            })
+    return structure
+
+@app.route('/get_exported_cases', methods=["GET"])
+def get_exported_cases():
+    # 定义 exports 目录的绝对路径
+    exports_path = os.path.join(os.getcwd(), 'exports')
+    
+    # 调用辅助函数读取目录结构
+    tree_structure = read_directory_structure(exports_path, '')
+    
+    return Response(json.dumps(tree_structure), content_type='application/json')
+
+
 # 数据的位置在http://127.0.0.1:5000/dataset/filename
 @app.route('/dataset/<path:filename>', methods=['GET'])
 def get_dataset_file(filename):
@@ -379,7 +416,10 @@ def get_dataset_file(filename):
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
         '.gif': 'image/gif',
-        '.vtp': 'application/octet-stream'
+        '.vtp': 'application/octet-stream',
+        '.vti': 'application/octet-stream',
+        '.vtk': 'application/octet-stream',
+        '.vtu': 'application/octet-stream',
     }
     
     # 确定内容类型和读取模式

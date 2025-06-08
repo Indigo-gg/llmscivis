@@ -1,20 +1,122 @@
-
-        <!DOCTYPE html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>error page</title>
+    <title>VTK.js Rotor Sliced Visualization</title>
+    <style>
+        html,
+        body,
+        #container {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>error</h1>
+    <div id="container"></div>
 
-    <div class="error-box">
-        <h2>error_message</h2>
-        <pre><code>Error code: 401 - {'error': {'message': '无效的令牌 (request id: 202506012029334115688258eehlBwm)', 'type': 'new_api_error'}}</code></pre>
-    </div>
+    <!-- Import vtk.js -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        ///// 🔧 引入核心模块 /////
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        const vtkOrientationMarkerWidget = vtk.Rendering.Misc.vtkOrientationMarkerWidget;
+
+        ///// 🖥️ 创建全屏渲染上下文 /////
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            rootContainer: document.getElementById('container'),
+            background: [0.1, 0.1, 0.1],
+        });
+
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        ///// 📦 创建 VTI 数据读取器 /////
+        const reader = vtkXMLImageDataReader.newInstance();
+
+        ///// 📥 异步加载 .vti 文件 /////
+        fetch('http://127.0.0.1:5000/dataset/rotor.vti')
+            .then(response => response.arrayBuffer())
+            .then(buffer => {
+                reader.parseAsArrayBuffer(buffer);
+
+                const imageData = reader.getOutputData();
+
+                ///// 🎯 设置 "Pressure" 为活动标量 /////
+                imageData.getPointData().setActiveScalars('Pressure');
+
+                ///// ✂️ 设置切片参数：沿 Y 轴方向（slicingMode = 1） /////
+                const mapper = vtkImageMapper.newInstance();
+                mapper.setInputData(imageData);
+                mapper.setSlicingMode(1); // 0-x, 1-y, 2-z
+
+                // 计算 Y 方向 80% 位置
+                const bounds = imageData.getBounds();
+                const yMin = bounds[2];
+                const yMax = bounds[3];
+                const ySlicePos = yMin + (yMax - yMin) * 0.8;
+                mapper.setSlice(ySlicePos);
+
+                ///// 🎭 创建 Image Slice Actor /////
+                const slice = vtkImageSlice.newInstance();
+                slice.setMapper(mapper);
+
+                ///// 🎨 设置颜色映射（blue → white → red） /////
+                const pressureArray = imageData.getPointData().getScalars();
+                const [min, max] = pressureArray.getRange();
+                const mid = (min + max) / 2;
+
+                const colorMap = vtkColorTransferFunction.newInstance();
+                colorMap.addRGBPoint(min, 0.0, 0.0, 1.0);  // Blue
+                colorMap.addRGBPoint(mid, 1.0, 1.0, 1.0);  // White
+                colorMap.addRGBPoint(max, 1.0, 0.0, 0.0);  // Red
+
+                const opacityMap = vtkPiecewiseFunction.newInstance();
+                opacityMap.addPoint(min, 1.0); // 全不透明
+                opacityMap.addPoint(max, 1.0);
+
+                slice.getProperty().setRGBTransferFunction(0, colorMap);
+                slice.getProperty().setPiecewiseFunction(0, opacityMap);
+                slice.getProperty().setInterpolationTypeToLinear();
+
+                ///// ➕ 添加切片到场景 /////
+                renderer.addActor(slice);
+
+                ///// 🧭 添加 XYZ 空间方向指示器 /////
+                const axes = vtkAxesActor.newInstance();
+                const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                    actor: axes,
+                    interactor: renderWindow.getInteractor(),
+                });
+                orientationWidget.setEnabled(true);
+                orientationWidget.setViewportCorner(
+                    vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+                );
+                orientationWidget.setViewportSize(0.15);
+                orientationWidget.setMinPixelSize(100);
+                orientationWidget.setMaxPixelSize(300);
+
+                ///// 📷 渲染和相机设置 /////
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch(error => {
+                console.error('❌ 数据加载失败：', error);
+            });
+    </script>
 </body>
 
 </html>
-        

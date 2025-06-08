@@ -1,8 +1,8 @@
 
     用户需求分析：
-    1. 主要目标：体积渲染可视化 - 使用VTK.js加载远程数据并进行标量映射的体积渲染，设置颜色编码和相机视角以聚焦数据集范围
-    2. 数据来源：远程数据源 (文件URL), p标量数组 (标量字段)
-    3. 关键API：vtkXMLPolyDataReader, vtkMapper, vtkActor, vtkRenderer, vtkRenderWindow, vtkInteractorStyleTrackballCamera
+    1. 主要目标：体积渲染可视化 - 使用VTK.js在HTML中生成体积渲染可视化，加载指定数据并应用标量映射以显示颜色和表示
+    2. 数据来源：http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp (VTP文件)
+    3. 关键API：vtkVolumeMapper, vtkVolumeProperty, vtkVolume, vtkRenderer, vtkRenderWindow, vtkHttpDataSetReader
     
     
         The relevant VTK.js example information is as follows: 示例 'ManyRenderers' (code):
@@ -49,6 +49,26 @@
         // ----------------------------------------------------------------------------
         // Meshes
 
+示例 'ImageLabelOutline' (code):
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // 使用vtk命名空间来引用各个类
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+
+        // 使用vtk命名空间来引用常量
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
 示例 'IO-StickMapper' (code):
 <!DOCTYPE html>
 <html lang="en">
@@ -70,26 +90,6 @@
         const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
         const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
 
-        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
-        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
-
-示例 'ImageLabelOutline' (code):
-<body>
-    <div id="renderer"></div>
-    <script src="https://unpkg.com/vtk.js"></script>
-    <script>
-        // 使用vtk命名空间来引用各个类
-        const vtkActor = vtk.Rendering.Core.vtkActor;
-        const vtkCalculator = vtk.Filters.General.vtkCalculator;
-        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
-        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
-        const vtkImageData = vtk.Common.DataModel.vtkImageData;
-        const vtkDataArray = vtk.Common.Core.vtkDataArray;
-        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
-        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
-
-        // 使用vtk命名空间来引用常量
         const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
         const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
 

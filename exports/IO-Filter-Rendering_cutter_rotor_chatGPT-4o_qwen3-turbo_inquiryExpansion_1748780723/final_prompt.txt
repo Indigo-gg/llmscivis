@@ -119,7 +119,7 @@
 
         User question: Generate HTML with vtk.js to visualize sliced rotor data
 
-Load from http://127.0.0.1:5000/dataset/rotor.vti
+Load from http://127.0.0.1:5000/dataset/rotor_simplified.vti
 
 Processing:
 - Slice ：Set as active scalar "Pressure"

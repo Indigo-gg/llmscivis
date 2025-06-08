@@ -1,20 +1,110 @@
-
-        <!DOCTYPE html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>error page</title>
+  <meta charset="UTF-8">
+  <title>Airfoil Volume Rendering</title>
+  <style>
+    body,
+    html {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+  </style>
 </head>
 
 <body>
-    <h1>error</h1>
+  <div id="container"></div>
 
-    <div class="error-box">
-        <h2>error_message</h2>
-        <pre><code>Error code: 401 - {'error': {'message': '无效的令牌 (request id: 2025060120471083181627510z6CjrA)', 'type': 'new_api_error'}}</code></pre>
-    </div>
+  <script src="https://unpkg.com/vtk.js"></script>
+  <script>
+    // Import required vtk.js modules
+    const { vtkFullScreenRenderWindow } = vtk.Rendering.Misc;
+    const { vtkActor } = vtk.Rendering.Core;
+    const { vtkMapper } = vtk.Rendering.Core;
+    const { vtkXMLPolyDataReader } = vtk.IO.XML;
+    const { vtkColorTransferFunction } = vtk.Rendering.Core;
+
+    // Create full screen render window
+    const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.getElementById('container'),
+      background: [0.2, 0.2, 0.2]
+    });
+    const renderWindow = fullScreenRenderWindow.getRenderWindow();
+    const renderer = fullScreenRenderWindow.getRenderer();
+
+    // Create reader to load the data
+    const reader = vtkXMLPolyDataReader.newInstance();
+
+    // Create mapper and actor for visualization
+    const mapper = vtkMapper.newInstance();
+    const actor = vtkActor.newInstance();
+
+    // Set up the visualization pipeline
+    actor.setMapper(mapper);
+    renderer.addActor(actor);
+
+    // Load the data from the specified URL
+    fetch('http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp')
+      .then(response => response.arrayBuffer())
+      .then(arrayBuffer => {
+        // Parse the VTP data
+        reader.parseAsArrayBuffer(arrayBuffer);
+
+        // Connect the reader to the mapper
+        mapper.setInputConnection(reader.getOutputPort());
+
+        // Get the polydata
+        const polyData = reader.getOutputData();
+
+        // Activate the 'p' scalar array for color encoding
+        if (polyData.getPointData().hasArray('p')) {
+          // Set 'p' as the active scalar for coloring
+          polyData.getPointData().setActiveScalars('p');
+
+          // Get the range of the 'p' scalar for proper color mapping
+          const pArray = polyData.getPointData().getArray('p');
+          const range = pArray.getRange();
+
+          // Set scalar range for the mapper
+          mapper.setScalarRange(range);
+
+          // Create a color transfer function for better visualization
+          const ctfun = vtkColorTransferFunction.newInstance();
+          ctfun.addRGBPoint(range[0], 0.0, 0.0, 1.0);  // Blue for minimum
+          ctfun.addRGBPoint((range[0] + range[1]) / 2, 1.0, 1.0, 1.0);  // White for middle
+          ctfun.addRGBPoint(range[1], 1.0, 0.0, 0.0);  // Red for maximum
+
+          // Apply the color transfer function
+          mapper.setLookupTable(ctfun);
+
+          console.log('Scalar range for "p":', range);
+        } else {
+          console.warn('The dataset does not contain a scalar array named "p"');
+        }
+
+        // Position the camera to focus on the dataset bounds
+        renderer.resetCamera();
+
+        // Set representation to surface for better visualization
+        actor.getProperty().setRepresentation(2); // 0: points, 1: wireframe, 2: surface
+
+        // Render the scene
+        renderWindow.render();
+      })
+      .catch(error => {
+        console.error('Error loading or processing the data:', error);
+      });
+  </script>
 </body>
 
 </html>
-        

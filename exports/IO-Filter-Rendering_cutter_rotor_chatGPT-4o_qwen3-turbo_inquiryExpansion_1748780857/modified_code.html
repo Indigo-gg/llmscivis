@@ -33,7 +33,7 @@
         const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
         const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
         const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
-        const vtkOrientationMarkerWidget = vtk.Rendering.Misc.vtkOrientationMarkerWidget;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
 
         ///// 🖥️ 创建全屏渲染上下文 /////
         const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
@@ -48,7 +48,7 @@
         const reader = vtkXMLImageDataReader.newInstance();
 
         ///// 📥 异步加载 .vti 文件 /////
-        fetch('http://127.0.0.1:5000/dataset/rotor.vti')
+        fetch('http://127.0.0.1:5000/dataset/rotor_simplified.vti')
             .then(response => response.arrayBuffer())
             .then(buffer => {
                 reader.parseAsArrayBuffer(buffer);
@@ -64,11 +64,12 @@
                 mapper.setSlicingMode(1); // 0-x, 1-y, 2-z
 
                 // 计算 Y 方向 80% 位置
-                const bounds = imageData.getBounds();
-                const yMin = bounds[2];
-                const yMax = bounds[3];
-                const ySlicePos = yMin + (yMax - yMin) * 0.8;
-                mapper.setSlice(ySlicePos);
+                const dims = imageData.getDimensions();
+                // const bounds = imageData.getBounds();
+                // const yMin = bounds[2];
+                // const yMax = bounds[3];
+                // const ySlicePos = yMin + (yMax - yMin) * 0.8;
+                mapper.setSlice(dims[1] * 0.8);
 
                 ///// 🎭 创建 Image Slice Actor /////
                 const slice = vtkImageSlice.newInstance();
