@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Geometric Shapes Explorer</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #vtkContainer {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="vtkContainer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Import necessary VTK modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkCylinderSource = vtk.Filters.Sources.vtkCylinderSource;
+        const vtkCubeSource = vtk.Filters.Sources.vtkCubeSource;
+
+        // 添加页面加载完成事件监听
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('页面加载完成');
+            console.log('VTK.js版本:', vtk.VERSION);
+            console.log('渲染容器尺寸:', {
+                width: document.querySelector('#vtkContainer').clientWidth,
+                height: document.querySelector('#vtkContainer').clientHeight
+            });
+        });
+
+        // Create a full-screen render window
+        const renderWindow = vtkFullScreenRenderWindow.newInstance({
+            rootContainer: document.body,
+            container: document.querySelector('#vtkContainer'),
+        });
+        const renderer = renderWindow.getRenderer();
+        const renderWindowInteractor = renderWindow.getInteractor();
+
+        // Function to create and add a shape to the scene
+        // 修改 createShape 函数，添加日志
+        function createShape(source) {
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(source.getOutputPort());
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+
+            renderer.addActor(actor);
+            renderer.resetCamera();
+            renderWindow.render();
+            
+            // 添加形状创建日志
+            console.log('创建新形状:', {
+                type: source.getClassName(),
+                bounds: actor.getBounds(),
+                position: actor.getPosition()
+            });
+        }
+
+        // Function to log shape properties
+        function logShapeProperties(source) {
+            console.log('Shape Properties:', source.get());
+        }
+
+        // Create a cone
+        const coneSource = vtkConeSource.newInstance();
+        coneSource.setResolution(20);
+        createShape(coneSource);
+        logShapeProperties(coneSource);
+
+        // Create a sphere
+        const sphereSource = vtkSphereSource.newInstance();
+        sphereSource.setThetaResolution(30);
+        sphereSource.setPhiResolution(30);
+        createShape(sphereSource);
+        logShapeProperties(sphereSource);
+
+        // Create a cylinder
+        const cylinderSource = vtkCylinderSource.newInstance();
+        cylinderSource.setResolution(30);
+        createShape(cylinderSource);
+        logShapeProperties(cylinderSource);
+
+        // Create a cube
+        const cubeSource = vtkCubeSource.newInstance();
+        cubeSource.setXLength(1);
+        cubeSource.setYLength(1);
+        cubeSource.setZLength(1);
+        createShape(cubeSource);
+        logShapeProperties(cubeSource);
+
+        console.log('ifream console.log', renderer.getActors(), renderer.getViewProps())
+        // Add interactivity to the render window
+        renderWindowInteractor.setInteractorStyle(vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance());
+
+        // Handle window resize for responsive design
+        window.addEventListener('resize', () => {
+            renderWindow.resize();
+        });
+
+        // 在所有形状创建完成后添加场景信息日志
+        console.log('场景渲染完成');
+        console.log('场景信息:', {
+            actorsCount: renderer.getActors().length,
+            cameraPosition: renderer.getActiveCamera().getPosition(),
+            rendererSize: renderer.getSize()
+        });
+    </script>
+</body>
+
+</html>
