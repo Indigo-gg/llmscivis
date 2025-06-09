@@ -23,47 +23,95 @@
     <div id="container"></div>
     <script>
         // Load the VTK.js library and set up the visualization
-        const { vtkFullScreenRenderWindow, vtkHttpDataSetReader, vtkSliceRepresentation, vtkOrientationMarkerWidget, vtkColorTransferFunction, vtkPiecewiseFunction } = vtk;
+        // const { vtkFullScreenRenderWindow, vtkHttpDataSetReader, vtkSliceRepresentation, vtkOrientationMarkerWidget, vtkColorTransferFunction, vtkPiecewiseFunction } = vtk;
 
         // Create a full-screen render window
-        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
-            rootContainer: document.getElementById('container'),
-            background: [0, 0, 0],
-        });
-        const renderer = fullScreenRenderer.getRenderer();
-        const renderWindow = fullScreenRenderer.getRenderWindow();
+        // const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+        //     rootContainer: document.getElementById('container'),
+        //     background: [0, 0, 0],
+        // });
+        // const renderer = fullScreenRenderer.getRenderer();
+        // const renderWindow = fullScreenRenderer.getRenderWindow();
 
-        // Create a VTK HTTP dataset reader to load the rotor.vti file
-        const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
-        reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
+        // // Create a VTK HTTP dataset reader to load the rotor.vti file
+        // const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        // const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+        // const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        // 初始化全屏渲染窗口
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+            rootContainer: document.body,
+            renderWindowSize: { width: window.innerWidth, height: window.innerHeight },
+        });
+        const reader = vtkXMLImageDataReader.newInstance();
+        const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
             reader.loadData().then(() => {
                 // Create a slice representation
-                const sliceRep = vtkSliceRepresentation.newInstance();
-                sliceRep.setInputData(reader.getOutputData());
-                sliceRep.setActiveScalar('Pressure');
+                // const sliceRep = vtkSliceRepresentation.newInstance();
+                // sliceRep.setInputData(reader.getOutputData());
+                // sliceRep.setActiveScalar('Pressure');
 
-                // Set the slice at 80% depth along the Y-axis
-                sliceRep.setSlice(0.8);
-                sliceRep.setSlicingMode(vtkSliceRepresentation.SlicingMode.Y_AXIS);
+                // // Set the slice at 80% depth along the Y-axis
+                // sliceRep.setSlice(0.8);
+                // sliceRep.setSlicingMode(vtkSliceRepresentation.SlicingMode.Y_AXIS);
 
-                // Create a color transfer function for pressure mapping (blue→white→red gradient)
-                const colorTransferFunction = vtkColorTransferFunction.newInstance();
-                colorTransferFunction.addRGBPoint(-100, 0, 0, 1); // Blue
-                colorTransferFunction.addRGBPoint(0, 1, 1, 1);   // White
-                colorTransferFunction.addRGBPoint(100, 1, 0, 0);  // Red
+                
+            const imageData = reader.getOutputData(0);
+            imageData.getPointData().setActiveScalars('Pressure');
+            const mapper = vtkImageMapper.newInstance();
+            const imageSlice = vtkImageSlice.newInstance();
 
-                // Create a piecewise function for full opacity
-                const opacityTransferFunction = vtkPiecewiseFunction.newInstance();
-                opacityTransferFunction.addPoint(-100, 1);
-                opacityTransferFunction.addPoint(100, 1);
+            // 设置mapper的数据源为读取的图像数据
+            mapper.setInputData(imageData);
+            mapper.setSlicingMode(1); // Y轴切片
+            mapper.setSlice(Math.floor(imageData.getDimensions()[1] * 0.8)); // 80% 深度
+            imageSlice.setMapper(mapper);
 
-                // Apply the color and opacity transfer functions to the slice representation
-                sliceRep.setColorTransferFunction(colorTransferFunction);
-                sliceRep.setOpacityTransferFunction(opacityTransferFunction);
+                // // Create a color transfer function for pressure mapping (blue→white→red gradient)
+                // const colorTransferFunction = vtkColorTransferFunction.newInstance();
+                // colorTransferFunction.addRGBPoint(-100, 0, 0, 1); // Blue
+                // colorTransferFunction.addRGBPoint(0, 1, 1, 1);   // White
+                // colorTransferFunction.addRGBPoint(100, 1, 0, 0);  // Red
 
-                // Add the slice representation to the renderer
-                renderer.addViewProp(sliceRep.getActor());
+                // // Create a piecewise function for full opacity
+                // const opacityTransferFunction = vtkPiecewiseFunction.newInstance();
+                // opacityTransferFunction.addPoint(-100, 1);
+                // opacityTransferFunction.addPoint(100, 1);
 
+                // // Apply the color and opacity transfer functions to the slice representation
+                // mapper.setColorTransferFunction(colorTransferFunction);
+                // mapper.setOpacityTransferFunction(opacityTransferFunction);
+
+                // // Add the slice representation to the renderer
+                // renderer.addViewProp(mapper.getActor());
+                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
+      const [pMin, pMax] = pressureArray.getRange();
+      const colorMap = vtkColorTransferFunction.newInstance();
+      colorMap.addRGBPoint(pMin, 0.0, 0.0, 0.8); // 蓝色
+      colorMap.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);     // 白色
+      colorMap.addRGBPoint(pMax, 0.8, 0.0, 0.0);  // 红色
+
+            // Apply the color transfer function to the slice representation
+            // sliceRep.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+            // sliceRep.getProperty().setScalarOpacity(0, 1.0); // Full opacity
+            const prop = imageSlice.getProperty();
+      prop.setRGBTransferFunction(0, colorMap);
+    //   prop.setScalarOpacity(0, opacityFunction);
+      prop.setUseLookupTableScalarRange(true);
+            // Add the slice representation to the renderer
+            // renderer.addActor(sliceRep.getActor());
+            renderer.addActor(imageSlice);
                 // Add an orientation marker (XYZ axes) for spatial reference
                 const axes = vtkOrientationMarkerWidget.newInstance({
                     actor: vtkAxesActor.newInstance(),
@@ -82,15 +130,3 @@
 </body>
 </html>
 
-
-### Explanation:
-1. **VTK.js Library**: The script loads the VTK.js library from the provided CDN link.
-2. **Full-Screen Render Window**: A full-screen render window is created to display the visualization.
-3. **Dataset Loading**: The `vtkHttpDataSetReader` is used to load the `rotor.vti` dataset from the specified URL.
-4. **Slice Representation**: A `vtkSliceRepresentation` is created to handle the slicing of the dataset. The active scalar is set to "Pressure".
-5. **Slice Position**: The slice is positioned at 80% depth along the Y-axis using `setSlice` and `setSlicingMode`.
-6. **Color and Opacity Mapping**: A color transfer function is created to map pressure values to a gradient from blue to white to red. A piecewise function is used to ensure full opacity.
-7. **Orientation Marker**: An orientation marker (XYZ axes) is added to the scene for spatial reference.
-8. **Rendering**: The scene is rendered, and the camera is reset to ensure the entire slice is visible.
-
-This code provides a clean and straightforward visualization of the sliced rotor data with the specified processing and visualization requirements.

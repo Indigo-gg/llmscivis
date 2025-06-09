@@ -47,7 +47,7 @@
     const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
       background: [0, 0, 0], // 黑色背景
       rootContainer: document.body,
-      containerStyle: { height: '100%' },
+      // containerStyle: { height: '100%' },
       viewContainer: document.getElementById('vtk-container'),
     });
 
@@ -115,8 +115,6 @@
         prop.setRGBTransferFunction(0, lookupTable);
         prop.setScalarOpacity(0, opacityFunction);
         prop.setUseLookupTableScalarRange(true);
-        prop.setUseLookupTableScalarRange(true); // 自动使用标量范围
-
         // const actor = vtkActor.newInstance();
         // actor.setMapper(mapper);
 
