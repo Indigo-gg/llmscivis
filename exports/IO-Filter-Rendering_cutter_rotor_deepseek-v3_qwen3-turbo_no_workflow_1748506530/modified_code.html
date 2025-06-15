@@ -1,24 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VTK.js - Sliced Rotor Visualization</title>
     <script src="https://unpkg.com/vtk.js"></script>
     <style>
-        body, html {
+        body,
+        html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
         }
+
         #container {
             width: 100%;
             height: 100%;
         }
     </style>
 </head>
+
 <body>
     <div id="container"></div>
     <script>
@@ -53,7 +57,7 @@
         });
         const reader = vtkXMLImageDataReader.newInstance();
         const renderer = fullScreenRenderer.getRenderer();
-    const renderWindow = fullScreenRenderer.getRenderWindow();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
 
         reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
             reader.loadData().then(() => {
@@ -66,17 +70,17 @@
                 // sliceRep.setSlice(0.8);
                 // sliceRep.setSlicingMode(vtkSliceRepresentation.SlicingMode.Y_AXIS);
 
-                
-            const imageData = reader.getOutputData(0);
-            imageData.getPointData().setActiveScalars('Pressure');
-            const mapper = vtkImageMapper.newInstance();
-            const imageSlice = vtkImageSlice.newInstance();
 
-            // 设置mapper的数据源为读取的图像数据
-            mapper.setInputData(imageData);
-            mapper.setSlicingMode(1); // Y轴切片
-            mapper.setSlice(Math.floor(imageData.getDimensions()[1] * 0.8)); // 80% 深度
-            imageSlice.setMapper(mapper);
+                const imageData = reader.getOutputData(0);
+                imageData.getPointData().setActiveScalars('Pressure');
+                const mapper = vtkImageMapper.newInstance();
+                const imageSlice = vtkImageSlice.newInstance();
+
+                // 设置mapper的数据源为读取的图像数据
+                mapper.setInputData(imageData);
+                mapper.setSlicingMode(1); // Y轴切片
+                mapper.setSlice(Math.floor(imageData.getDimensions()[1] * 0.8)); // 80% 深度
+                imageSlice.setMapper(mapper);
 
                 // // Create a color transfer function for pressure mapping (blue→white→red gradient)
                 // const colorTransferFunction = vtkColorTransferFunction.newInstance();
@@ -96,22 +100,18 @@
                 // // Add the slice representation to the renderer
                 // renderer.addViewProp(mapper.getActor());
                 const pressureArray = imageData.getPointData().getArrayByName('Pressure');
-      const [pMin, pMax] = pressureArray.getRange();
-      const colorMap = vtkColorTransferFunction.newInstance();
-      colorMap.addRGBPoint(pMin, 0.0, 0.0, 0.8); // 蓝色
-      colorMap.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);     // 白色
-      colorMap.addRGBPoint(pMax, 0.8, 0.0, 0.0);  // 红色
+                const [pMin, pMax] = pressureArray.getRange();
+                const colorMap = vtkColorTransferFunction.newInstance();
+                colorMap.addRGBPoint(pMin, 0.0, 0.0, 0.8); // 蓝色
+                colorMap.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);     // 白色
+                colorMap.addRGBPoint(pMax, 0.8, 0.0, 0.0);  // 红色
 
-            // Apply the color transfer function to the slice representation
-            // sliceRep.getProperty().setRGBTransferFunction(0, colorTransferFunction);
-            // sliceRep.getProperty().setScalarOpacity(0, 1.0); // Full opacity
-            const prop = imageSlice.getProperty();
-      prop.setRGBTransferFunction(0, colorMap);
-    //   prop.setScalarOpacity(0, opacityFunction);
-      prop.setUseLookupTableScalarRange(true);
-            // Add the slice representation to the renderer
-            // renderer.addActor(sliceRep.getActor());
-            renderer.addActor(imageSlice);
+                
+                const prop = imageSlice.getProperty();
+                prop.setRGBTransferFunction(0, colorMap);
+                prop.setUseLookupTableScalarRange(true);
+
+                renderer.addActor(imageSlice);
                 // Add an orientation marker (XYZ axes) for spatial reference
                 const axes = vtkOrientationMarkerWidget.newInstance({
                     actor: vtkAxesActor.newInstance(),
@@ -128,5 +128,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>
