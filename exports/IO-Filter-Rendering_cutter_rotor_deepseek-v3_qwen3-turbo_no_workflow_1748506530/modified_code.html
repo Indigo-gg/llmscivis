@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK.js - Sliced Rotor Visualization</title>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+    <script>
+        // Load the VTK.js library and set up the visualization
+        // const { vtkFullScreenRenderWindow, vtkHttpDataSetReader, vtkSliceRepresentation, vtkOrientationMarkerWidget, vtkColorTransferFunction, vtkPiecewiseFunction } = vtk;
+
+        // Create a full-screen render window
+        // const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+        //     rootContainer: document.getElementById('container'),
+        //     background: [0, 0, 0],
+        // });
+        // const renderer = fullScreenRenderer.getRenderer();
+        // const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // // Create a VTK HTTP dataset reader to load the rotor.vti file
+        // const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        // const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+        // const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        // 初始化全屏渲染窗口
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+            rootContainer: document.body,
+            renderWindowSize: { width: window.innerWidth, height: window.innerHeight },
+        });
+        const reader = vtkXMLImageDataReader.newInstance();
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
+            reader.loadData().then(() => {
+                // Create a slice representation
+                // const sliceRep = vtkSliceRepresentation.newInstance();
+                // sliceRep.setInputData(reader.getOutputData());
+                // sliceRep.setActiveScalar('Pressure');
+
+                // // Set the slice at 80% depth along the Y-axis
+                // sliceRep.setSlice(0.8);
+                // sliceRep.setSlicingMode(vtkSliceRepresentation.SlicingMode.Y_AXIS);
+
+
+                const imageData = reader.getOutputData(0);
+                imageData.getPointData().setActiveScalars('Pressure');
+                const mapper = vtkImageMapper.newInstance();
+                const imageSlice = vtkImageSlice.newInstance();
+
+                // 设置mapper的数据源为读取的图像数据
+                mapper.setInputData(imageData);
+                mapper.setSlicingMode(1); // Y轴切片
+                mapper.setSlice(Math.floor(imageData.getDimensions()[1] * 0.8)); // 80% 深度
+                imageSlice.setMapper(mapper);
+
+                // // Create a color transfer function for pressure mapping (blue→white→red gradient)
+                // const colorTransferFunction = vtkColorTransferFunction.newInstance();
+                // colorTransferFunction.addRGBPoint(-100, 0, 0, 1); // Blue
+                // colorTransferFunction.addRGBPoint(0, 1, 1, 1);   // White
+                // colorTransferFunction.addRGBPoint(100, 1, 0, 0);  // Red
+
+                // // Create a piecewise function for full opacity
+                // const opacityTransferFunction = vtkPiecewiseFunction.newInstance();
+                // opacityTransferFunction.addPoint(-100, 1);
+                // opacityTransferFunction.addPoint(100, 1);
+
+                // // Apply the color and opacity transfer functions to the slice representation
+                // mapper.setColorTransferFunction(colorTransferFunction);
+                // mapper.setOpacityTransferFunction(opacityTransferFunction);
+
+                // // Add the slice representation to the renderer
+                // renderer.addViewProp(mapper.getActor());
+                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
+                const [pMin, pMax] = pressureArray.getRange();
+                const colorMap = vtkColorTransferFunction.newInstance();
+                colorMap.addRGBPoint(pMin, 0.0, 0.0, 0.8); // 蓝色
+                colorMap.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);     // 白色
+                colorMap.addRGBPoint(pMax, 0.8, 0.0, 0.0);  // 红色
+
+                
+                const prop = imageSlice.getProperty();
+                prop.setRGBTransferFunction(0, colorMap);
+                prop.setUseLookupTableScalarRange(true);
+
+                renderer.addActor(imageSlice);
+                // Add an orientation marker (XYZ axes) for spatial reference
+                const axes = vtkOrientationMarkerWidget.newInstance({
+                    actor: vtkAxesActor.newInstance(),
+                    interactor: renderWindow.getInteractor(),
+                });
+                axes.setEnabled(true);
+                axes.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+                axes.setViewportSize(0.15);
+
+                // Render the scene
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        });
+    </script>
+</body>
+
+</html>

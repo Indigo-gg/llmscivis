@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Rotor Pressure Slice Visualization</title>
+    <style>
+        html,
+        body,
+        #container {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+
+    <!-- 加载 vtk.js -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // 引入需要的 vtk 模块
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkOrientationMarkerWidget = vtk.Rendering.Misc.vtkOrientationMarkerWidget;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+
+        // 初始化全屏渲染窗口
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            rootContainer: document.getElementById('container'),
+            background: [0.1, 0.1, 0.1] // 深色背景
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // 创建 VTI 读取器（图像数据）
+        const reader = vtkXMLImageDataReader.newInstance();
+
+        // 加载数据
+        fetch('http://127.0.0.1:5000/dataset/rotor.vti')
+            .then(res => res.arrayBuffer())
+            .then(buffer => {
+                reader.parseAsArrayBuffer(buffer);
+
+                // 获取读取到的图像数据
+                const imageData = reader.getOutputData();
+
+                // 设置 Pressure 为活动标量字段
+                imageData.getPointData().setActiveScalars('Pressure');
+
+                // 获取 Y 轴范围，决定切片在 80% 的位置
+                const bounds = imageData.getBounds(); // [xmin, xmax, ymin, ymax, zmin, zmax]
+                const ySliceValue = bounds[2] + 0.8 * (bounds[3] - bounds[2]);
+
+                // 使用图像 mapper 渲染切片
+                const mapper = vtkImageMapper.newInstance();
+                mapper.setInputData(imageData);
+                mapper.setSlicingMode(1); // 1 表示 Y 方向切片
+                mapper.setSlice(ySliceValue);
+
+                const actor = vtkImageSlice.newInstance();
+                actor.setMapper(mapper);
+
+                // 获取 Pressure 的取值范围（用于颜色映射）
+                const scalars = imageData.getPointData().getScalars();
+                const pressureRange = scalars.getRange(); // [min, max]
+                const pressureMin = pressureRange[0];
+                const pressureMax = pressureRange[1];
+                const pressureMid = (pressureMin + pressureMax) / 2;
+
+                // 创建颜色传输函数：Blue → White → Red
+                const ctf = vtkColorTransferFunction.newInstance();
+                ctf.addRGBPoint(pressureMin, 0.0, 0.0, 1.0);  // Blue
+                ctf.addRGBPoint(pressureMid, 1.0, 1.0, 1.0);  // White
+                ctf.addRGBPoint(pressureMax, 1.0, 0.0, 0.0);  // Red
+
+                // 创建不透明度传输函数：全不透明
+                const ofun = vtkPiecewiseFunction.newInstance();
+                ofun.addPoint(pressureMin, 1.0);
+                ofun.addPoint(pressureMax, 1.0);
+
+                actor.getProperty().setRGBTransferFunction(0, ctf);
+                actor.getProperty().setPiecewiseFunction(0, ofun);
+                actor.getProperty().setInterpolationTypeToLinear();
+
+                // 添加 actor 到场景中
+                renderer.addActor(actor);
+
+                // 添加 Orientation Marker (XYZ 轴)
+                const axes = vtkAxesActor.newInstance();
+                const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                    actor: axes,
+                    interactor: renderWindow.getInteractor()
+                });
+                orientationWidget.setEnabled(true);
+                orientationWidget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+                orientationWidget.setViewportSize(0.15);
+                orientationWidget.setMinPixelSize(100);
+                orientationWidget.setMaxPixelSize(300);
+
+                // 渲染设置
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch(err => console.error('❌ Failed to load or process VTI data:', err));
+    </script>
+</body>
+
+</html>

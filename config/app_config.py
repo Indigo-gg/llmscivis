@@ -13,7 +13,8 @@ class AppConfig:
         }
         self.deepseek_apikey = '13e5c21e-66bf-4b13-a4d8-a414956e7a39'
         self.qwen_apikey = 'sk-bb51f49d7aac4a04adde0794f3f1dfe9'
-        self.coreai_apikey="sk-uGHmKbQF4MixICHP6f21D975Fa7c4d6e9c1f4eAb182987C8"
+        # self.coreai_apikey="sk-uGHmKbQF4MixICHP6f21D975Fa7c4d6e9c1f4eAb182987C8"
+        self.coreai_apikey="sk-uGHmKbQF4MixIJh89f21D97jklowc4d6e9c1f4eAb182987C8"
 
         self.eval_status = ['failed','completed']
         self.DATASET_PATH = './utils/dataset/dataset.json'

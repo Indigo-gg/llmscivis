@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Volume Rendering with VTK.js</title>
+</head>
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Import necessary VTK.js modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkVolume = vtk.Rendering.Core.vtkVolume;
+        const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkHttpDataSetReader = vtk.IO.Core.DataAccessHelper.vtkHttpDataSetReader;
+
+        // Initialize the full-screen render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create a volume mapper and actor
+        const volumeMapper = vtkVolumeMapper.newInstance();
+        const volumeActor = vtkVolume.newInstance();
+
+        // Set up the volume mapper and actor
+        volumeActor.setMapper(volumeMapper);
+
+        // Load the dataset from the specified URL
+        const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+        reader.setUrl('http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp').then(() => {
+            // Once the data is loaded, set it to the volume mapper
+            volumeMapper.setInputConnection(reader.getOutputPort());
+
+            // Activate the 'p' scalar array for color encoding
+            const scalarArray = reader.getOutputData().getPointData().getScalars('p');
+            volumeMapper.setScalarModeToUsePointData();
+            volumeMapper.setArrayId(scalarArray ? scalarArray.getName() : '');
+
+            // Create a color transfer function for scalar mapping
+            const colorTransferFunction = vtkColorTransferFunction.newInstance();
+            colorTransferFunction.addRGBPoint(0, 0, 0, 1); // Blue for low values
+            colorTransferFunction.addRGBPoint(1, 1, 0, 0); // Red for high values
+
+            // Create a piecewise function for opacity mapping
+            const piecewiseFunction = vtkPiecewiseFunction.newInstance();
+            piecewiseFunction.addPoint(0, 0.0);
+            piecewiseFunction.addPoint(1, 1.0);
+
+            // Set the color and opacity functions to the volume property
+            volumeActor.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+            volumeActor.getProperty().setScalarOpacity(0, piecewiseFunction);
+
+            // Add the volume actor to the renderer
+            renderer.addVolume(volumeActor);
+
+            // Position the camera to focus on the dataset bounds
+            renderer.resetCamera();
+
+            // Render the scene
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>
+
+
+### Explanation:
+1. **Initialization**: 
+   - The `vtkFullScreenRenderWindow` is initialized to create a full-screen rendering window.
+   - The `vtkVolumeMapper` and `vtkVolume` are created to handle volume rendering.
+
+2. **Data Loading**:
+   - The `vtkHttpDataSetReader` is used to load the dataset from the specified URL (`http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp`).
+
+3. **Scalar Mapping**:
+   - The 'p' scalar array is activated for color encoding using `volumeMapper.setScalarModeToUsePointData()` and `volumeMapper.setArrayId()`.
+
+4. **Color and Opacity Mapping**:
+   - A `vtkColorTransferFunction` is created to map scalar values to colors (blue to red).
+   - A `vtkPiecewiseFunction` is created to map scalar values to opacity (transparent to opaque).
+
+5. **Rendering**:
+   - The volume actor is added to the renderer, and the camera is positioned to focus on the dataset bounds using `renderer.resetCamera()`.
+   - Finally, the scene is rendered using `renderWindow.render()`.

@@ -27,15 +27,37 @@ class MyEncoder(json.JSONEncoder):
 # 获取模型回答的入口函数
 
 def get_llm_response(prompt: str, model_name, system) -> str:
-    if model_name in ollama_config.models_ollama.keys():
-        return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
-    elif model_name in ollama_config.models_deepseek.keys():
-        return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
-    elif model_name in ollama_config.models_qwen.keys():
-        return get_qwen_response(prompt, ollama_config.models_qwen[model_name], system)
-    elif model_name in ollama_config.models_coreai.keys():
-        return get_coreai_response(prompt, ollama_config.models_coreai[model_name], system)
+    try:
+        if model_name in ollama_config.models_ollama.keys():
+            return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
+        elif model_name in ollama_config.models_deepseek.keys():
+            return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
+        elif model_name in ollama_config.models_qwen.keys():
+            return get_qwen_response(prompt, ollama_config.models_qwen[model_name], system)
+        elif model_name in ollama_config.models_coreai.keys():
+            return get_coreai_response(prompt, ollama_config.models_coreai[model_name], system)
+    except Exception as e:
+        print(f"调用 LLM 出错: {e}")
+        return  f"""
+        <!DOCTYPE html>
+<html lang="zh-CN">
 
+<head>
+    <meta charset="UTF-8">
+    <title>error page</title>
+</head>
+
+<body>
+    <h1>error</h1>
+
+    <div class="error-box">
+        <h2>error_message</h2>
+        <pre><code>{e}</code></pre>
+    </div>
+</body>
+
+</html>
+        """
 
 #!!! 提前开启ollama服务
 def get_ollama_response(prompt: str, model_name, system):

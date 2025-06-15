@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>VTK.js Y-Axis Slice Visualization with Pressure Mapping</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #vtk-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 容器用于放置 vtk 渲染区域 -->
+  <div id="vtk-container"></div>
+
+  <!-- 引入 vtk.js 库 -->
+  <script src="https://unpkg.com/vtk.js"></script>
+
+  <script>
+    // -------------------------------
+    // 导入所需的 VTK.js 类
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+    // const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+    const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+    const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+    const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+    const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+    // const vtkSlice = vtk.Filters.General.vtkSlice;
+    const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+
+    // 创建全屏渲染窗口，包含一个 renderer 和 renderWindow
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0, 0, 0], // 黑色背景
+      rootContainer: document.body,
+      // containerStyle: { height: '100%' },
+      viewContainer: document.getElementById('vtk-container'),
+    });
+
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+    const interactor = fullScreenRenderer.getInteractor();
+
+    // 设置交互方式为轨道相机
+    const style = vtkInteractorStyleTrackballCamera.newInstance();
+    interactor.setInteractorStyle(style);
+
+    const sliceFilter = vtkImageSlice.newInstance();
+    const mapper = vtkImageMapper.newInstance();
+
+    // -------------------------------
+    // 创建切片对象
+    // const sliceFilter = vtkSlice.newInstance();
+    // sliceFilter.setSlicingMode(vtkSlice.SlicingMode.Y); // 沿Y轴切片
+    mapper.setSlicingMode(1); // 沿Y轴切片
+
+
+    // -------------------------------
+    // 加载远程 VTI 数据
+    const reader = vtkXMLImageDataReader.newInstance();
+    fetch('http://127.0.0.1:5000/dataset/rotor_simplified.vti')
+      .then(res => res.arrayBuffer())
+      .then(data => {
+        reader.update();
+        reader.parseAsArrayBuffer(data);
+        const imageData = reader.getOutputData(0);
+        imageData.getPointData().setActiveScalars('Pressure');
+
+        // 设置为当前数据源
+        mapper.setInputData(imageData);
+
+
+        // 设置沿Y轴的80%深度进行切片（根据输入数据的维度）
+        const dims = imageData.getDimensions();
+        const ySliceIndex = Math.floor(dims[1] * 0.8); // 第二个维度是Y轴
+        // sliceFilter.setSlice(ySliceIndex);
+        mapper.setSlice(ySliceIndex);
+        sliceFilter.setMapper(mapper);
+        // 获取切片输出作为映射器输入
+        // const output = sliceFilter.getOutputData();
+
+        // -------------------------------
+        // 颜色映射：Pressure 映射到 blue → white → red
+        const lookupTable = vtkColorTransferFunction.newInstance();
+        lookupTable.addRGBPoint(0, 0, 0, 1);     // 蓝色
+        lookupTable.addRGBPoint(0.5, 1, 1, 1);   // 白色
+        lookupTable.addRGBPoint(1, 1, 0, 0);     // 红色
+
+        // 透明度设置为完全不透明
+        const opacityFunction = vtkPiecewiseFunction.newInstance();
+        opacityFunction.addPoint(0, 1);         // 全部不透明
+        opacityFunction.addPoint(1, 1);
+
+        // -------------------------------
+        // 创建 mapper 和 actor
+        // mapper.setInputConnection(mapper.getOutputPort());
+        // mapper.setColorModeToMapScalars();     // 启用颜色映射
+        // mapper.setScalarModeToUsePointFieldData('Pressure'); // 使用 Pressure 字段
+        const prop = sliceFilter.getProperty();
+        // prop.setLookupTable(lookupTable);
+        prop.setRGBTransferFunction(0, lookupTable);
+        prop.setScalarOpacity(0, opacityFunction);
+        prop.setUseLookupTableScalarRange(true);
+        // const actor = vtkActor.newInstance();
+        // actor.setMapper(mapper);
+
+        // 添加到场景中
+        renderer.addActor(sliceFilter);
+
+        // -------------------------------
+        // 添加空间参考坐标系 (XYZ 轴)
+        // const cubeActor = vtkAnnotatedCubeActor.newInstance();
+        // const orientationWidget = vtkOrientationMarkerWidget.newInstance();
+        // orientationWidget.setActor(cubeActor);
+        // orientationWidget.setViewportCorner(
+        //   vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+        // );
+        // orientationWidget.setInteractor(renderWindow.getInteractor());
+        // orientationWidget.setEnabled(true);
+        // orientationWidget.setPreferedSize(150); // 控制大小
+
+        // -------------------------------
+        // 调整相机视角
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+  </script>
+</body>
+
+</html>

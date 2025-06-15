@@ -80,7 +80,7 @@ def analyze_query(query: str, model_name, system=None) -> dict:
     
     # 从LLM获取回答
     try:
-        response = get_qwen_response(analysis_prompt, ollama_config.models_qwen[model_name], default_system)
+        response = get_qwen_response(analysis_prompt, model_name, default_system)
         print('prompt analysis (raw):\n', response,'\n')
         
         # 尝试从回答中提取JSON，使用更健壮的方法

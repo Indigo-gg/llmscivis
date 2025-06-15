@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VTK.js Rotor Slice Visualization</title>
+  <script src="https://unpkg.com/vtk.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #renderWindowContainer {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="renderWindowContainer"></div>
+  <script>
+    // Import necessary VTK.js modules
+    const {
+      vtkHttpDataSetReader,
+      vtkSliceRepresentation,
+      vtkColorTransferFunction,
+      vtkOrientationMarkerWidget,
+      vtkRenderer,
+      vtkRenderWindow,
+      vtkRenderWindowInteractor,
+    } = vtk;
+
+    // Create a renderer and render window
+    const renderer = vtkRenderer.newInstance();
+    const renderWindow = vtkRenderWindow.newInstance();
+    renderWindow.addRenderer(renderer);
+
+    // Create a render window interactor
+    const interactor = vtkRenderWindowInteractor.newInstance();
+    interactor.setView(renderWindow.getViews()[0]);
+    interactor.initialize();
+    interactor.bindEvents(document.getElementById('renderWindowContainer'));
+
+    // Load the rotor dataset from the specified URL
+    const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+    reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
+      // Set "Pressure" as the active scalar
+      const dataset = reader.getOutputData();
+      dataset.getPointData().setActiveScalars('Pressure');
+
+      // Create a slice representation
+      const sliceRep = vtkSliceRepresentation.newInstance();
+      sliceRep.setInputData(dataset);
+
+      // Apply a Y-axis slice at 80% depth
+      sliceRep.setSlicingMode('Y');
+      sliceRep.setSlice(dataset.getBounds()[3] * 0.8);
+
+      // Create a color transfer function for pressure values
+      const ctfun = vtkColorTransferFunction.newInstance();
+      ctfun.addRGBPoint(dataset.getPointData().getScalars().getRange()[0], 0, 0, 1); // Blue
+      ctfun.addRGBPoint((dataset.getPointData().getScalars().getRange()[0] + dataset.getPointData().getScalars().getRange()[1]) / 2, 1, 1, 1); // White
+      ctfun.addRGBPoint(dataset.getPointData().getScalars().getRange()[1], 1, 0, 0); // Red
+
+      // Apply the color transfer function to the slice representation
+      sliceRep.getProperty().setRGBTransferFunction(0, ctfun);
+      sliceRep.getProperty().setScalarOpacity(0, 1.0); // Full opacity
+
+      // Add the slice representation to the renderer
+      renderer.addActor(sliceRep.getActor());
+
+      // Add an orientation marker (XYZ axes) for spatial reference
+      const axes = vtkOrientationMarkerWidget.newInstance({
+        actor: vtkAxesActor.newInstance(),
+        interactor: interactor,
+      });
+      axes.setEnabled(true);
+      axes.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+      axes.setViewportSize(0.15);
+
+      // Reset the camera and render the scene
+      renderer.resetCamera();
+      renderWindow.render();
+    });
+  </script>
+</body>
+</html>
+
+
+### Explanation of the Code:
+
+1. **Importing VTK.js Modules**:
+   - The necessary VTK.js modules are imported to handle data reading, slicing, color mapping, and visualization.
+
+2. **Creating Renderer and Render Window**:
+   - A renderer and render window are created to manage the visualization scene.
+
+3. **Loading the Dataset**:
+   - The rotor dataset is loaded from the specified URL using `vtkHttpDataSetReader`. The dataset is then processed to set "Pressure" as the active scalar.
+
+4. **Creating a Slice Representation**:
+   - A slice representation is created to visualize a slice of the dataset. The slice is applied along the Y-axis at 80% depth of the dataset.
+
+5. **Color Mapping**:
+   - A color transfer function is created to map pressure values to a gradient from blue to white to red. This gradient is applied to the slice representation.
+
+6. **Orientation Marker**:
+   - An orientation marker (XYZ axes) is added to the scene to provide spatial reference.
+
+7. **Rendering the Scene**:
+   - The camera is reset to fit the scene, and the render window is rendered to display the visualization.
+
+### Key Points:
+- **No GUI Controls**: The visualization does not include any GUI controls, as per the user's requirement.
+- **Full Opacity**: The opacity is set to full (1.0) to ensure the slice is fully visible.
+- **Orientation Marker**: The orientation marker is added to help users understand the spatial orientation of the slice.

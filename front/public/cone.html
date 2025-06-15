@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK.js Sphere Rendering</title>
+    <script src="https://unpkg.com/vtk.js"></script>
+</head>
+<body>
+<div id="vtkContainer" style="width: 512px; height: 512px;"></div>
+<script>
+    // 导入所需的VTK.js模块
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkImageWriter = vtk.IO.Misc.vtkImageWriter;
+
+    // 创建全屏渲染窗口
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+        rootContainer: document.querySelector('#vtkContainer'),
+        background: [0, 0, 0], // 设置背景颜色为黑色
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // 创建球体源
+    const sphereSource = vtkSphereSource.newInstance({
+        radius: 1.0, // 设置球体半径
+        thetaResolution: 32, // 设置球体的经度分辨率
+        phiResolution: 32, // 设置球体的纬度分辨率
+    });
+
+    // 创建映射器并将球体源连接到映射器
+    const mapper = vtkMapper.newInstance();
+    mapper.setInputConnection(sphereSource.getOutputPort());
+
+    // 创建演员并将映射器连接到演员
+    const actor = vtkActor.newInstance();
+    actor.setMapper(mapper);
+
+    // 将演员添加到渲染器
+    renderer.addActor(actor);
+
+    // 重置相机以显示整个球体
+    renderer.resetCamera();
+
+    // 渲染场景
+    renderWindow.render();
+
+    // 保存渲染的图像为512x512的PNG文件
+    const imageWriter = vtkImageWriter.newInstance();
+    imageWriter.setInputConnection(renderWindow.getImage(512, 512));
+    imageWriter.setFileName('IO-Screenshot.png');
+    imageWriter.write();
+
+    // 提示用户图像已保存
+    console.log('Rendered image saved as IO-Screenshot.png');
+</script>
+</body>
+</html>

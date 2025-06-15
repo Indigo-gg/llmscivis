@@ -12,7 +12,7 @@ from llm_agent.ollma_chat import get_llm_response
 from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
-from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id
+from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id,modify_object_with_export
 from llm_agent.prompt_agent import analyze_query, merge_analysis
 from config.ollama_config import ollama_config
 import os
@@ -73,6 +73,8 @@ def generation():
         "workflow": obj["workflow"],
         "eval_id": eval_id,
         "eval_user": obj["evalUser"],
+        "export_time":None,
+        "console_output":None,
         "eval_time": current_time,
         # "eval_status": app_config.eval_status[0],
         # "manual_evaluation": None,
@@ -89,7 +91,7 @@ def generation():
     final_prompt=obj['prompt']
     analysis=''
     if obj['workflow']['inquiryExpansion']:
-        analysis=analyze_query(obj['prompt'],model_name=obj['generator'],system=None)
+        analysis=analyze_query(obj['prompt'],model_name=ollama_config.inquiry_expansion_model,system=None)
         final_prompt=merge_analysis(analysis)
         print('after_analysis\n',final_prompt)
 
@@ -228,7 +230,7 @@ def read_directory_structure(base_path, current_path):
 
 @app.route('/get_case_list', methods=["GET"])
 def get_case_list():
-    base_path = os.path.join('data', 'vtk-examples', 'benchmark')
+    base_path = os.path.join('data', 'vtkjs-examples', 'benchmark')
     tree_structure = read_directory_structure(base_path, '')
     return jsonify(tree_structure)
 
@@ -254,10 +256,12 @@ def export_results():
         export_dir = "exports"
         export_case_dir = ''
         print(d["evalId"])
+        modify_object_with_export(d)
         data=get_object_by_id(d)
         # print(f"Type of data: {type(data)}, Data: {data}")
         if 'generated_code' in data and 'path' in data and 'generator' in data and 'evaluator' in data and 'workflow' in data:
             generated_code = data['generated_code']
+            ground_truth = data['ground_truth']
             path = data['path']
             generator = data['generator']
             evaluator = data['evaluator']
@@ -273,7 +277,7 @@ def export_results():
                 workflow_name = 'no_workflow'
             
             formatted_original_dir = os.path.dirname(path).replace('\\', '_').replace('/', '_')
-            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}"
+            new_folder_name = f"{formatted_original_dir}_{generator}_{evaluator}_{workflow_name}_{data.get('eval_id')}"
             
             export_case_dir = os.path.join(export_dir, new_folder_name)
             
@@ -284,6 +288,7 @@ def export_results():
             # 生成文件路径
             generated_code_file_path = os.path.join(export_case_dir, 'generated_code.html')
             modified_code_file_path = os.path.join(export_case_dir, 'modified_code.html')
+            ground_truth_file_path = os.path.join(export_case_dir, 'ground_truth.html')
             final_prompt_file_path = os.path.join(export_case_dir, 'final_prompt.txt')            
             # 写入文件内容
             try:
@@ -299,6 +304,8 @@ def export_results():
 
                 with open(final_prompt_file_path, 'w', encoding='utf-8') as f:
                     f.write(data['final_prompt'])
+                with  open(ground_truth_file_path, 'w', encoding='utf-8') as f:
+                    f.write(ground_truth)
 
                 print(f"Successfully created {final_prompt_file_path}")
                     
@@ -316,6 +323,18 @@ def export_results():
         # 确保 export_case_dir 已经被正确赋值后再使用
         if export_case_dir:
             with open(f"{export_case_dir}/case_export_data.json", 'w', encoding='utf-8') as f:
+                # need_var={
+                #     'generator': data['generator'],
+                #     'evaluator': data['evaluator'],
+                #     'workflow': data['workflow'],
+                #     'final_prompt': data['final_prompt'],
+                #     'path': data['path'],
+                #     'eval_id': data['eval_id'],
+                #     'eval_user': data['eval_user'],
+                #     'eval_time': data['eval_time'],
+                #     'prompt':  data['prompt'],
+                #     'ground_truth'
+                # }
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
 
@@ -331,6 +350,43 @@ def export_results():
             'success': False,
             'message': f'导出失败: {str(e)}'
         }), 500
+
+
+def read_directory_structure(base_path, current_path):
+    structure = []
+    full_current_path = os.path.join(base_path, current_path)
+    if not os.path.exists(full_current_path):
+        return structure
+
+    for item_name in os.listdir(full_current_path):
+        item_path = os.path.join(full_current_path, item_name)
+        relative_item_path = os.path.join(current_path, item_name)
+        if os.path.isdir(item_path):
+            structure.append({
+                'name': item_name,
+                'type': 'directory',
+                'path': relative_item_path,
+                'children': read_directory_structure(base_path, relative_item_path)
+            })
+        else:
+            # 对于文件，我们只返回其名称、类型和路径，不读取内容以避免过大的响应
+            structure.append({
+                'name': item_name,
+                'type': 'file',
+                'path': relative_item_path
+            })
+    return structure
+
+@app.route('/get_exported_cases', methods=["GET"])
+def get_exported_cases():
+    # 定义 exports 目录的绝对路径
+    exports_path = os.path.join(os.getcwd(), 'exports')
+    
+    # 调用辅助函数读取目录结构
+    tree_structure = read_directory_structure(exports_path, '')
+    
+    return Response(json.dumps(tree_structure), content_type='application/json')
+
 
 # 数据的位置在http://127.0.0.1:5000/dataset/filename
 @app.route('/dataset/<path:filename>', methods=['GET'])
@@ -360,7 +416,10 @@ def get_dataset_file(filename):
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
         '.gif': 'image/gif',
-        '.vtp': 'application/octet-stream'
+        '.vtp': 'application/octet-stream',
+        '.vti': 'application/octet-stream',
+        '.vtk': 'application/octet-stream',
+        '.vtu': 'application/octet-stream',
     }
     
     # 确定内容类型和读取模式

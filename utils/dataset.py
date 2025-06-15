@@ -4,28 +4,6 @@ from datetime import time
 from config.app_config import app_config
 
 
-class EvalData:
-    def __init__(self, prompt=None, ground_truth=None, generated_code=None, evaluator_prompt=None, generator=None,
-                 evaluator=None, score=None, workflow=None, eval_id=None, eval_user=None, eval_time=None,
-                 eval_status=None, manual_evaluation=None):
-        self.prompt = prompt
-        self.ground_truth = ground_truth
-        self.generated_code = generated_code
-        self.evaluator_prompt = evaluator_prompt
-        self.generator = generator
-        self.evaluator = evaluator
-        self.score = score
-        self.workflow = workflow
-        self.eval_id = eval_id
-        self.eval_user = eval_user
-        self.eval_time = eval_time
-        self.eval_status = eval_status
-        self.manual_evaluation = manual_evaluation
-
-    def show_data_info(self):
-        print(f"Prompt: {self.prompt}, Ground Truth: {self.groundtruth}, Generated Code: {self.generatedcode}")
-
-
 class Evaluation:
     def __init__(self, score=None, workflow=None, generator=None, evaluator=None, prompt=None, console_output=None,
                  evaluation_output=None):
@@ -107,14 +85,13 @@ def modify_object(obj):
     根据 eval_id 修改 JSON 文件中的数据。
 
     :param obj: 包含新数据的 EvalData 对象
-    :param file_path: JSON 文件的路径
     """
     try:
         with open(app_config.DATASET_PATH, 'r', encoding='utf-8') as file:
             existing_data = json.load(file)
             for index, data_item in enumerate(existing_data):
                 if data_item.get("eval_id") == obj.get('eval_id') and data_item.get("evaluator_evaluation") is None:
-                    existing_data[index]["evaluatorEvaluation"] = obj.get("evaluator_evaluation")
+                    existing_data[index]["evaluator_evaluation"] = obj.get("evaluator_evaluation")
                     existing_data[index]["score"] = obj.get("score")
                     print('\n update score and evaluatorEvaluation \n')
                     break
@@ -123,6 +100,26 @@ def modify_object(obj):
     except (FileNotFoundError, json.JSONDecodeError):
         print('ADD_ERROR', FileNotFoundError, json.JSONDecodeError)
 
+
+def modify_object_with_export(obj):
+    """
+    根据 eval_id 修改 JSON 文件中的数据。
+
+    :param obj: 包含新数据的 ExportData 对象
+    """
+    try:
+        with open(app_config.DATASET_PATH, 'r', encoding='utf-8') as file:
+            existing_data = json.load(file)
+            for index, data_item in enumerate(existing_data):
+                if data_item.get("eval_id") == obj.get('evalId') and data_item.get("evaluatorEvaluation") is None:
+                    existing_data[index]["export_time"] = obj.get("exportTime")
+                    existing_data[index]["console_output"] = obj.get("consoleOutput")
+                    print('\n update export_time and console_output \n')
+                    break
+        with open(app_config.DATASET_PATH, 'w', encoding='utf-8') as file:
+            json.dump(existing_data, file, ensure_ascii=False, indent=4)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print('ADD_ERROR', FileNotFoundError, json.JSONDecodeError)
 
 def get_all_data():
     try:
