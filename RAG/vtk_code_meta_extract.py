@@ -13,7 +13,7 @@ __all__ = ['extract_vtkjs_meta', 'get_project_root']
 
 def extract_vtkjs_meta(html_path):
     # 尝试从同文件夹下的description.txt文件中读取描述信息
-    description = "基于VTK.js的可视化示例，包含渲染、数据处理与公式计算。"  # 默认描述
+    description = ''  
     example_dir = os.path.dirname(html_path)
     # 检查可能的描述文件名变体
     desc_file_variants = [
