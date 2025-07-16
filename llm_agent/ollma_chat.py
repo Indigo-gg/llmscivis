@@ -29,12 +29,16 @@ class MyEncoder(json.JSONEncoder):
 def get_llm_response(prompt: str, model_name, system) -> str:
     try:
         if model_name in ollama_config.models_ollama.keys():
+            print("使用ollama模型")
             return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
         elif model_name in ollama_config.models_deepseek.keys():
+            print("使用deepseek模型")
             return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
         elif model_name in ollama_config.models_qwen.keys():
+            print("使用qwen模型")
             return get_qwen_response(prompt, ollama_config.models_qwen[model_name], system)
         elif model_name in ollama_config.models_coreai.keys():
+            print("使用coreai模型")
             return get_coreai_response(prompt, ollama_config.models_coreai[model_name], system)
     except Exception as e:
         print(f"调用 LLM 出错: {e}")

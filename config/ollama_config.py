@@ -13,9 +13,11 @@ class OllamaConfig:
             "llama3.2-1b": 'llama3.2:1b',
         }
         self.models_qwen={
-            "qwen3-turbo":"qwen-turbo-latest",
-            "qwen3-plus":"qwen-plus-latest",
+            "qwen3-turbo":"qwen-turbo-2025-04-28",
+            "qwen3-plus":"qwen-plus-0112",
+            "qwen-max":"qwen-max-2025-01-25",
             "qwen3-32b":"qwen3-32b"
+
         }
         self.embedding_models = {
             "bge": 'BAAI/bge-small-en-v1.5',

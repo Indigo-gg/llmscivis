@@ -1,0 +1,574 @@
+
+--- 开始执行优化查询 ---
+
+=== 查询组 1 ===
+
+===== 查询 1: 'Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js;' =====
+
+--- 结果 1 ---
+FAISS ID: 1869164750
+基础相似度 (Cosine): 0.3787
+重排分数: 0.3787
+文件路径: data\vtkjs-examples\prompt-sample\IO-HttpdatasetReader\code.html
+描述: Loads and visualizes a 3D model (VTP format) from a remote URL using `vtkHttpDataSetReader` with gzip support.
+
+VTK.js 模块 (排序后): ['vtk.IO.Core.DataAccessHelper.HttpDataAccessHelper', 'vtk.IO.Core.vtkHttpDataSetReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Rendering.OpenGL.Profiles.Geometry']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 144437569
+基础相似度 (Cosine): 0.3535
+重排分数: 0.3535
+文件路径: data\vtkjs-examples\prompt-sample\IO-XMLImagePolyDataWriter\code.html
+描述: Loads 3D polydata, writes it to a string using `vtkXMLPolyDataWriter`, reads it back with `vtkXMLPolyDataReader`, and renders it, allowing download of the generated VTP file.
+VTK.js 模块 (排序后): ['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.IO.XML.vtkXMLPolyDataWriter', 'vtk.IO.XML.vtkXMLWriter', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 2: 'Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/rotor.vti using vtkXMLImageDataReader;' =====
+
+--- 结果 1 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.5668
+重排分数: 0.5668
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.5422
+重排分数: 0.5422
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 3: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% /depth along the Y-axis using vtkImageSlice;' =====
+
+--- 结果 1 ---
+FAISS ID: 1619381550
+基础相似度 (Cosine): 0.4933
+重排分数: 0.4933
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
+描述: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 875726136
+基础相似度 (Cosine): 0.4416
+重排分数: 0.4416
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageMarchingCubes\code.html
+描述: Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkSphere', 'vtk.Filters.General.vtkImageMarchingCubes', 'vtk.Imaging.Hybrid.vtkSampleFunction', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 4: 'Visualization Setup — Map pressure values to a blue→white→red color gradient and set full opacity using vtkColorTransferFunction, vtkPiecewiseFunction, vtkMapper;' =====
+
+--- 结果 1 ---
+FAISS ID: 1398812761
+基础相似度 (Cosine): 0.5230
+重排分数: 1.1230
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ItkWasmVolume\code.html
+描述: Loads a medical image dataset (MHA) and renders it as a 3D volume using `vtkVolumeMapper` with custom color and opacity transfer functions.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Common.DataModel.vtkITKHelper', 'vtk.IO.Core.DataAccessHelper.vtkLiteHttpDataAccessHelper', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 431419998
+基础相似度 (Cosine): 0.4588
+重排分数: 1.0588
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-VolumeMapper\code.html
+描述: Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 5: 'Add UI Element — Integrate an XYZ axes orientation marker for spatial reference using vtkOrientationMarkerWidget, vtkAxesActor;' =====
+
+--- 结果 1 ---
+FAISS ID: 771311485
+基础相似度 (Cosine): 0.4790
+重排分数: 0.4790
+文件路径: data\vtkjs-examples\prompt-sample\IO-StickMapper\code.html
+描述: Generates a plane and uses `vtkCalculator` to create custom point data ('orientation', 'temperature', 'pressure'), which `vtkStickMapper` could use for rendering (currently not fully connected).
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 6: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor;' =====
+
+--- 结果 1 ---
+FAISS ID: 215600877
+基础相似度 (Cosine): 0.3578
+重排分数: 0.7578
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ManyRenderers\code.html
+描述: Displays multiple interactive 3D objects (cone, sphere, cube, cylinder) in separate, independently styled renderers with animation and layout adjustments.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkRenderer', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkCubeSource', 'vtk.Filters.Sources.vtkCylinderSource', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Interaction.Style.vtkInteractorStyleTrackballCamera', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkRenderWindow', 'vtk.Rendering.Core.vtkRenderWindowInteractor', 'vtk.js', 'vtk.js已经通过某种方式被加载到全局变量vtk中']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.5566
+重排分数: 0.7566
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+=== 查询组 2 ===
+
+===== 查询 1: 'Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js;' =====
+
+--- 结果 1 ---
+FAISS ID: 1869164750
+基础相似度 (Cosine): 0.3787
+重排分数: 0.3787
+文件路径: data\vtkjs-examples\prompt-sample\IO-HttpdatasetReader\code.html
+描述: Loads and visualizes a 3D model (VTP format) from a remote URL using `vtkHttpDataSetReader` with gzip support.
+
+VTK.js 模块 (排序后): ['vtk.IO.Core.DataAccessHelper.HttpDataAccessHelper', 'vtk.IO.Core.vtkHttpDataSetReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Rendering.OpenGL.Profiles.Geometry']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 144437569
+基础相似度 (Cosine): 0.3535
+重排分数: 0.3535
+文件路径: data\vtkjs-examples\prompt-sample\IO-XMLImagePolyDataWriter\code.html
+描述: Loads 3D polydata, writes it to a string using `vtkXMLPolyDataWriter`, reads it back with `vtkXMLPolyDataReader`, and renders it, allowing download of the generated VTP file.
+VTK.js 模块 (排序后): ['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.IO.XML.vtkXMLPolyDataWriter', 'vtk.IO.XML.vtkXMLWriter', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 2: 'Data Loading — Load the VTK dataset from rotor_simplified.vti using vtkXMLImageDataReader;' =====
+
+--- 结果 1 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.5834
+重排分数: 0.5834
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.5230
+重排分数: 0.5230
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 3: 'Data Processing — Calculate the velocity magnitude from vector components (vx, vy, vz) by computing √(vx²+vy²+vz²) and set it as an active scalar array;' =====
+
+--- 结果 1 ---
+FAISS ID: 1619381550
+基础相似度 (Cosine): 0.4213
+重排分数: 0.4213
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
+描述: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 875726136
+基础相似度 (Cosine): 0.3180
+重排分数: 0.3180
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageMarchingCubes\code.html
+描述: Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkSphere', 'vtk.Filters.General.vtkImageMarchingCubes', 'vtk.Imaging.Hybrid.vtkSampleFunction', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 4: 'Feature Extraction — Use the Marching Cubes algorithm (vtkContourFilter) to extract isosurfaces based on the calculated velocity magnitude;' =====
+
+--- 结果 1 ---
+FAISS ID: 875726136
+基础相似度 (Cosine): 0.5064
+重排分数: 0.5064
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageMarchingCubes\code.html
+描述: Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkSphere', 'vtk.Filters.General.vtkImageMarchingCubes', 'vtk.Imaging.Hybrid.vtkSampleFunction', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1619381550
+基础相似度 (Cosine): 0.4152
+重排分数: 0.4152
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
+描述: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 5: 'Visualization Setup — Apply a rainbow colormap (blue→cyan→white→orange→red) using vtkColorTransferFunction. Set surface lighting properties with ambient(0.3), diffuse(0.7), specular(0.4) using vtkProperty;' =====
+
+--- 结果 1 ---
+FAISS ID: 1276004285
+基础相似度 (Cosine): 0.4989
+重排分数: 0.4989
+文件路径: data\vtkjs-examples\prompt-sample\Filter-Calculator\code.html
+描述: This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkDataSet.FieldDataTypes', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 6: 'Add UI Element — Integrate an interactive 3D view with orientation axes widget for spatial reference using vtkOrientationMarkerWidget, vtkAxesActor;' =====
+
+--- 结果 1 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.5675
+重排分数: 0.5675
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 105009849
+基础相似度 (Cosine): 0.4855
+重排分数: 0.4855
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-GlyphMapper\code.html
+描述: Visualizes a 3D plane with glyphs (e.g., cones) whose scale and orientation are based on scalar and vector data, using `vtkGlyph3DMapper` and `vtkCalculator`.
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkGlyph3DMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 7: 'Responsive Implementation — Ensure the visualization is responsive and integrates all components using vtkRenderWindow, vtkRenderer, vtkActor. Render the scene without additional GUI controls but ensure interaction capabilities such as rotation and zoom are enabled;' =====
+
+--- 结果 1 ---
+FAISS ID: 215600877
+基础相似度 (Cosine): 0.3512
+重排分数: 0.7512
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ManyRenderers\code.html
+描述: Displays multiple interactive 3D objects (cone, sphere, cube, cylinder) in separate, independently styled renderers with animation and layout adjustments.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkRenderer', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkCubeSource', 'vtk.Filters.Sources.vtkCylinderSource', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Interaction.Style.vtkInteractorStyleTrackballCamera', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkRenderWindow', 'vtk.Rendering.Core.vtkRenderWindowInteractor', 'vtk.js', 'vtk.js已经通过某种方式被加载到全局变量vtk中']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.5336
+重排分数: 0.7336
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+=== 查询组 3 ===
+
+===== 查询 1: 'Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js;' =====
+
+--- 结果 1 ---
+FAISS ID: 1869164750
+基础相似度 (Cosine): 0.3787
+重排分数: 0.3787
+文件路径: data\vtkjs-examples\prompt-sample\IO-HttpdatasetReader\code.html
+描述: Loads and visualizes a 3D model (VTP format) from a remote URL using `vtkHttpDataSetReader` with gzip support.
+
+VTK.js 模块 (排序后): ['vtk.IO.Core.DataAccessHelper.HttpDataAccessHelper', 'vtk.IO.Core.vtkHttpDataSetReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Rendering.OpenGL.Profiles.Geometry']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 144437569
+基础相似度 (Cosine): 0.3535
+重排分数: 0.3535
+文件路径: data\vtkjs-examples\prompt-sample\IO-XMLImagePolyDataWriter\code.html
+描述: Loads 3D polydata, writes it to a string using `vtkXMLPolyDataWriter`, reads it back with `vtkXMLPolyDataReader`, and renders it, allowing download of the generated VTP file.
+VTK.js 模块 (排序后): ['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.IO.XML.vtkXMLPolyDataWriter', 'vtk.IO.XML.vtkXMLWriter', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 2: 'Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/isabel.vti using vtkXMLImageDataReader;' =====
+
+--- 结果 1 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.6227
+重排分数: 0.6227
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.6155
+重排分数: 0.6155
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 3: 'Data Processing — Extract the velocity field from the dataset and prepare seed points at the center of the dataset for generating streamlines using vtkStreamTracer or similar classes;' =====
+
+--- 结果 1 ---
+FAISS ID: 1619381550
+基础相似度 (Cosine): 0.5558
+重排分数: 0.5558
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
+描述: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 4: 'Visualization Setup — Generate streamlines based on the velocity field starting from the central seed points; adjust streamline parameters such as step size and integration direction;' =====
+
+--- 结果 1 ---
+FAISS ID: 1619381550
+基础相似度 (Cosine): 0.5861
+重排分数: 0.5861
+文件路径: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
+描述: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 5: 'Outline Display — Add an outline representation of the dataset to provide context to the streamlines using vtkOutlineFilter and vtkPolyDataMapper;' =====
+
+--- 结果 1 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.4873
+重排分数: 0.4873
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.4513
+重排分数: 0.4513
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 6: 'Rendering Configuration — Use vtkFullScreenRenderWindow to set up the rendering environment ensuring full-screen display capability; integrate all components (streamlines and outline) into the vtkRenderer;' =====
+
+--- 结果 1 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.5345
+重排分数: 0.7345
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1542811814
+基础相似度 (Cosine): 0.4985
+重排分数: 0.6985
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-SphereMapper\code.html
+描述: Visualizes a 3D sphere generated by `vtkSphereSource` and rendered with `vtkSphereMapper`.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkSphereMapper']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 7: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, and vtkActor without additional GUI controls unless specified;' =====
+
+--- 结果 1 ---
+FAISS ID: 215600877
+基础相似度 (Cosine): 0.3846
+重排分数: 0.7846
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ManyRenderers\code.html
+描述: Displays multiple interactive 3D objects (cone, sphere, cube, cylinder) in separate, independently styled renderers with animation and layout adjustments.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkRenderer', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkCubeSource', 'vtk.Filters.Sources.vtkCylinderSource', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Interaction.Style.vtkInteractorStyleTrackballCamera', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkRenderWindow', 'vtk.Rendering.Core.vtkRenderWindowInteractor', 'vtk.js', 'vtk.js已经通过某种方式被加载到全局变量vtk中']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.5837
+重排分数: 0.7837
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkActor', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+=== 查询组 4 ===
+
+===== 查询 1: 'Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js;' =====
+
+--- 结果 1 ---
+FAISS ID: 1869164750
+基础相似度 (Cosine): 0.3787
+重排分数: 0.3787
+文件路径: data\vtkjs-examples\prompt-sample\IO-HttpdatasetReader\code.html
+描述: Loads and visualizes a 3D model (VTP format) from a remote URL using `vtkHttpDataSetReader` with gzip support.
+
+VTK.js 模块 (排序后): ['vtk.IO.Core.DataAccessHelper.HttpDataAccessHelper', 'vtk.IO.Core.vtkHttpDataSetReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow', 'vtk.Rendering.OpenGL.Profiles.Geometry']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 144437569
+基础相似度 (Cosine): 0.3535
+重排分数: 0.3535
+文件路径: data\vtkjs-examples\prompt-sample\IO-XMLImagePolyDataWriter\code.html
+描述: Loads 3D polydata, writes it to a string using `vtkXMLPolyDataWriter`, reads it back with `vtkXMLPolyDataReader`, and renders it, allowing download of the generated VTP file.
+VTK.js 模块 (排序后): ['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.IO.XML.vtkXMLPolyDataWriter', 'vtk.IO.XML.vtkXMLWriter', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 2: 'Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp using vtkXMLPolyDataReader;' =====
+
+--- 结果 1 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.6166
+重排分数: 1.4166
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.5045
+重排分数: 0.5045
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 3: 'Data Processing — Set 'p' as the active scalar array for color encoding using setDataArray;' =====
+
+--- 结果 1 ---
+FAISS ID: 1276004285
+基础相似度 (Cosine): 0.3913
+重排分数: 0.3913
+文件路径: data\vtkjs-examples\prompt-sample\Filter-Calculator\code.html
+描述: This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.
+
+VTK.js 模块 (排序后): ['vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkDataSet.FieldDataTypes', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 4: 'Visualization Setup — Create a volume mapper and connect it to the data source using vtkVolumeMapper, then set up a volume property with color and opacity mappings using vtkColorTransferFunction and vtkPiecewiseFunction;' =====
+
+--- 结果 1 ---
+FAISS ID: 431419998
+基础相似度 (Cosine): 0.7430
+重排分数: 1.1430
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-VolumeMapper\code.html
+描述: Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 1398812761
+基础相似度 (Cosine): 0.7355
+重排分数: 1.1355
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ItkWasmVolume\code.html
+描述: Loads a medical image dataset (MHA) and renders it as a 3D volume using `vtkVolumeMapper` with custom color and opacity transfer functions.
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Common.DataModel.vtkITKHelper', 'vtk.IO.Core.DataAccessHelper.vtkLiteHttpDataAccessHelper', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 5: 'Camera Positioning — Adjust the camera position to focus on the dataset bounds using vtkCamera's set methods (setPosition, setFocalPoint, etc.);' =====
+
+--- 结果 1 ---
+FAISS ID: 2054430029
+基础相似度 (Cosine): 0.3421
+重排分数: 0.3421
+文件路径: data\vtkjs-examples\prompt-sample\IO-ElevationReader\code.html
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 777604084
+基础相似度 (Cosine): 0.3267
+重排分数: 0.3267
+文件路径: data\vtkjs-examples\prompt-sample\IO-PolyDataReader\code.html
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块 (排序后): ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+===== 查询 6: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, and vtkVolume actor without additional GUI controls.' =====
+
+--- 结果 1 ---
+FAISS ID: 1837944411
+基础相似度 (Cosine): 0.6187
+重排分数: 0.6187
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
+描述: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+VTK.js 模块 (排序后): ['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 结果 2 ---
+FAISS ID: 215600877
+基础相似度 (Cosine): 0.3929
+重排分数: 0.5929
+文件路径: data\vtkjs-examples\prompt-sample\Rendering-ManyRenderers\code.html
+描述: Displays multiple interactive 3D objects (cone, sphere, cube, cylinder) in separate, independently styled renderers with animation and layout adjustments.
+
+VTK.js 模块 (排序后): ['vtk.Rendering.Core.vtkRenderer', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkCubeSource', 'vtk.Filters.Sources.vtkCylinderSource', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Interaction.Style.vtkInteractorStyleTrackballCamera', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkRenderWindow', 'vtk.Rendering.Core.vtkRenderWindowInteractor', 'vtk.js', 'vtk.js已经通过某种方式被加载到全局变量vtk中']
+
+--------------------------------------------------------------------------------------------------------------
+
+--- 所有查询执行完毕 ---
