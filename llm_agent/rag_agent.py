@@ -1,8 +1,11 @@
 import sys
 import os
 from RAG.retriever import VTKSearcher
-from llm_agent.ollma_chat import get_deepseek_response,get_deepseek_response_stream
-
+from llm_agent.ollma_chat import get_qwen_response,get_llm_response
+from RAG.retriever_v2 import get_data_from_excel
+import json
+from RAG.retriever_v2 import VTKSearcherV2
+from config.ollama_config import ollama_config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 '''实现RAG，检索数据并生成回答'''
@@ -23,6 +26,86 @@ class RAGAgent:
         return self.searcher.search(analysis, prompt, metadata_filters=metadata_filters)
 # 使用示例
 
-
 if __name__ == "__main__":
-    pass
+    # 导入必要的模块
+    from llm_agent.ollma_chat import get_llm_response
+    import time
+    
+    # 初始化搜索器
+    searcher = VTKSearcherV2()
+    
+    # 文件路径
+    excel_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
+    benchmark_prompts,splited_queries,=get_data_from_excel(excel_path)
+
+    # 创建结果文件
+    output_file = "retrieval_results.json"
+    
+    # 准备存储所有结果的列表
+    all_results = []
+    
+    for i, query_list in enumerate(splited_queries):
+        if not query_list:
+            print(f"跳过第{i+1}行：空的或无效的splited_prompt")
+            all_results.append({
+                "index": i+1,
+                "status": "skipped",
+                "reason": "空的或无效的splited_prompt"
+            })
+            continue
+        
+        # 获取对应的原始查询
+        original_query = benchmark_prompts[i] if i < len(benchmark_prompts) else "N/A"
+        print(f"\n处理第{i+1}行，原始查询: {original_query}")
+        
+        # 记录开始时间
+        start_time = time.time()
+        
+        # 进行搜索
+        final_prompt = searcher.search(original_query, query_list)
+        
+        # 记录检索时间
+        retrieval_time = time.time() - start_time
+        print(f"检索耗时: {retrieval_time:.2f}秒")
+        
+        # 使用LLM生成代码
+        generated_code = ""
+        llm_start_time = time.time()
+        try:
+            generated_code = get_llm_response(final_prompt, model_name="qwen3-plus",system=ollama_config.code_sytstem)
+            print(f"代码生成成功")
+        except Exception as e:
+            print(f"代码生成失败: {e}")
+            generated_code = f"代码生成失败: {e}"
+        
+        # 记录LLM生成时间
+        llm_time = time.time() - llm_start_time
+        total_time = time.time() - start_time
+        
+        # 输出结果到控制台
+        print(f"最终提示:\n{final_prompt}\n")
+        print(f"生成的代码:\n{generated_code}\n")
+        print(f"LLM生成耗时: {llm_time:.2f}秒")
+        print(f"总耗时: {total_time:.2f}秒")
+        
+        # 保存结果到列表
+        result_entry = {
+            "index": i+1,
+            "original_query": original_query,
+            "splited_queries": query_list,
+            "final_prompt": final_prompt,
+            "generated_code": generated_code,
+            "retrieval_time": round(retrieval_time, 2),
+            "llm_generation_time": round(llm_time, 2),
+            "total_time": round(total_time, 2),
+            "status": "success"
+        }
+        all_results.append(result_entry)
+    
+    # 将结果写入JSON文件
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(all_results, f, ensure_ascii=False, indent=2)
+        print(f"\n所有结果已保存到 {output_file} 文件中")
+    except Exception as e:
+        print(f"保存结果到JSON文件时出错: {e}")

@@ -18,14 +18,8 @@ class AppConfig:
 
         self.eval_status = ['failed','completed']
         self.DATASET_PATH = './utils/dataset/dataset.json'
-        self.VTKJS_COMMON_APIS = [
-            "vtkConeSource", "vtkSphereSource", "vtkCylinderSource", "vtkPlaneSource", 
-            "vtkLineSource", "vtkCubeSource", "vtkPolyData", "vtkMapper", "vtkActor",
-            "vtkRenderer", "vtkRenderWindow", "vtkRenderWindowInteractor", "vtkCamera",
-            "vtkVolume", "vtkVolumeMapper", "vtkColorTransferFunction", "vtkPiecewiseFunction",
-            "vtkImageData", "vtkPointData", "vtkCellData", "vtkDataArray", "vtkPoints",
-            "vtkCellArray", "vtkPolyDataMapper", "vtkProperty", "vtkLight", "vtkLookupTable"
-        ]
+        self.VTKJS_COMMON_APIS = ["vtkCalculator", "vtkMapper", "vtkContourTriangulator", "vtkSampleFunction", "vtkImageMarchingCubes", "vtkImageMarchingSquares", "vtkImageSlice", "vtkImageMapper", "vtkImageStreamline", "vtkOutlineFilter", "vtkHttpDataSetReader", "vtkCylinderSource", "vtkTriangleFilter", "vtkVolumeMapper", "vtkVolumeActor", "vtkElevationReader", "vtkGCodeReader", "vtkOBJReader", "vtkMTLReader", "vtkPDBReader", "vtkMoleculeToRepresentation", "vtkXMLPolyDataReader", "vtkStickMapper", "vtkXMLImageDataWriter", "vtkXMLImageDataReader", "vtkXMLPolyDataWriter", "vtkGlyph3DMapper", "vtkRTAnalyticSource", "vtkSphereSource", "vtkSphereMapper", "vtkPlaneSource"] # Added more based on query examples
+
         self.faissDB_path = 'data/faiss_cache'
         self.TRUNK_SIZE = 3000
         self.TRUNK_OVERLAP = 200

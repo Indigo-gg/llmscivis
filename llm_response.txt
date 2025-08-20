@@ -1,0 +1,17 @@
+IO-HttpdatasetReader
+Loads and visualizes a 3D model (VTP format) from a remote URL using `vtkHttpDataSetReader` with gzip support.
+
+Rendering-VolumeMapper
+Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.
+
+IO-PolyDataReader
+Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+Rendering-ItkWasmVolume
+Loads a medical image dataset (MHA) and renders it as a 3D volume using `vtkVolumeMapper` with custom color and opacity transfer functions.
+
+Filter-VolumeClip
+Renders a 3D medical volume (`headsq.vti`) with a clipping plane, using `vtkVolumeMapper` and `vtkVolumeActor` for customized appearance.
+
+Filter-VolumeContour
+Loads a 3D volumetric dataset (`headsq.vti`) and extracts an isosurface using `vtkImageMarchingCubes`, with a real-time adjustable iso-value.

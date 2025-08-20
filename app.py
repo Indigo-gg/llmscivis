@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import json
-from datetime import datetime
 import time
 
 from flask import Flask, render_template, stream_with_context, jsonify
@@ -13,7 +12,7 @@ from llm_agent.rag_agent import RAGAgent
 from flask_cors import CORS, cross_origin
 from llm_agent import evaluator_agent
 from utils.dataset import add_data, get_all_data, modify_object,get_object_by_id,modify_object_with_export
-from llm_agent.prompt_agent import analyze_query, merge_analysis
+from llm_agent.prompt_agent import analyze_query
 from config.ollama_config import ollama_config
 import os
 import base64
@@ -92,7 +91,7 @@ def generation():
     analysis=''
     if obj['workflow']['inquiryExpansion']:
         analysis=analyze_query(obj['prompt'],model_name=ollama_config.inquiry_expansion_model,system=None)
-        final_prompt=merge_analysis(analysis)
+        final_prompt=analysis
         print('after_analysis\n',final_prompt)
 
     if obj['workflow']['rag']:
@@ -101,6 +100,7 @@ def generation():
         print('rag prompt\n',final_prompt)
     
     response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
+
     data_dict['generated_code']=response
     data_dict['final_prompt']=final_prompt
     add_data(data_dict)
@@ -351,31 +351,6 @@ def export_results():
             'message': f'导出失败: {str(e)}'
         }), 500
 
-
-def read_directory_structure(base_path, current_path):
-    structure = []
-    full_current_path = os.path.join(base_path, current_path)
-    if not os.path.exists(full_current_path):
-        return structure
-
-    for item_name in os.listdir(full_current_path):
-        item_path = os.path.join(full_current_path, item_name)
-        relative_item_path = os.path.join(current_path, item_name)
-        if os.path.isdir(item_path):
-            structure.append({
-                'name': item_name,
-                'type': 'directory',
-                'path': relative_item_path,
-                'children': read_directory_structure(base_path, relative_item_path)
-            })
-        else:
-            # 对于文件，我们只返回其名称、类型和路径，不读取内容以避免过大的响应
-            structure.append({
-                'name': item_name,
-                'type': 'file',
-                'path': relative_item_path
-            })
-    return structure
 
 @app.route('/get_exported_cases', methods=["GET"])
 def get_exported_cases():

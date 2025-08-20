@@ -14,9 +14,11 @@ class OllamaConfig:
         }
         self.models_qwen={
             "qwen3-turbo":"qwen-turbo-2025-04-28",
-            "qwen3-plus":"qwen-plus-0112",
+            "qwen3-plus":"qwen-plus-2025-04-28",
             "qwen-max":"qwen-max-2025-01-25",
-            "qwen3-32b":"qwen3-32b"
+            "qwen3-32b":"qwen3-32b",
+            "qwen3-325b":"qwen3-235b-a22b",
+            "qwen2.5-14b":"qwen2.5-14b-instruct-1m"
 
         }
         self.embedding_models = {
@@ -31,6 +33,20 @@ class OllamaConfig:
         self.inquiry_expansion_model="qwen-turbo-latest"
         self.base = app_config.ollama_url + '/api'
         self.generate = self.base + '/generate'
+        self.code_sytstem="""
+ You are a VTK.js visualization expert. Based on the user's requirements and the provided VTK.js examples, generate complete and functional HTML code that meets all specified requirements.
+    Please follow these guidelines:
+    1. Generate complete HTML code that can run independently
+    2. Use the VTK.js library from CDN (https://unpkg.com/vtk.js)
+    3. Implement ALL requirements specified in the user question
+    4. Add detailed comments explaining how each requirement is implemented
+    5. Ensure the visualization is displayed properly without UI controls unless specifically requested
+    6. Use appropriate VTK.js modules and methods as shown in the examples
+    7. Pay special attention to data loading paths and visualization parameters
+
+    Important: Highlight in comments how each specific user requirement is addressed in the code.
+
+"""
 
 ollama_config = OllamaConfig()
 

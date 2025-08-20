@@ -1,5 +1,11 @@
 from llm_agent.ollma_chat import get_llm_response
 
+import os
+import time
+
+import pandas as pd
+import json
+import sys
 
 des="""
 
@@ -179,7 +185,7 @@ def slipt_query(query):
 
 
     # query=
-    model_name="qwen3-plus"
+    model_name="qwen2.5-14b"
     return get_llm_response(query, model_name, system)
 
 def main(query):
@@ -198,115 +204,104 @@ Content Library: {des}
     print(r)
     return r
 
+def process_rag_benchmark(input_file="res2.xlsx", output_file="res2.xlsx"):
+    """
+    读取Excel文件中的Benchmark prompt列，对每个问题进行RAG检索，
+    统计检索耗时，并将结果写入Excel文件
+    
+    Args:
+        input_file: 输入Excel文件路径
+        output_file: 输出Excel文件路径
+    """
+    # 读取Excel文件
+    df = pd.read_excel(input_file, sheet_name='检索效果对比')
+    
+    # 确保必要的列存在，如果不存在则创建并初始化为空字符串
+    if 'rag_retrieval_result' not in df.columns:
+        df['rag_retrieval_result'] = ''
+    if 'time_spend_rag' not in df.columns:
+        df['time_spend_rag'] = ''
+    
+    # 强制将这两列转换为字符串类型，避免数据类型冲突
+    df['rag_retrieval_result'] = df['rag_retrieval_result'].astype(str)
+    df['time_spend_rag'] = df['time_spend_rag'].astype(str)
+    
+    # 处理每个问题
+    for index, row in df.iterrows():
+        prompt = row['Benchmark prompt']
+        
+        if pd.isna(prompt) or prompt == '':
+            print(f"跳过第{index+1}行：空问题")
+            # 确保空值也被转换为字符串
+            df.at[index, 'rag_retrieval_result'] = str("")
+            df.at[index, 'time_spend_rag'] = str("")
+            continue
+            
+        print(f"正在处理第{index+1}个问题的RAG检索...")
+        
+        # 记录开始时间
+        start_time = time.time()
+        
+        try:
+            # 进行RAG检索
+            result = main(prompt)
+            
+            # 记录结束时间
+            end_time = time.time()
+            time_spent = end_time - start_time
+            
+            # 将结果写入DataFrame，确保转换为字符串
+            if result is not None:
+                # 保存检索结果
+                df.at[index, 'rag_retrieval_result'] = str(result)
+                df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
+                print(f"第{index+1}个问题RAG检索完成，耗时: {time_spent:.2f}秒")
+            else:
+                df.at[index, 'rag_retrieval_result'] = str("检索失败")
+                df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
+                print(f"第{index+1}个问题检索失败，耗时: {time_spent:.2f}秒")
+                
+        except Exception as e:
+            # 记录结束时间
+            end_time = time.time()
+            time_spent = end_time - start_time
+            
+            df.at[index, 'rag_retrieval_result'] = str(f"检索出错: {str(e)}")
+            df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
+            print(f"第{index+1}个问题检索出错: {e}，耗时: {time_spent:.2f}秒")
+    
+    # 保存到Excel文件
+    try:
+        with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+            df.to_excel(writer, sheet_name='检索效果对比', index=False)
+        print(f"RAG检索处理完成，结果已保存到 {output_file}")
+    except Exception as e:
+        print(f"保存文件时出错: {e}")
+        # 尝试另存为新文件
+        backup_file = output_file.replace('.xlsx', '_rag_backup.xlsx')
+        df.to_excel(backup_file, sheet_name='检索效果对比', index=False)
+        print(f"已保存到备份文件: {backup_file}")
+
+def batch_process_rag_benchmark():
+    """
+    批量处理RAG基准问题的主函数
+    """
+    try:
+        path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
+        process_rag_benchmark(input_file=path, output_file=path)
+        print("所有RAG问题处理完成！")
+    except Exception as e:
+        print(f"批量处理RAG过程中出错: {e}")
+
+
 
 if __name__ == "__main__":
-
-    queries=[
-"""
- Generate HTML with vtk.js to visualize sliced rotor data
-
-        Load data:
-        - Load from http://127.0.0.1:5000/dataset/rotor.vti
-
-        Processing:
-        - Slice ：Set as active scalar "Pressure"
-        - Applies a Y-axis slice at 80% /depth (setSlice, setSlicingMode).
-        Visualization:
-        - Maps pressure values to colors (blue→white→red gradient) and opacity (full opacity).
-        - UI: Adds an orientation marker (XYZ axes) for spatial reference.
-        6. No GUI controls required
-""",
-"""
- Rotor Isosurface Visualization Requirements:
-        - Data: Load from rotor_simplified.vti dataset
-        - Process: Calculate velocity magnitude from vector components (√(vx²+vy²+vz²))
-        - Features:
-        * Isosurface extraction using Marching Cubes algorithm
-        * Rainbow colormap (blue->cyan->white->orange->red)
-        * Surface rendering with ambient(0.3), diffuse(0.7), specular(0.4) lighting
-        * Interactive 3D view with orientation axes widget
-        - Implementation: vtk.js framework with responsiv
-""",
-"""
-Create vtk.js visualization for isabel.vti dataset with velocity field.
-
-        Load data from: http://127.0.0.1:5000/dataset/isabel.vti
-
-        Generate streamlines from center seeds, show outline.
-
-        Use vtkFullScreenRenderWindow and load vtk.js from CDN.
-        
-""",
-"""
- Generate HTML with vtk.js to visualize volume rendering
-
-        Load from http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp
-        Scalar Mapping:
-        Activates the p scalar array for color encoding
-        Visualization:
-        Renders the colors and representation
-        positions the camera to focus on the dataset bounds
-        
-""",
+    batch_process_rag_benchmark()
 
 
-    ]
-    splited_queries=[
-        [
-        {"description": "Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js"},
-        {"description": "Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/rotor.vti"},
-        {"description": "Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% /depth along the Y-axis"},
-        {"description": "Visualization Setup — Map pressure values to a blue→white→red color gradient and set full opacity"},
-        {"description": "Add UI Element — Integrate an XYZ axes orientation marker for spatial reference"},
-        {"description": "Integrate all components and render the visualization without GUI controls"}
-        ],
-        [ 
-            {
-                "description": "Data Loading — Load the rotor_simplified.vti dataset using VTK.js data reader functions"
-            },
-            {
-                "description": "Data Processing — Calculate the velocity magnitude from vector components (vx, vy, vz) using vtkImageMagnitude or similar VTK.js functionality to derive √(vx²+vy²+vz²)"   
-            },
-            {
-                "description": "Feature Extraction — Apply the Marching Cubes algorithm to extract isosurfaces from the processed velocity magnitude data"
-            },
-            {
-                "description": "Visualization Setup — Map the extracted isosurface values to a rainbow colormap (blue→cyan→white→orange→red) and configure surface rendering with lighting parameters: ambient(0.3), diffuse(0.7), specular(0.4)"
-            },
-            {
-                "description": "Add UI Element — Integrate an interactive 3D view with an orientation axes widget for spatial reference"  
-            },
-            {
-                "description": "Responsive UI Implementation — Ensure the visualization is responsive and integrates seamlessly within the web application framework using vtk.js"
-            }
-    ],
-    [
-            {"description": "Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js"},
-            {"description": "Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/isabel.vti"},
-            {"description": "Data Processing — Set 'velocity' as the active vector field for streamline generation"},
-            {"description": "Streamline Setup — Generate streamlines starting from center seeds within the dataset"},
-            {"description": "Outline Visualization — Add an outline representation of the dataset to provide spatial context"},       
-            {"description": "Rendering Configuration — Use vtkFullScreenRenderWindow to handle the rendering setup and display the visualization in full screen"},
-            {"description": "Integrate all components and render the visualization including streamlines and outline without additional GUI controls"}
-        ],
-    [
-            {"description": "Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js"},
-            {"description": "Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/airfoil_oneslice.vtp"},
-            {"description": "Scalar Mapping — Activate the 'p' scalar array for color encoding in the visualization"},
-            {"description": "Visualization Setup — Configure volume rendering to display colors and representations based on the 'p' scalar values"},
-            {"description": "Camera Positioning — Adjust the camera position to focus on the dataset bounds ensuring all data is clearly visible"},
-            {"description": "Integrate all components and render the visualization"}
-        ]
-        
-        ]
-
-if __name__ == "__main__":
-    for query in queries:
-        # r = slipt_query(query)
-        r=main(query)
-        with open("output.txt", "a", encoding='utf-8') as f:
-            f.write(f"Query: {query}\n")
-            f.write(f"Result: {r}\n\n")
+# if __name__ == "__main__":
+#    # 读取res2.xlsx文件，然后使用benchmark prompt的问题调用函数，记录耗时和返回的结果，耗时写在time_spend_llm列，返回的结果写在llm_result列
+#    pass
 
     
 

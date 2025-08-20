@@ -4,7 +4,7 @@ from langchain_huggingface import HuggingFaceEmbeddings # Hugging Face 嵌入模
 import sys # 系统相关功能库
 import os # 操作系统相关功能库
 
-from llm_agent.prompt_agent import analyze_query, merge_analysis # 从其他模块导入查询分析和合并函数
+from llm_agent.prompt_agent import analyze_query # 从其他模块导入查询分析和合并函数
 from config.ollama_config import ollama_config # 导入 ollama 配置实例
 from config.app_config import app_config# 从配置文件导入 FAISS 数据库路径
 
@@ -40,6 +40,8 @@ class VTKSearcher:
             allow_dangerous_deserialization=True # 允许加载 pickle 序列化的索引 (注意安全风险)
         )
 
+
+    
     def search(self, analysis: dict, query: str, metadata_filters: dict = None) -> str:
         """
         搜索相关的VTK示例，支持元数据过滤（后过滤）。

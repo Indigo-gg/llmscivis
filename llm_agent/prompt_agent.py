@@ -1,8 +1,10 @@
+import pandas as pd
+import time
 import json
-import re
 import sys
 import os
 import demjson3
+import re
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,8 +21,8 @@ from config.ollama_config import ollama_config
 # VTK.js常用API列表，用于提示词中的知识注入
 VTKJS_COMMON_APIS = app_config.VTKJS_COMMON_APIS
 
-def analyze_query(query: str, model_name, system=None) -> dict:
-    """分析用户查询，返回结构化的需求分析结果
+def analyze_query(query: str, model_name, system=None) -> list[dict]:
+    """分析用户查询，返回结构化的提示词拓展
     
     Args:
         query: 用户输入的查询
@@ -28,84 +30,99 @@ def analyze_query(query: str, model_name, system=None) -> dict:
         system: 可选的系统提示词，若不提供则使用默认提示词
         
     Returns:
-        dict: 包含main_goal, data_source, key_apis的字典
+        dict: 包含分割后的查询结果，格式为数组
     """
     
     # 默认系统提示词，结构化输出格式，增加领域知识和示例
-    default_system = """
-    你是一个专业的VTK.js可视化需求分析助手。你需要基于用户的问题，分析并扩展为结构化的可视化需求。
+    default_system = f"""
+    You are a professional VTK.js visualization requirement analysis assistant. Based on the user's question, you need to analyze and expand it into structured visualization requirements.
 
-    # 输出格式要求（必须严格遵守）
-    1. 你的回答必须只包含一个有效的JSON对象，且结构如下：
-    <OUTPUT>{"visualization": {"type": "可视化类型", "description": "详细描述", "components": [{"name": "组件名称", "description": "组件描述"}], "dataSources": [{"name": "数据源名称", "type": "数据类型", "description": "数据源描述"}]}}</OUTPUT>
-    2. 只允许输出上述JSON对象，不允许有任何多余内容，包括但不限于：解释、注释、markdown代码块、代码标记、HTML、额外文本、标签、空行等。
-    3. 输出内容必须严格为纯JSON，不能有任何markdown格式、代码块标记、<Output>标签或其他包裹内容。
-    4. 字段必须完整、格式必须正确，所有key和value都要用英文双引号，逗号、括号等符号必须符合JSON语法。
-    5. 只允许输出visualization字段，不允许输出其他字段。
+    # Output Format Requirements (Must Be Strictly Followed)
+    1. Your response must contain only one valid JSON object, with the following structure:
 
-    # 错误示例（绝对禁止）
-    - 输出包含任何额外文本、解释、注释、markdown代码块、HTML、标签等。
-    - 输出格式为：
-      以下是分析结果：
-      {"visualization": {...}}
-    - 输出格式为：
-      <Output>{"visualization": {...}}</Output>
-    - 输出格式为：
-      <html>...</html>
-
-    # 正确示例
-    用户输入: "使用vtkjs生成一个球体"
-    正确输出：
-    {"visualization": {"type": "三维球体可视化", "description": "使用VTK.js创建一个3D球体并在场景中渲染显示", "components": [{"name": "vtkSphereSource", "description": "生成球体几何"}, {"name": "vtkMapper", "description": "几何到图形的映射"}, {"name": "vtkActor", "description": "场景中的可渲染对象"}, {"name": "vtkRenderer", "description": "渲染器"}, {"name": "vtkRenderWindow", "description": "渲染窗口"}], "dataSources": [{"name": "vtkSphereSource", "type": "模拟数据", "description": "生成球体数据"}]}}
-    # VTK.js常用API参考
-    以下是VTK.js中常用的API，可以参考这些API进行推荐：
-    {', '.join(VTKJS_COMMON_APIS)}
-
-    # 重要提示
-    - 只输出一个有效的JSON对象，且仅包含visualization字段
-    - 不允许有任何多余内容、格式、标签、代码块、解释或注释
-    - 输出内容必须严格符合JSON语法，否则会导致解析失败
+    [
+    {{"description": "......"}},
+    {{"description": "......"}}
+        ...
+    ]
+    2. Only the above JSON object is allowed in the output; no extra content is permitted, including but not limited to: explanations, comments, markdown code blocks, code markers, HTML, additional text, tags, blank lines, etc.
+    3. The output content must be strictly pure JSON, without any markdown formatting, code block markers, <Output> tags, or other enclosing content.
+    4. Fields must be complete and the format must be correct. All keys and values must be enclosed in English double quotes, and symbols such as commas and parentheses must comply with JSON syntax.
+    5. Below is a list of commonly used VTK.js modules:\n{VTKJS_COMMON_APIS}
     """
-    
 
     
-    # 构建分析提示词，包含用户查询
-    analysis_prompt = f"""请分析并扩展以下用户查询，提供结构化的可视化需求：
+    # Construct the analysis prompt, including the user's query
+    analysis_prompt = f"""Please analyze and expand the following user query, and provide structured visualization requirements:
     
     {query}
     
-    警告：你必须严格按照指定的JSON格式输出结果，不要输出任何其他内容。你的回答将被直接解析为JSON，任何额外的文本、解释或代码都会导致解析失败。
+    Example:
+    Input:
+    Generate HTML with vtk.js to visualize sliced rotor data
+
+    Load data:
+    - Load from http://127.0.0.1:5000/dataset/rotor.vti
+    Processing:
+    - Slice: Set as active scalar "Pressure"
+    - Applies a Y-axis slice at 80% /depth (setSlice, setSlicingMode).
+    Visualization:
+    - Maps pressure values to colors (blue→white→red gradient) and opacity (full opacity).
+    - UI: Adds an orientation marker (XYZ axes) for spatial reference.
+    6. No GUI controls required"""+"""Output:
+     [
+        {
+            "description": "Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js;"
+        },
+        {
+            "description": "Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/rotor.vti using vtkXMLImageDataReader;"
+        },
+        {
+            "description": "Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% /depth along the Y-axis using vtkImageSlice;"
+        },
+        {
+            "description": "Visualization Setup — Map pressure values to a blue→white→red color gradient and set full opacity using vtkColorTransferFunction, vtkPiecewiseFunction, vtkMapper;"
+        },
+        {
+            "description": "Add UI Element — Integrate an XYZ axes orientation marker for spatial reference using vtkOrientationMarkerWidget, vtkAxesActor;"
+        },
+        {
+            "description": "Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor;"
+        }
+]
+    Warning: You must output the result in the specified JSON format strictly. Do not output any other content. Your response will be directly parsed as JSON; any additional text, explanations, or code will cause parsing failure.
     
-    只输出一个有效的JSON对象，不要使用markdown格式，不要添加代码块标记，不要添加任何解释或注释。"""
+    Output only one valid JSON object. Do not use markdown formatting, do not add code block markers, and do not add any explanations or comments."""
     
     # 从LLM获取回答
     try:
+        result=''
         response = get_qwen_response(analysis_prompt, model_name, default_system)
         print('prompt analysis (raw):\n', response,'\n')
         
         # 尝试从回答中提取JSON，使用更健壮的方法
         
         # 1. 首先尝试从markdown代码块中提取
-        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+        json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
-            print('从markdown代码块中提取到JSON')
+            print('从markdown代码块中提取到JSON数组')
         else:
-            # 2. 尝试提取最外层的花括号包含的内容（贪婪匹配）
-            json_match = re.search(r'(\{.*\})', response, re.DOTALL)
+            # 2. 尝试提取最外层的方括号包含的内容（贪婪匹配）
+            json_match = re.search(r'(\[.*\])', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
-                print('从文本中提取到完整JSON对象')
+                print('从文本中提取到完整JSON数组')
             else:
-                # 3. 尝试非贪婪匹配，可能提取到第一个有效的JSON对象
-                json_match = re.search(r'(\{.*?\})', response, re.DOTALL)
+                # 3. 尝试非贪婪匹配，可能提取到第一个有效的JSON数组
+                json_match = re.search(r'(\[.*?\])', response, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
-                    print('从文本中提取到第一个JSON对象')
+                    print('从文本中提取到第一个JSON数组')
                 else:
-                    # 4. 如果没有找到JSON对象，尝试直接解析整个回答
+                    # 4. 如果没有找到JSON数组，尝试直接解析整个回答
                     json_str = response.strip()
-                    print('未找到JSON对象，尝试直接解析整个回答')
+                    print('未找到JSON数组，尝试直接解析整个回答')
         
         # 记录提取到的JSON字符串
         print('提取的JSON字符串:\n', json_str)
@@ -115,177 +132,138 @@ def analyze_query(query: str, model_name, system=None) -> dict:
             try:
                 result = json.loads(json_str)
                 print('使用标准JSON解析器成功解析')
+                # 验证结果是否为数组且每个元素都有description字段
+                if isinstance(result, list) and all(isinstance(item, dict) and 'description' in item for item in result):
+                    print('验证JSON格式正确：数组且每个元素都包含description字段')
+                else:
+                    print('JSON格式不符合要求：不是数组或元素缺少description字段')
+                    return None
             except json.JSONDecodeError as e:
-                # 4. 如果标准解析失败，尝试使用内置的更宽松的解析方法
+                # 如果标准解析失败，尝试使用内置的更宽松的解析方法
                 print(f'标准JSON解析失败: {e}')
                 # 使用demjson3进行更宽松的JSON解析
                 print('尝试使用demjson3进行解析')
                 try:
                     result = demjson3.decode(json_str)
                     print('使用demjson3成功解析')
+                    # 验证结果是否为数组且每个元素都有description字段
+                    if isinstance(result, list) and all(isinstance(item, dict) and 'description' in item for item in result):
+                        print('验证JSON格式正确：数组且每个元素都包含description字段')
+                    else:
+                        print('JSON格式不符合要求：不是数组或元素缺少description字段')
+                        return None
                 except demjson3.JSONDecodeError as e:
                     print(f'demjson3解析失败: {e}')
                     # 如果demjson3也失败了，返回默认结果
-                    return {
-                        "main_goal": query,
-                        "data_source": "",
-                        "key_apis": []
-                    }
-            
-            # 只处理visualization结构
-            if "visualization" in result:
-                vis = result["visualization"]
-                # 从visualization对象中提取信息
-                main_goal = f"{vis.get('type', '')} - {vis.get('description', '')}".strip(' -')
+                    return None
                 
-                # 提取数据源信息
-                data_sources = vis.get("dataSources", [])
-                data_source = ", ".join([f"{ds.get('name', '')} ({ds.get('type', '')})" 
-                                        for ds in data_sources]) if data_sources else ""
-                
-                # 提取API信息
-                components = vis.get("components", [])
-                key_apis = [comp.get("name") for comp in components if comp.get("name")]
-                
-                result = {
-                    "main_goal": main_goal or query,
-                    "data_source": data_source,
-                    "key_apis": key_apis
-                }
-            else:
-                # 如果没有visualization字段，直接返回默认
-                result = {
-                    "main_goal": query,
-                    "data_source": "",
-                    "key_apis": []
-                }
-            
-            # 验证JSON结构并尝试修复
-            required_fields = ["main_goal", "data_source", "key_apis"]
-            for field in required_fields:
-                if field not in result:
-                    # 如果缺少字段，设置默认值
-                    if field == "main_goal":
-                        result[field] = query
-                    elif field == "data_source":
-                        result[field] = ""
-                    elif field == "key_apis":
-                        result[field] = []
-                    print(f"警告: JSON缺少{field}字段，已设置默认值")
-            
-            # 确保key_apis是列表
-            if not isinstance(result["key_apis"], list):
-                if isinstance(result["key_apis"], str):
-                    # 如果是字符串，尝试分割成列表
-                    result["key_apis"] = [api.strip() for api in result["key_apis"].split(",")]
-                else:
-                    # 如果是其他类型，转换为字符串后再处理
-                    result["key_apis"] = [str(result["key_apis"])]
-                print("警告: key_apis不是列表格式，已转换为列表")
-            
-            return result
-            
         except json.JSONDecodeError:
             # JSON解析失败，尝试使用正则表达式提取
-            print("JSON解析失败，尝试使用正则表达式提取")
-            
-            # 提取主要目标
-            main_goal_match = re.search(r"main_goal\"?\s*:\s*\"([^\"]+)", response) or \
-                             re.search(r"Main goal:?\s*(.*?)(?:\n|$)", response)
-            main_goal = main_goal_match.group(1).strip() if main_goal_match else query
-
-            # 提取数据来源
-            data_source_match = re.search(r"data_source\"?\s*:\s*\"([^\"]+)", response) or \
-                               re.search(r"Data source:?\s*(.*?)(?:\n|$)", response)
-            data_source = data_source_match.group(1).strip() if data_source_match else ""
-
-            # 提取可能需要的vtkjs接口
-            key_apis_match = re.search(r"key_apis\"?\s*:\s*\[(.*?)\]", response, re.DOTALL) or \
-                            re.search(r"VTK\.js interfaces:?\s*(.*?)(?:\n|$)", response)
-            
-            if key_apis_match:
-                apis_text = key_apis_match.group(1)
-                # 处理数组格式或逗号分隔的文本
-                if '"' in apis_text or "'" in apis_text:
-                    # 可能是JSON数组格式
-                    key_apis = re.findall(r'\"([^\"]+)\"', apis_text) or re.findall(r'\'([^\']+)\'', apis_text)
-                else:
-                    # 可能是逗号分隔的文本
-                    key_apis = [api.strip() for api in apis_text.split(",")]
-            else:
-                key_apis = []
-            
-            # 二次尝试：如果没有提取到API，尝试从整个文本中查找VTK.js API
-            if not key_apis:
-                for api in VTKJS_COMMON_APIS:
-                    if api.lower() in response.lower():
-                        key_apis.append(api)
+            print('JSON解析失败')
+            return None
             
     except Exception as e:
         print(f"Error in analyze_query: {e}")
-        return {
-            "main_goal": query,
-            "data_source": "",
-            "key_apis": []
-        }
+        return None
 
-    res={
-        "main_goal": main_goal,
-        "data_source": data_source,
-        "key_apis": key_apis
-    }
-    print('prompt analysis (res): \n', res,'\n')
-    return res
+    print('prompt analysis (res): \n', result,'\n')
+    return result
 
 
-def merge_analysis(analysis: dict) -> str:
-    """将分析结果合并为格式化的提示词
+def process_benchmark_prompts(input_file="res2.xlsx", output_file="res2.xlsx", model_name=None):
+    """
+    读取Excel文件中的Benchmark prompt列，对每个问题进行分析，
+    统计分割耗时，并将结果写入Excel文件
     
     Args:
-        analysis: 包含main_goal, data_source, key_apis的字典
-        
-    Returns:
-        str: 格式化的提示词
+        input_file: 输入Excel文件路径
+        output_file: 输出Excel文件路径
+        model_name: 使用的LLM模型名称
     """
-    return f"""
-    用户需求分析：
-    1. 主要目标：{analysis["main_goal"]}
-    2. 数据来源：{analysis['data_source']}
-    3. 关键API：{', '.join(analysis["key_apis"]) if analysis["key_apis"] else '待确定'}
+    if model_name is None:
+        model_name = ollama_config.models_qwen["qwen2.5-14b"]
     
+    # 读取Excel文件
+    df = pd.read_excel(input_file, sheet_name='检索效果对比')
+    
+    # 确保必要的列存在，如果不存在则创建并初始化为空字符串
+    if 'splited_prompt' not in df.columns:
+        df['splited_prompt'] = ''
+    if 'time_spend_prompt' not in df.columns:
+        df['time_spend_prompt'] = ''
+    
+    # 强制将这两列转换为字符串类型，避免数据类型冲突
+    df['splited_prompt'] = df['splited_prompt'].astype(str)
+    df['time_spend_prompt'] = df['time_spend_prompt'].astype(str)
+    
+    # 处理每个问题
+    for index, row in df.iterrows():
+        prompt = row['Benchmark prompt']
+        
+        if pd.isna(prompt) or prompt == '':
+            print(f"跳过第{index+1}行：空问题")
+            # 确保空值也被转换为字符串
+            df.at[index, 'splited_prompt'] = str("")
+            df.at[index, 'time_spend_prompt'] = str("")
+            continue
+            
+        print(f"正在处理第{index+1}个问题...")
+        
+        # 记录开始时间
+        start_time = time.time()
+        
+        try:
+            # 分析问题
+            result = analyze_query(prompt, model_name)
+            
+            # 记录结束时间
+            end_time = time.time()
+            time_spent = end_time - start_time
+            
+            # 将结果写入DataFrame，确保转换为字符串
+            if result is not None:
+                # 将结果转换为JSON字符串保存
+                df.at[index, 'splited_prompt'] = str(json.dumps(result, ensure_ascii=False, indent=2))
+                df.at[index, 'time_spend_prompt'] = str(f"{time_spent:.2f}")
+                print(f"第{index+1}个问题处理完成，耗时: {time_spent:.2f}秒")
+            else:
+                df.at[index, 'splited_prompt'] = str("分析失败")
+                df.at[index, 'time_spend_prompt'] = str(f"{time_spent:.2f}")
+                print(f"第{index+1}个问题分析失败，耗时: {time_spent:.2f}秒")
+                
+        except Exception as e:
+            # 记录结束时间
+            end_time = time.time()
+            time_spent = end_time - start_time
+            
+            df.at[index, 'splited_prompt'] = str(f"处理出错: {str(e)}")
+            df.at[index, 'time_spend_prompt'] = str(f"{time_spent:.2f}")
+            print(f"第{index+1}个问题处理出错: {e}，耗时: {time_spent:.2f}秒")
+    
+    # 保存到Excel文件
+    try:
+        with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+            df.to_excel(writer, sheet_name='检索效果对比', index=False)
+        print(f"处理完成，结果已保存到 {output_file}")
+    except Exception as e:
+        print(f"保存文件时出错: {e}")
+        # 尝试另存为新文件
+        backup_file = output_file.replace('.xlsx', '_backup.xlsx')
+        df.to_excel(backup_file, sheet_name='检索效果对比', index=False)
+        print(f"已保存到备份文件: {backup_file}")
+
+def batch_process_benchmark_prompts():
     """
+    批量处理基准问题的主函数
+    """
+    try:
+        process_benchmark_prompts(input_file=path, output_file=path)
+        print("所有问题处理完成！")
+    except Exception as e:
+        print(f"批量处理过程中出错: {e}")
 
 
 if __name__ == "__main__":
-    test_query = """
-    Generate an HTML file using vtk.js from CDN to visualize streamlines for a .vti dataset with a velocity field.
-
-Requirements:
-
-Load .vti file from path ../../../vtkjs-benchmark-datasets/redsea.vti using vtkXMLImageDataReader
-
-Set active vector field as "velocity"
-
-Generate 1000 random seed points inside dataset bounds using vtkPoints and vtkPolyData
-
-Trace streamlines using vtkImageStreamline from these seeds
-
-Set streamline properties: RK4, maximum number of steps 1000, forward direction
-
-Add dataset outline using vtkOutlineFilter
-
-Visualize:
-
-Streamlines in cyan color with line width 1
-
-Outline in red color with line width 3
-
-Use vtkFullScreenRenderWindow for rendering and reset camera after adding actors
-
-Load vtk.js via CDN link https://unpkg.com/vtk.js
-
-No UI controls are required
-    """
-    result = analyze_query(test_query,ollama_config.models_deepseek['deepseek-v3'])
-    # print(json.dumps(result, ensure_ascii=False, indent=2))
-    print(merge_analysis(result))
+    # 读取res2.xlsx文件，其中Benchmark prompt列，每个数据项都是问题
+    path="D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
+    batch_process_benchmark_prompts()
