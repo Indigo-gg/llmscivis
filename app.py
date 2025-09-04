@@ -363,57 +363,85 @@ def get_exported_cases():
     return Response(json.dumps(tree_structure), content_type='application/json')
 
 
-# 数据的位置在http://127.0.0.1:5000/dataset/filename
 @app.route('/dataset/<path:filename>', methods=['GET'])
 def get_dataset_file(filename):
-    # 构建文件路径
-    file_path = os.path.join('data', 'dataset', filename)
+    # 检查请求路径是否以 "/index.json" 结尾
+    if filename.endswith('/index.json'):
+        # 提取真实的文件名（去掉最后的 "/index.json"）
+        real_filename = filename[:-len('/index.json')]
+        file_path = os.path.join(DATA_DIR, real_filename)
 
-    # 检查文件是否存在
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
-
-    # 根据文件扩展名确定内容类型和读取模式
-    file_ext = os.path.splitext(filename)[1].lower()
-    
-    # 文本文件类型
-    text_types = {
-        '.txt': 'text/plain',
-        '.json': 'application/json',
-        '.html': 'text/html',
-        '.csv': 'text/csv',
-        '.xml': 'application/xml'
-    }
-    
-    # 二进制文件类型
-    binary_types = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.vtp': 'application/octet-stream',
-        '.vti': 'application/octet-stream',
-        '.vtk': 'application/octet-stream',
-        '.vtu': 'application/octet-stream',
-    }
-    
-    # 确定内容类型和读取模式
-    if file_ext in text_types:
-        content_type = text_types[file_ext]
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
-    elif file_ext in binary_types:
-        content_type = binary_types[file_ext]
-        with open(file_path, 'rb') as file:
-            content = file.read()
+        # 检查真实文件是否存在
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            # 如果文件存在，生成一个包含元数据的 JSON 响应
+            # 这会告诉 vtk.js 如何加载这个文件
+            response_data = {
+                "version": "1.0",
+                "name": os.path.basename(real_filename),
+                "type": "vtkMultiBlockDataSet",
+                "datasets": [
+                    {
+                        "relativePath": os.path.basename(real_filename),
+                        "name": os.path.basename(real_filename),
+                        "type": "vtkStructuredPoints",
+                        "dataType": "LittleEndian",
+                        "compression": "gzipped"
+                    }
+                ]
+            }
+            return jsonify(response_data)
+        else:
+            # 如果真实文件不存在，返回404错误
+            return jsonify({'error': 'File not found'}), 404
     else:
-        # 默认处理为二进制文件
-        content_type = 'application/octet-stream'
-        with open(file_path, 'rb') as file:
-            content = file.read()
-    
-    # 返回文件内容
-    return Response(content, content_type=content_type)
+        # 如果请求路径不是以 "/index.json" 结尾，执行原有的文件服务逻辑
+        file_path = os.path.join(DATA_DIR, filename)
+
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        # 根据文件扩展名确定内容类型和读取模式
+        file_ext = os.path.splitext(filename)[1].lower()
+        
+        # 文本文件类型
+        text_types = {
+            '.txt': 'text/plain',
+            '.json': 'application/json',
+            '.html': 'text/html',
+            '.csv': 'text/csv',
+            '.xml': 'application/xml'
+        }
+        
+        # 二进制文件类型
+        binary_types = {
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif',
+            '.vtp': 'application/octet-stream',
+            '.vti': 'application/octet-stream',
+            '.vtk': 'application/octet-stream',
+            '.vtu': 'application/octet-stream',
+        }
+        
+        # 确定内容类型和读取模式
+        if file_ext in text_types:
+            content_type = text_types[file_ext]
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+        elif file_ext in binary_types:
+            content_type = binary_types[file_ext]
+            with open(file_path, 'rb') as file:
+                content = file.read()
+        else:
+            # 默认处理为二进制文件
+            content_type = 'application/octet-stream'
+            with open(file_path, 'rb') as file:
+                content = file.read()
+        
+        # 返回文件内容
+        return Response(content, content_type=content_type)
 
 if __name__ == '__main__':
     app.run(debug=True)

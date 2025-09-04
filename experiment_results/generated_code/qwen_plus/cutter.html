@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<title>VTK.js Rotor Dataset Visualization</title>
+<style>
+body {
+margin: 0;
+padding: 0;
+overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+<script src="https://unpkg.com/vtk.js"></script>
+<script>
+// Import required VTK.js modules
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+const vtkPiecewiseFunction = vtk.Common.Core.vtkPiecewiseFunction;
+const vtkColorTransferFunction = vtk.Common.Core.vtkColorTransferFunction;
+const vtkImageReslice = vtk.Filters.General.vtkImageReslice;
+const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+
+// ----------------------------------------------------------------------------
+// Create the render window and renderer
+// ----------------------------------------------------------------------------
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderer.getRenderWindow();
+
+// ----------------------------------------------------------------------------
+// Load the dataset from the specified URL
+// ----------------------------------------------------------------------------
+const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
+reader.loadData().then(() => {
+const imageData = reader.getOutputData();
+
+// ----------------------------------------------------------------------------
+// Set the active scalar array to "Pressure"
+// ----------------------------------------------------------------------------
+imageData.setActiveScalars('Pressure');
+
+// ----------------------------------------------------------------------------
+// Apply a slice along the Y axis at 80% depth
+// Convert percentage to slice index based on Y dimension
+// ----------------------------------------------------------------------------
+const dims = imageData.getDimensions();
+const ySliceIndex = Math.floor(dims[1] * 0.8); // 80% of Y dimension
+
+const reslice = vtkImageReslice.newInstance();
+reslice.setInputData(imageData);
+reslice.setResliceAxesDirectionCosines([1, 0, 0], [0, 0, 1], [0, 1, 0]); // Ensure proper orientation
+reslice.setResliceAxesOrigin(0, ySliceIndex, 0);
+reslice.setOutputDimensionality(2); // Slice is 2D
+reslice.update();
+
+const sliceImageData = reslice.getOutputData();
+
+// ----------------------------------------------------------------------------
+// Set up mapper and actor for the slice
+// ----------------------------------------------------------------------------
+const mapper = vtkImageMapper.newInstance();
+mapper.setInputData(sliceImageData);
+mapper.setScalarVisibility(true);
+mapper.setColorWindow(255); // default
+mapper.setColorLevel(127.5); // default
+
+const actor = vtkImageSlice.newInstance();
+actor.setMapper(mapper);
+
+// ----------------------------------------------------------------------------
+// Configure the color map: blue → white → red
+// Use full scalar range from the data
+// ----------------------------------------------------------------------------
+const scalarRange = sliceImageData.getPointData().getScalars().getRange();
+const ctf = vtkColorTransferFunction.newInstance();
+ctf.addRGBPoint(scalarRange[0], 0, 0, 1); // blue
+ctf.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // white
+ctf.addRGBPoint(scalarRange[1], 1, 0, 0); // red
+
+mapper.setLookupTable(ctf);
+
+// ----------------------------------------------------------------------------
+// Set opacity to fully opaque (no transparency variation)
+// ----------------------------------------------------------------------------
+const ofun = vtkPiecewiseFunction.newInstance();
+ofun.addPoint(0, 1.0);
+ofun.addPoint(255, 1.0);
+actor.getProperty().setScalarOpacity(ofun);
+
+// ----------------------------------------------------------------------------
+// Add actor to renderer
+// ----------------------------------------------------------------------------
+renderer.addActor(actor);
+
+// ----------------------------------------------------------------------------
+// Add orientation marker with XYZ axes in bottom-right corner
+// ----------------------------------------------------------------------------
+const cubeActor = vtkAnnotatedCubeActor.newInstance();
+const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+actor: cubeActor,
+interactor: fullScreenRenderer.getInteractor()
+});
+orientationWidget.setViewport(0.8, 0.0, 1.0, 0.2); // bottom-right corner
+orientationWidget.setMinPixelSize(100);
+orientationWidget.setMaxPixelSize(200);
+orientationWidget.setEnabled(true);
+
+// ----------------------------------------------------------------------------
+// Final rendering
+// ----------------------------------------------------------------------------
+renderer.resetCamera();
+renderWindow.render();
+});
+});
+</script>
+</body>
+
+</html>

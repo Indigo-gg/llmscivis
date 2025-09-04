@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js streamtracing</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+
+        const Representation = vtk.Rendering.Core.vtkProperty.Representation;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const macro = vtk.macro;
+
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+
+
+     
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+        function addRepresentation(name, filter, props = {}) {
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(filter.getOutputPort());
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+            actor.getProperty().set(props);
+            renderer.addActor(actor);
+        }
+
+        // ----------------------------------------------------------------------------
+
+        // load testing data
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+            reader.loadData().then(() => {
+                const imageData = reader.getOutputData(0);
+                const velocityArray = imageData.getPointData().getArrayByName('Velocity');
+
+                //get bounds for data sets
+                //set plane according to bounds
+                const bounds = imageData.getBounds()
+
+                const pointSource = vtk.Filters.Sources.vtkPointSource.newInstance();
+                pointSource.setNumberOfPoints(1000);  // adjust for density
+                pointSource.setCenter(
+                    (bounds[0] + bounds[1]) / 2,
+                    (bounds[2] + bounds[3]) / 2,
+                    (bounds[4] + bounds[5]) / 2
+                );
+                pointSource.setRadius(Math.max(
+                    bounds[1] - bounds[0],
+                    bounds[3] - bounds[2],
+                    bounds[5] - bounds[4],
+                ) / 2);
+
+                console.log("bounds", bounds)
+
+                const streamline = vtkImageStreamline.newInstance();
+                streamline.setInputData(imageData);  // velocity field
+                streamline.setInputConnection(pointSource.getOutputPort(), 1); // seeds
+
+                streamline.set({
+                    maximumNumberOfSteps: 1000,
+                    integrationStep: 0.5,
+                    // terminalSpeed: 1e-3,
+                    // integratorType: 1,         // RK4
+                    // integrationDirection: 2,   // both
+                });
+
+
+                const outlineFilter = vtkOutlineFilter.newInstance();
+                outlineFilter.setInputData(imageData);
+
+                addRepresentation('streamLine', streamline, {
+                    diffuseColor: [0, 1, 1],
+                    lineWidth: 5,
+                });
+                addRepresentation('outline', outlineFilter, {
+                    diffuseColor: [1, 0, 0],
+                    lineWidth: 3,
+                });
+                // addRepresentation('seed', pointSource, {
+                //     representation: Representation.POINTS,
+                //     pointSize: 10,
+                // });
+
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        });
+
+
+    </script>
+
+</body>
+
+</html>

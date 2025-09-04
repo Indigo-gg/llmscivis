@@ -25,14 +25,15 @@ const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
 const vtkVolume = vtk.Rendering.Core.vtkVolume;
 const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
 const vtkVolumeProperty = vtk.Rendering.Core.vtkVolumeProperty;
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
 
 // Create full screen render window
 const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
 const renderer = fullScreenRenderer.getRenderer();
-const renderWindow = fullScreenRenderWindow.getRenderWindow();
+const renderWindow = fullScreenRenderer.getRenderWindow();
 
 // Load dataset from the given URL
-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
+const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: false });
 reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
 reader.loadData().then(() => {
 const dataset = reader.getOutputData();
@@ -59,11 +60,12 @@ numberOfComponents: 1,
 // Add to dataset and set as active scalar
 dataset.getPointData().addArray(magnitude);
 dataset.getPointData().setActiveScalars('VelocityMagnitude');
+console.log(dataset.toJSON())
 
 // Setup volume mapper
 const volumeMapper = vtkVolumeMapper.newInstance();
 volumeMapper.setInputData(dataset);
-volumeMapper.setSampleDistance(0.5); // Adjust for quality/performance
+volumeMapper.setSampleDistance(0.1); // Adjust for quality/performance
 
 // Setup color transfer function (blue -> white -> red)
 const colorTransferFunction = vtkColorTransferFunction.newInstance();
@@ -84,8 +86,8 @@ opacityFunction.addPoint(max, 1.0);
 
 // Setup volume property
 const volumeProperty = vtkVolumeProperty.newInstance();
-volumeProperty.setColor(colorTransferFunction);
-volumeProperty.setScalarOpacity(opacityFunction);
+//volumeProperty.setRGBTransferFunction(0,colorTransferFunction);
+//volumeProperty.setScalarOpacity(opacityFunction);
 volumeProperty.setInterpolationTypeToLinear();
 volumeProperty.setAmbient(0.2);
 volumeProperty.setDiffuse(0.9);
@@ -96,6 +98,10 @@ volumeProperty.setSpecularPower(10);
 const volume = vtkVolume.newInstance();
 volume.setMapper(volumeMapper);
 volume.setProperty(volumeProperty);
+volume.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+volume.getProperty().setScalarOpacityUnitDistance(0, 0.1);
+volume.getProperty().setShade(false);
+volume.getProperty().setScalarOpacity(0, opacityFunction);
 
 // Add volume to scene
 renderer.addActor(volume);
@@ -107,9 +113,9 @@ const center = [
 (bounds[2] + bounds[3]) / 2,
 (bounds[4] + bounds[5]) / 2
 ];
-renderer.getCamera().setFocalPoint(...center);
-renderer.getCamera().setPosition(center[0], center[1], center[2] - 100); // Look along +Z
-renderer.getCamera().setViewUp(0, 1, 0);
+renderer.getActiveCamera().setFocalPoint(...center);
+renderer.getActiveCamera().setPosition(center[0], center[1], center[2] + 10); // Look along +Z
+renderer.getActiveCamera().setViewUp(0, 1, 0);
 renderer.resetCamera();
 renderWindow.render();
 });
