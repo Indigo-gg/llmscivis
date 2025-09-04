@@ -5,7 +5,12 @@ from llm_agent.ollma_chat import get_qwen_response,get_llm_response
 from RAG.retriever_v2 import get_data_from_excel
 import json
 from RAG.retriever_v2 import VTKSearcherV2
-from config.ollama_config import ollama_config
+from config.ollama_config import ollama_config 
+import json
+from llm_agent.ollma_chat import get_llm_response
+import time
+import pandas as pd
+from openpyxl import load_workbook
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 '''实现RAG，检索数据并生成回答'''
@@ -25,13 +30,8 @@ class RAGAgent:
         """
         return self.searcher.search(analysis, prompt, metadata_filters=metadata_filters)
 # 使用示例
-
-if __name__ == "__main__":
-    # 导入必要的模块
-    from llm_agent.ollma_chat import get_llm_response
-    import time
-    
-    # 初始化搜索器
+def main():
+     # 初始化搜索器
     searcher = VTKSearcherV2()
     
     # 文件路径
@@ -109,3 +109,63 @@ if __name__ == "__main__":
         print(f"\n所有结果已保存到 {output_file} 文件中")
     except Exception as e:
         print(f"保存结果到JSON文件时出错: {e}")
+
+def json_to_excel(json_file_path, excel_file_path):
+    """
+    读取JSON文件并将结果保存到Excel文件
+    
+    Args:
+        json_file_path: JSON文件路径
+        excel_file_path: 输出Excel文件路径
+    """
+    # 读取JSON文件
+    try:
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        print(f"成功读取JSON文件: {json_file_path}")
+    except Exception as e:
+        print(f"读取JSON文件时出错: {e}")
+        return
+    
+    # 转换数据为DataFrame
+    try:
+        df = pd.DataFrame(data)
+        print("数据转换为DataFrame成功")
+    except Exception as e:
+        print(f"数据转换时出错: {e}")
+        return
+    
+    # 保存到Excel文件
+    try:
+        with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='w') as writer:
+            df.to_excel(writer, sheet_name='第二期实验结果备份', index=False)
+        print(f"处理完成，结果已保存到 {excel_file_path}")
+    except Exception as e:
+        print(f"保存文件时出错: {e}")
+        # 尝试另存为新文件
+        backup_file = excel_file_path.replace('.xlsx', '_backup.xlsx')
+        try:
+            with pd.ExcelWriter(backup_file, engine='openpyxl', mode='w') as writer:
+                df.to_excel(writer, sheet_name='检索结果', index=False)
+            print(f"已保存到备份文件: {backup_file}")
+        except Exception as backup_e:
+            print(f"保存备份文件时也出错: {backup_e}")
+            # 最后尝试直接保存为CSV作为备用方案
+            csv_file = excel_file_path.replace('.xlsx', '_result.csv')
+            try:
+                df.to_csv(csv_file, index=False, encoding='utf-8-sig')
+                print(f"已保存为CSV文件: {csv_file}")
+            except Exception as csv_e:
+                print(f"保存CSV文件也失败: {csv_e}")
+  
+
+if __name__ == "__main__":
+    # main()
+    #尝试读取excel文件，并把json结果写入excel文件中
+    json_file_path = "D:\\Pcode\\LLM4VIS\\llmscivis\\retrieval_results.json"
+    excel_file_path = "D:\\Pcode\\LLM4VIS\\llmscivis\\data\\recoreds\\res2.xlsx"
+    json_to_excel(json_file_path, excel_file_path)
+    
+    
+    
+   
