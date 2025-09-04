@@ -199,12 +199,12 @@ Content Library: {des}
 """
 
 
-    model_name="qwen3-plus"
+    model_name="qwen2.5-14b"
     r=get_llm_response(Q, model_name, system)
     print(r)
     return r
 
-def process_rag_benchmark(input_file="res2.xlsx", output_file="res2.xlsx"):
+def process_rag_benchmark(input_file, output_file):
     """
     读取Excel文件中的Benchmark prompt列，对每个问题进行RAG检索，
     统计检索耗时，并将结果写入Excel文件
@@ -287,7 +287,7 @@ def batch_process_rag_benchmark():
     批量处理RAG基准问题的主函数
     """
     try:
-        path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
+        path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res8-19.xlsx"
         process_rag_benchmark(input_file=path, output_file=path)
         print("所有RAG问题处理完成！")
     except Exception as e:

@@ -104,7 +104,7 @@ def read_benchmark_prompts(input_file="res2.xlsx"):
     """
     try:
         # 读取Excel文件
-        df = pd.read_excel(input_file, sheet_name='检索效果对比')
+        df = pd.read_excel(input_file, sheet_name='第二期实验数据')
         
         # 检查是否存在Benchmark prompt列
         if 'Benchmark prompt' not in df.columns:
@@ -140,7 +140,7 @@ def read_splited_prompts(input_file="res2.xlsx"):
     """
     try:
         # 读取Excel文件
-        df = pd.read_excel(input_file, sheet_name='检索效果对比')
+        df = pd.read_excel(input_file, sheet_name='第二期实验数据')
         
         # 检查是否存在splited_prompt列
         if 'splited_prompt' not in df.columns:
