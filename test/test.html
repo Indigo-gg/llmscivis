@@ -1,119 +1,112 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Redsea Volume Rendering</title>
-<style>
-body {
-margin: 0;
-padding: 0;
-overflow: hidden;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>VTK Stream Tracer Visualization (Global CDN)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+    }
+    #container {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 </head>
 <body>
-<div id="container"></div>
-<script src="https://unpkg.com/vtk.js"></script>
-<script>
-// Import required modules
-const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
-const vtkDataArray = vtk.Common.Core.vtkDataArray;
-const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
-const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
-const vtkVolume = vtk.Rendering.Core.vtkVolume;
-const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
-const vtkVolumeProperty = vtk.Rendering.Core.vtkVolumeProperty;
+  <div id="container"></div>
 
-// Create full screen render window
-const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
-const renderer = fullScreenRenderer.getRenderer();
-const renderWindow = fullScreenRenderWindow.getRenderWindow();
+  <!-- 全局引入vtk.js -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  
+  <script>
+    // 从全局vtk对象获取所需模块
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkStreamTracer = vtk.Filters.General.vtkStreamTracer;
+    const vtkLineSource = vtk.Filters.Sources.vtkLineSource;
+    const vtkTubeFilter = vtk.Filters.General.vtkTubeFilter;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
 
-// Load dataset from the given URL
-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
-reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
-reader.loadData().then(() => {
-const dataset = reader.getOutputData();
+    // 初始化渲染窗口
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.getElementById('container'),
+      background: [0.1, 0.1, 0.1],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
 
-// Compute velocity magnitude from the "velocity" array
-const velocityArray = dataset.getPointData().getArrayByName('velocity');
-const numTuples = velocityArray.getNumberOfTuples();
-const magnitudeData = new Float32Array(numTuples);
-
-for (let i = 0; i < numTuples; i++) {
-const vx = velocityArray.getComponent(i, 0);
-const vy = velocityArray.getComponent(i, 1);
-const vz = velocityArray.getComponent(i, 2);
-magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);
-}
-
-// Create new data array for magnitude
-const magnitude = vtkDataArray.newInstance({
-name: 'VelocityMagnitude',
-values: magnitudeData,
-numberOfComponents: 1,
-});
-
-// Add to dataset and set as active scalar
-dataset.getPointData().addArray(magnitude);
-dataset.getPointData().setActiveScalars('VelocityMagnitude');
-
-// Setup volume mapper
-const volumeMapper = vtkVolumeMapper.newInstance();
-volumeMapper.setInputData(dataset);
-volumeMapper.setSampleDistance(0.5); // Adjust for quality/performance
-
-// Setup color transfer function (blue -> white -> red)
-const colorTransferFunction = vtkColorTransferFunction.newInstance();
-const range = magnitude.getRange();
-const [min, max] = range;
-const mid = (min + max) / 2;
-
-colorTransferFunction.addRGBPoint(min, 0, 0, 1);      // blue
-colorTransferFunction.addRGBPoint(mid, 1, 1, 1);      // white
-colorTransferFunction.addRGBPoint(max, 1, 0, 0);      // red
-
-// Setup opacity transfer function
-const opacityFunction = vtkPiecewiseFunction.newInstance();
-opacityFunction.addPoint(min, 0.0);
-opacityFunction.addPoint((min + max / 3), 0.2);
-opacityFunction.addPoint((min + max / 1.5), 0.6);
-opacityFunction.addPoint(max, 1.0);
-
-// Setup volume property
-const volumeProperty = vtkVolumeProperty.newInstance();
-volumeProperty.setColor(colorTransferFunction);
-volumeProperty.setScalarOpacity(opacityFunction);
-volumeProperty.setInterpolationTypeToLinear();
-volumeProperty.setAmbient(0.2);
-volumeProperty.setDiffuse(0.9);
-volumeProperty.setSpecular(0.7);
-volumeProperty.setSpecularPower(10);
-
-// Setup volume actor
-const volume = vtkVolume.newInstance();
-volume.setMapper(volumeMapper);
-volume.setProperty(volumeProperty);
-
-// Add volume to scene
-renderer.addActor(volume);
-
-// Set camera to look along +Z
-const bounds = dataset.getBounds();
-const center = [
-(bounds[0] + bounds[1]) / 2,
-(bounds[2] + bounds[3]) / 2,
-(bounds[4] + bounds[5]) / 2
-];
-renderer.getCamera().setFocalPoint(...center);
-renderer.getCamera().setPosition(center[0], center[1], center[2] - 100); // Look along +Z
-renderer.getCamera().setViewUp(0, 1, 0);
-renderer.resetCamera();
-renderWindow.render();
-});
-});
-</script>
+    // 加载数据
+    const reader = vtkXMLImageDataReader.newInstance();
+    // 替换为你的数据URL
+    reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+      reader.update();
+      const imageData = reader.getOutputData(0);
+      
+      // 创建轮廓过滤器（显示数据边界）
+      const outlineFilter = vtkOutlineFilter.newInstance();
+      outlineFilter.setInputData(imageData);
+      
+      const outlineMapper = vtkMapper.newInstance();
+      outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+      
+      const outlineActor = vtkActor.newInstance();
+      outlineActor.setMapper(outlineMapper);
+      outlineActor.getProperty().setColor(1, 1, 1); // 白色轮廓
+      
+      // 创建流线追踪器
+      const streamTracer = vtkStreamTracer.newInstance({
+        integrationDirection: 'BOTH',
+        maximumPropagation: 100,
+        initialStepLength: 0.1,
+        numberOfSteps: 200,
+      });
+      streamTracer.setInputData(imageData);
+      
+      // 设置种子点（可以根据需要调整）
+      const seeds = [];
+      for (let i = 0; i < 10; i++) {
+        for (let j = 0; j < 10; j++) {
+          seeds.push([i * 5, j * 5, 0]); // 生成网格状种子点
+        }
+      }
+      
+      // 创建种子点源
+      const lineSource = vtkLineSource.newInstance();
+      lineSource.setPoints(seeds);
+      streamTracer.setSourceConnection(lineSource.getOutputPort());
+      
+      // 创建管道过滤器（让流线显示为管子）
+      const tubeFilter = vtkTubeFilter.newInstance({
+        radius: 0.2,
+        numberOfSides: 12,
+      });
+      tubeFilter.setInputConnection(streamTracer.getOutputPort());
+      
+      // 创建流线映射器和演员
+      const streamMapper = vtkMapper.newInstance();
+      streamMapper.setInputConnection(tubeFilter.getOutputPort());
+      
+      const streamActor = vtkActor.newInstance();
+      streamActor.setMapper(streamMapper);
+      streamActor.getProperty().setColor(0.5, 0.5, 1); // 蓝色流线
+      
+      // 将演员添加到渲染器
+      renderer.addActor(outlineActor);
+      renderer.addActor(streamActor);
+      
+      // 调整相机并渲染
+      renderer.resetCamera();
+      renderWindow.render();
+    }).catch(error => {
+      console.error('数据加载失败:', error);
+    });
+  </script>
 </body>
 </html>

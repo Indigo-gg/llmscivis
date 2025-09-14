@@ -1,9 +1,11 @@
+from .secrets import secrets
 class AppConfig:
     def __init__(self):
         self.ollama_url = "http://127.0.0.1:11435"
         self.deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/"
         self.qwen_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
         self.coreai_url="https://api.xty.app/v1"
+        self.aihub_url="https://aihubmix.com/v1"
         self.system = {
             'deepseek': "",
             'qwen': "", 
@@ -11,10 +13,20 @@ class AppConfig:
         self.keywords = {
             'QUESTION':"__QUESTION__"
         }
-        self.deepseek_apikey = '13e5c21e-66bf-4b13-a4d8-a414956e7a39'
-        self.qwen_apikey = 'sk-bb51f49d7aac4a04adde0794f3f1dfe9'
-        # self.coreai_apikey="sk-uGHmKbQF4MixICHP6f21D975Fa7c4d6e9c1f4eAb182987C8"
-        self.coreai_apikey="sk-uGHmKbQF4MixIJh89f21D97jklowc4d6e9c1f4eAb182987C8"
+       # 从本地密钥文件加载API密钥
+        try:
+            self.deepseek_apikey = secrets.deepseek_apikey
+            self.qwen_apikey = secrets.qwen_apikey
+            self.coreai_apikey = secrets.coreai_apikey
+            self.aihub_apikey = secrets.aihub_apikey
+        except ImportError:
+            # 如果没有secrets.py文件，使用默认值或抛出警告
+            print("警告: 未找到secrets.py文件，请创建config/secrets.py并配置API密钥")
+            self.deepseek_apikey = ''
+            self.qwen_apikey = ''
+            self.coreai_apikey = ''
+            self.aihub_apikey = ''
+
 
         self.eval_status = ['failed','completed']
         self.DATASET_PATH = './utils/dataset/dataset.json'

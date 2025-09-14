@@ -86,8 +86,6 @@ opacityFunction.addPoint(max, 1.0);
 
 // Setup volume property
 const volumeProperty = vtkVolumeProperty.newInstance();
-//volumeProperty.setRGBTransferFunction(0,colorTransferFunction);
-//volumeProperty.setScalarOpacity(opacityFunction);
 volumeProperty.setInterpolationTypeToLinear();
 volumeProperty.setAmbient(0.2);
 volumeProperty.setDiffuse(0.9);

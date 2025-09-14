@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Redsea Volume Rendering</title>
+  <!-- Load VTK.js from CDN -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="container"></div>
+  <script>
+    // Import required vtk.js modules
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkVolume = vtk.Rendering.Core.vtkVolume;
+    const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+    const vtkDataArray = vtk.Common.Core.vtkDataArray;
+    
+    const vtkXMLImageDataReader= vtk.IO.XML.vtkXMLImageDataReader;
+    // ----------------------------------------------------------------------------
+    // 1. Create renderer and render window
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0, 0, 0],
+      rootContainer: document.getElementById('container'),
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // 2. Load the VTI dataset from the specified URL
+    // ----------------------------------------------------------------------------
+    const reader=vtkXMLImageDataReader.newInstance()
+    reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+      reader.loadData().then(() => {
+        const data = reader.getOutputData();
+
+        // ----------------------------------------------------------------------------
+        // 3. Compute velocity magnitude from the "velocity" vector array
+        // ----------------------------------------------------------------------------
+        const velocityArray = data.getPointData().getArrayByName("velocity");
+        const numTuples = velocityArray.getNumberOfTuples();
+        const velocityData = velocityArray.getData();
+        const magnitudeArray = new Float32Array(numTuples);
+
+        for (let i = 0; i < numTuples; i++) {
+          const vx = velocityData[i * 3];
+          const vy = velocityData[i * 3 + 1];
+          const vz = velocityData[i * 3 + 2];
+          magnitudeArray[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        }
+
+        // Add the new magnitude array to the dataset
+        const velocityMag = vtkDataArray.newInstance({
+          name: 'velocityMagnitude',
+          numberOfComponents: 1,
+          values: magnitudeArray,
+        });
+        data.getPointData().addArray(velocityMag);
+        data.getPointData().setActiveScalars('velocityMagnitude'); // Set active scalar
+
+        // ----------------------------------------------------------------------------
+        // 4. Setup volume mapper and actor
+        // ----------------------------------------------------------------------------
+        const mapper = vtkVolumeMapper.newInstance();
+        mapper.setInputData(data);
+
+        const actor = vtkVolume.newInstance();
+        actor.setMapper(mapper);
+
+        // ----------------------------------------------------------------------------
+        // 5. Create a blue → white → red color transfer function
+        // ----------------------------------------------------------------------------
+        const colorTransferFunction = vtkColorTransferFunction.newInstance();
+
+        const range = velocityMag.getRange(); // Get min and max of scalar range
+        const min = range[0];
+        const max = range[1];
+        const mid = (min + max) / 2;
+
+        // Map: blue at min, white at mid, red at max
+        colorTransferFunction.addRGBPoint(min, 0.0, 0.0, 1.0); // Blue
+        colorTransferFunction.addRGBPoint(mid, 1.0, 1.0, 1.0); // White
+        colorTransferFunction.addRGBPoint(max, 1.0, 0.0, 0.0); // Red
+
+        // ----------------------------------------------------------------------------
+        // 6. Define opacity (piecewise) transfer function
+        // ----------------------------------------------------------------------------
+        const opacityFunction = vtkPiecewiseFunction.newInstance();
+        opacityFunction.addPoint(min, 0.0);
+        opacityFunction.addPoint(mid, 0.3);
+        opacityFunction.addPoint(max, 0.8);
+
+        // ----------------------------------------------------------------------------
+        // 7. Set volume rendering properties for realistic appearance
+        // ----------------------------------------------------------------------------
+        const property = actor.getProperty();
+        property.setRGBTransferFunction(0, colorTransferFunction);
+        property.setScalarOpacity(0, opacityFunction);
+        property.setShade(true);         // Enable shading
+        property.setAmbient(0.2);        // Ambient light
+        property.setDiffuse(0.7);        // Diffuse light
+        property.setSpecular(0.3);       // Specular highlight
+        property.setSpecularPower(10.0);
+
+        // ----------------------------------------------------------------------------
+        // 8. Add volume to scene and reset camera to +Z direction
+        // ----------------------------------------------------------------------------
+        renderer.addVolume(actor);
+        renderer.resetCamera();
+
+        // Adjust camera to look along +Z
+        const camera = renderer.getActiveCamera();
+        const center = data.getCenter();
+        camera.setFocalPoint(...center);
+        camera.setPosition(center[0], center[1], center[2] + 500); // look from +Z
+        camera.setViewUp(0, 1, 0);
+
+        renderWindow.render();
+      });
+    });
+  </script>
+</body>
+
+</html>

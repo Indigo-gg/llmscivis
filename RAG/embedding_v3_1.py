@@ -9,8 +9,6 @@ import re
 from config.app_config import app_config
 import pandas as pd
 import time
-# 导入 MongoDBManager 类（请确保此路径正确，或者您已将其定义在当前文件中）
-# from RAG.mongodb import MongoDBManager # 假设 RAG.mongodb 存在，或者将其 MongoDBManager 定义放在此处
 # 第一阶段召回的k
 K=4
 Similarity_Threshold=0.1
@@ -21,8 +19,6 @@ WEIGHT_BASE_SIMILARITY = 1 # 基础语义相似度权重
 WEIGHT_MODULE_MATCH_IN_DESCRIPTION = 0.25 # 描述中模块匹配的额外权重
 WEIGHT_MODULE_PARTIAL_MATCH_IN_VTKJSM = 0.15 # vtkjs_modules 列表中模块部分匹配的额外权重
 
-
-# 为了让代码在此处可运行，我们假设 MongoDBManager 如下定义
 class MongoDBManager:
     def __init__(self, host, port, db_name, collection_name):
         self.client = pymongo.MongoClient(host, port)
@@ -708,7 +704,7 @@ def read_splited_prompts(input_file="res2.xlsx"):
     """
     try:
         # 读取Excel文件
-        df = pd.read_excel(input_file, sheet_name='检索效果对比')
+        df = pd.read_excel(input_file, sheet_name='第二期实验数据')
         
         # 检查是否存在splited_prompt列
         if 'splited_prompt' not in df.columns:
@@ -801,7 +797,7 @@ def save_rag_results_to_excel(input_file="res2.xlsx", output_file="res2.xlsx", r
     """
     try:
         # 读取原始Excel文件
-        df = pd.read_excel(input_file, sheet_name='检索效果对比')
+        df = pd.read_excel(input_file, sheet_name='第二期实验数据')
         
         # 确保必要的列存在
         if 'rag_retrieval_result' not in df.columns:
@@ -825,7 +821,7 @@ def save_rag_results_to_excel(input_file="res2.xlsx", output_file="res2.xlsx", r
         
         # 保存到Excel文件
         with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-            df.to_excel(writer, sheet_name='检索效果对比', index=False)
+            df.to_excel(writer, sheet_name='第二期实验数据', index=False)
         
         print(f"RAG结果已保存到 {output_file}")
         return df

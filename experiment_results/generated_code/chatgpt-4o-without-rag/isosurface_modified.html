@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deepwater Isosurface Visualization</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #vtk-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="vtk-container"></div>
+
+  <!-- Load VTK.js from CDN -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // Import necessary VTK modules
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkContourFilter = vtk.Filters.General.vtkContourFilter;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkDataArray = vtk.Common.Core.vtkDataArray;
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+    const vtkCalculator = vtk.Filters.General.vtkCalculator;
+    const vtkImageMarchingCubes= vtk.Filters.General.vtkImageMarchingCubes;
+    // Create renderer and render window
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.getElementById('vtk-container'),
+      background: [0.1, 0.1, 0.1],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Load the VTI file
+    const reader = vtkXMLImageDataReader.newInstance();
+    reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData(0);
+
+        // Determine which array to use:
+        // Try to compute magnitude from v02 and v03, else fallback to prs
+        const pointData = imageData.getPointData();
+       const arrayNames = pointData.getArrays().map(arr => arr.getName());
+        let scalarName = 'prs';
+
+        if (arrayNames.includes('v02') && arrayNames.includes('v03')) {
+        const v02Array = pointData.getArrayByName('v02');
+        const v03Array = pointData.getArrayByName('v03');
+        if (v02Array && v03Array) {
+        const numPoints = imageData.getNumberOfPoints();
+        const magnitudeData = new Float64Array(numPoints);
+        const v02 = v02Array.getData();
+        const v03 = v03Array.getData();
+
+        for (let i = 0; i < numPoints; i++) {
+        magnitudeData[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+        }
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const magnitudeVtkArray = vtkDataArray.newInstance({
+        numberOfComponents: 1,
+        values: magnitudeData,
+        name: 'velocityMag',
+        });
+        pointData.addArray(magnitudeVtkArray);
+        pointData.setActiveScalars('velocityMag');
+        scalarName = 'velocityMag';
+      }}//把原来使用vtkcalculator替换成了手动计算
+        // Extract scalar range
+        const scalarArray = pointData.getArrayByName(scalarName);
+        const dataRange = scalarArray.getRange();
+        const midValue = (dataRange[0] + dataRange[1]) / 2;
+
+        // Create contour (isosurface) filter
+        const marchingCubes = vtkImageMarchingCubes.newInstance({contourValue: midValue,computeNormals: true,mergePoints: true,});//原来的vtkContourFilter当前vtkjs版本无效，替换成类似功能的vtkImageMarchingCubes
+        marchingCubes.setInputData(imageData);
+        marchingCubes.update(); // 强制更新过滤器
+        // Mapper
+        const mapper = vtkMapper.newInstance();
+        mapper.setInputConnection(marchingCubes.getOutputPort());
+        mapper.setColorModeToMapScalars();
+        mapper.setScalarModeToUsePointFieldData();
+        mapper.setScalarRange(...dataRange);
+        mapper.setArrayAccessMode(1); // By name
+        mapper.setInputArrayToProcess(0, 'Scalars', 'PointData', 'Scalars', scalarName);
+
+        // Create a color map (blue → white → red)
+        const lut = vtkColorTransferFunction.newInstance();
+        lut.addRGBPoint(dataRange[0], 0, 0, 1);   // Blue
+        lut.addRGBPoint(midValue, 1, 1, 1);       // White
+        lut.addRGBPoint(dataRange[1], 1, 0, 0);   // Red
+        mapper.setLookupTable(lut);
+
+        // Actor
+        const actor = vtkActor.newInstance();
+        actor.setMapper(mapper);
+        actor.getProperty().setOpacity(1.0);      // Fully opaque
+        actor.getProperty().setInterpolationToPhong(); // Smooth shading
+
+        renderer.addActor(actor);
+
+        // Add orientation marker
+        const axes = vtkAxesActor.newInstance();
+        const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+          actor: axes,
+          interactor: renderWindow.getInteractor(),
+        });
+        orientationWidget.setEnabled(true);
+        orientationWidget.setViewportCorner(
+          vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+        );
+        orientationWidget.setViewportSize(0.15); // Size of marker
+        orientationWidget.setMinPixelSize(100);
+        orientationWidget.setMaxPixelSize(300);
+
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+    });
+  </script>
+</body>
+</html>

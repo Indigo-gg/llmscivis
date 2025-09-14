@@ -26,6 +26,7 @@ const vtkActor = vtk.Rendering.Core.vtkActor;
 const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
 const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
 const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+
 const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
 // const vtkContourFilter = vtk.Filters.General.vtkContourFilter;
 const vtkContourFilter = vtk.Filters.General.vtkContourFilter;
@@ -36,14 +37,8 @@ const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance(
         backgroundColor: [0, 0, 0],
     }
 );
-// todo1 2行
-// const renderer = fullScreenRenderer.getRenderer();
 const renderWindow = fullScreenRenderWindow.getRenderWindow();
 const renderer = fullScreenRenderWindow.getRenderer();
-
-// todo2 
-// Load dataset from the given URL
-// const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
 const reader = vtkXMLImageDataReader.newInstance();
 
 reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
@@ -62,26 +57,6 @@ const v2 = v02.getTuple(i);
 const v3 = v03.getTuple(i);
 vMagData[i] = Math.sqrt(v2[0] * v2[0] + v3[0] * v3[0]);
 }
-    console.log(vMagData);
-
-// Compute velocity magnitude from v02, v03
-// const v02Array = dataset.getPointData().getArrayByName('v02');
-// const v03Array = dataset.getPointData().getArrayByName('v03');
-
-// if (!v02Array || !v03Array) {
-//     console.error('v02 or v03 arrays not found in dataset');
-//     return;
-// }
-
-// const numPoints = dataset.getNumberOfPoints();
-// const vMagData = new Float64Array(numPoints);
-// const v02 = v02Array.getData();
-// const v03 = v03Array.getData();
-
-// for (let i = 0; i < numPoints; i++) {
-//     vMagData[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
-// }
-
 const vMagArray = vtkDataArray.newInstance({
 name: 'velocityMagnitude',
 values: vMagData,
@@ -90,32 +65,20 @@ numberOfComponents: 1,
 dataset.getPointData().addArray(vMagArray);
 scalarName = 'velocityMagnitude';
 }
-// todo 
 dataset.getPointData().setActiveScalars('velocityMagnitude');
-// console.log(dataset.getPointData().getArrayByName('velocityMagnitude'));
+
 // Get scalar range
 const scalarRange = dataset.getPointData().getArrayByName(scalarName).getRange();
-// const isoValue = (scalarRange[0] + scalarRange[1]) / 2;
 console.log(scalarRange);
 const isoValue = scalarRange[0] + 0.5 * (scalarRange[1] - scalarRange[0]);
 
-// todo3
 // Create isosurface filter
-// const contour =vtkContourFilter.newInstance();
-// contour.setInputData(dataset);
-// contour.setNumberOfContours(1);
-// contour.setValue(0, isoValue);
-// todo4
 const marchingCube = vtkImageMarchingCubes.newInstance({
           contourValue: isoValue,
           computeNormals: true,
           mergePoints: true,
         });
-// const marchingCube = vtkImageMarchingCubes.newInstance();
 marchingCube.setInputData(dataset);
-// marchingCube.setContourValue(0, isoValue);
-
-
 
 // Create mapper and actor
 const mapper = vtkMapper.newInstance();
@@ -124,14 +87,10 @@ mapper.setInputConnection(marchingCube.getOutputPort());
  console.log(marchingCube.getOutputPort());
 // console.log(marchingCube.getOutput());
 mapper.setScalarModeToUsePointData();
-// todo 
 mapper.setScalarVisibility(true);
 mapper.setColorByArrayName('velocityMagnitude');
-// todo 
 const ctf = vtkColorTransferFunction.newInstance();
 mapper.setLookupTable(ctf);
-
-// Set up color map
 ctf.setMappingRange(scalarRange[0], scalarRange[1]);
 ctf.addRGBPoint(scalarRange[0], 0, 0, 1);
 ctf.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1);
@@ -146,29 +105,11 @@ actor.getProperty().setInterpolationToPhong(); // Smooth shading
 
 // Set up color map: blue → white → red
 
-
 // Add actor to renderer
 renderer.addActor(actor);
 renderer.resetCamera();
 renderWindow.render();
-// renderWindow.getInteractor().start();
 
-// // Add orientation marker
-// const cubeActor = vtkAnnotatedCubeActor.newInstance();
-// const orientationWidget = vtkOrientationMarkerWidget.newInstance({
-// actor: cubeActor,
-// interactor: fullScreenRenderWindow.getInteractor(),
-// });
-// orientationWidget.setInteractor(fullScreenRenderWindow.getInteractor());
-// orientationWidget.setEnabled(true);
-// // todo 
-// // orientationWidget.setOrigin(0.8, 0.05); // Bottom-right corner
-// orientationWidget.setViewportCorner(vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
-// orientationWidget.setViewportSize(0.15); // 设置小部件在视口中的大小比例
-// orientationWidget.setMinPixelSize(100); // 最小像素大小
-// orientationWidget.setMaxPixelSize(300); // 最大像素大小
-
-// 确保在所有设置完成后启动交互器
 renderWindow.getInteractor().start();
 });
 });

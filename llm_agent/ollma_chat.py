@@ -18,10 +18,10 @@ from openai import OpenAI
 
 
 class MyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, bytes):
-            return str(obj, encoding='utf-8')
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o):
+        if isinstance(o, bytes):
+            return str(o, encoding='utf-8')
+        return json.JSONEncoder.default(self, o)
 
 
 # 获取模型回答的入口函数
@@ -30,7 +30,20 @@ def get_llm_response(prompt: str, model_name, system) -> str:
     try:
         if model_name in ollama_config.models_ollama.keys():
             print("使用ollama模型")
-            return get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
+            result = get_ollama_response(prompt, ollama_config.models_ollama[model_name], system)
+            return result if result is not None else f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>error page</title>
+</head>
+<body>
+    <h1>error</h1>
+    <div class="error-box">
+        <h2>Ollama调用失败</h2>
+    </div>
+</body>
+</html>"""
         elif model_name in ollama_config.models_deepseek.keys():
             print("使用deepseek模型")
             return get_deepseek_response(prompt, ollama_config.models_deepseek[model_name], system)
@@ -40,6 +53,23 @@ def get_llm_response(prompt: str, model_name, system) -> str:
         elif model_name in ollama_config.models_coreai.keys():
             print("使用coreai模型")
             return get_coreai_response(prompt, ollama_config.models_coreai[model_name], system)
+        elif model_name in ollama_config.models_aihub.keys():
+            print("使用aihub模型")
+            return get_aihub_response(prompt, ollama_config.models_aihub[model_name], system)
+        else:
+            return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>error page</title>
+</head>
+<body>
+    <h1>error</h1>
+    <div class="error-box">
+        <h2>未找到对应的模型: {model_name}</h2>
+    </div>
+</body>
+</html>"""
     except Exception as e:
         print(f"调用 LLM 出错: {e}")
         return  f"""
@@ -64,7 +94,7 @@ def get_llm_response(prompt: str, model_name, system) -> str:
         """
 
 #!!! 提前开启ollama服务
-def get_ollama_response(prompt: str, model_name, system):
+def get_ollama_response(prompt: str, model_name, system) -> str | None:
     """调用ollama获取回答"""
     # 使用 OllamaLLM 类初始化，指定基础 URL 和模型名称
     llm = OllamaLLM(
@@ -73,12 +103,13 @@ def get_ollama_response(prompt: str, model_name, system):
     )
     try:
         # 调用 Ollama API 获取回答
-        response = llm.invoke(prompt, config={"system": system,"stream":False})
+        response = llm.invoke(prompt)
         return response
     except Exception as e:
         print(f"调用 Ollama 出错: {e}")
+        return None
 
-def get_deepseek_response(prompt: str, model_name, system):
+def get_deepseek_response(prompt: str, model_name, system) -> str:
     """调用deepseek获取回答"""
     # Initialize OpenAI client here to avoid module-level initialization issues
     app = OpenAI(api_key=app_config.deepseek_apikey, base_url=app_config.deepseek_url)
@@ -93,10 +124,10 @@ def get_deepseek_response(prompt: str, model_name, system):
     # data=json.loads(response)
     # print(response)
     content = response.choices[0].message.content
-    return content
+    return content or ""
 
 def get_deepseek_response_stream(prompt: str, model_name, system):
-    app = OpenAI(api_key=app_config.apikey, base_url=app_config.deepseek_url)
+    app = OpenAI(api_key=app_config.deepseek_apikey, base_url=app_config.deepseek_url)
     """调用deepseek获取流式回答"""
     response = app.chat.completions.create(
         model=model_name,
@@ -108,7 +139,7 @@ def get_deepseek_response_stream(prompt: str, model_name, system):
     )
     return response
 
-def get_qwen_response(prompt: str, model_name, system):
+def get_qwen_response(prompt: str, model_name, system) -> str:
     """调用qwen获取回答"""
 
     client = OpenAI(
@@ -128,9 +159,9 @@ def get_qwen_response(prompt: str, model_name, system):
         # 不开启思考模式：
     )
     content = response.choices[0].message.content
-    return content
+    return content or ""
     # print(completion.model_dump_json()) 
-def get_coreai_response(prompt: str, model_name, system):
+def get_coreai_response(prompt: str, model_name, system) -> str:
     """调用coreai获取回答"""
     client = OpenAI(
     base_url=app_config.coreai_url,
@@ -153,7 +184,30 @@ def get_coreai_response(prompt: str, model_name, system):
         
     ]
     )
-    return completion.choices[0].message.content
+    return completion.choices[0].message.content or ""
+
+def get_aihub_response(prompt: str, model_name, system):
+
+    app = OpenAI(api_key=app_config.aihub_apikey, base_url=app_config.aihub_url)
+    """调用aihub获取流式回答"""
+    response = app.chat.completions.create(
+        model=model_name,
+        stream=True,
+        messages=[
+            {'role': 'system', 'content': system},
+            {"role": "user", "content": prompt}
+        ],
+    )
+    # 处理流式响应，收集完整内容
+    content_parts = []
+    try:
+        for chunk in response:
+            if chunk.choices[0].delta.content:
+                content_parts.append(chunk.choices[0].delta.content)
+        return ''.join(content_parts)
+    except Exception as e:
+        print(f"处理流式响应出错: {e}")
+        return ""
 
 def get_message(user_input, modal, system):
     data = {"model": modal,
@@ -181,6 +235,8 @@ def show_answer(response):
 
 
 if __name__ == "__main__":
-    answer=get_qwen_response('生成椎体代码', model_name='qwen-plus-latest',system='you are a programmer， you should give a code by user_query')
+    answer=get_coreai_response('生成一个独立的html文件，小猫随着鼠标跑动捉老鼠', model_name='claude-sonnet-4',system='you are a programmer， you should give a code by user_query')
+
+    # answer=get_qwen_response('生成椎体代码', model_name='claude-sonnet-4',system='you are a programmer， you should give a code by user_query')
     # get_deepseek_response('hello','deepseek-v3')
     print(answer)

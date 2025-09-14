@@ -1,169 +1,122 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-<meta charset="UTF-8">
-<title>VTK.js Rotor Dataset Visualization</title>
-<style>
-body {
-margin: 0;
-padding: 0;
-overflow: hidden;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>VTK.js Rotor Dataset Visualization</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
 </head>
 
 <body>
-<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
-<script>
-// Import required VTK.js modules
-const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
-const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
-const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
-// const vtkPiecewiseFunction = vtk.Common.Core.vtkPiecewiseFunction;
-// todo
-const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
-// const vtkColorTransferFunction = vtk.Common.Core.vtkColorTransferFunction;
-const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
-// const vtkImageReslice = vtk.Filters.General.vtkImageReslice;
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // Import required VTK.js modules
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+    const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;// todo
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+    const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
 
-const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
-const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
-const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    // ----------------------------------------------------------------------------
+    // Create the render window and renderer
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
 
-// ----------------------------------------------------------------------------
-// Create the render window and renderer
-// ----------------------------------------------------------------------------
-const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
-const renderer = fullScreenRenderer.getRenderer();
-const renderWindow = fullScreenRenderer.getRenderWindow();
+    // ----------------------------------------------------------------------------
+    // Load the dataset from the specified URL
+    // ----------------------------------------------------------------------------
+    const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: false });// todo第一处：使用vtkXMLImageDataReader读取数据集
+    reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData();
 
-// ----------------------------------------------------------------------------
-// Load the dataset from the specified URL
-// ----------------------------------------------------------------------------
-// todo第一处：使用vtkXMLImageDataReader读取数据集
-const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: false });
-reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
-reader.loadData().then(() => {
-const imageData = reader.getOutputData();
+        // ----------------------------------------------------------------------------
+        // Set the active scalar array to "Pressure"
+        // ----------------------------------------------------------------------------
+        imageData.getPointData().setActiveScalars('Pressure');
 
-// ----------------------------------------------------------------------------
-// Set the active scalar array to "Pressure"
-// ----------------------------------------------------------------------------
-imageData.getPointData().setActiveScalars('Pressure');
+        // ----------------------------------------------------------------------------
+        // Apply a slice along the Y axis at 80% depth
+        // Convert percentage to slice index based on Y dimension
+        // ----------------------------------------------------------------------------
+        const dims = imageData.getDimensions();
+        const ySliceIndex = Math.floor(dims[1] * 0.8); // 80% of Y dimension
 
-// ----------------------------------------------------------------------------
-// Apply a slice along the Y axis at 80% depth
-// Convert percentage to slice index based on Y dimension
-// ----------------------------------------------------------------------------
-const dims = imageData.getDimensions();
-const ySliceIndex = Math.floor(dims[1] * 0.8); // 80% of Y dimension
-// 修改2todo
-// const reslice = vtkImageReslice.newInstance();
-// reslice.setInputData(imageData);
-// reslice.setResliceAxesDirectionCosines([1, 0, 0], [0, 0, 1], [0, 1, 0]); // Ensure proper orientation
-// reslice.setResliceAxesOrigin(0, ySliceIndex, 0);
-// reslice.setOutputDimensionality(2); // Slice is 2D
-// reslice.update();
+        // ----------------------------------------------------------------------------
+        // Set up mapper and actor for the slice
+        // ----------------------------------------------------------------------------
+        const mapper = vtkImageMapper.newInstance();// todo3
+        mapper.setInputData(imageData); // 修改：直接输入原始三维数据// todo
+        mapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)
+        mapper.setSlice(ySliceIndex); // 新增：设置切片位置
 
-// const sliceImageData = reslice.getOutputData();
+        const actor = vtkImageSlice.newInstance();
+        actor.setMapper(mapper);
+        actor.getProperty().setColorWindow(255);// todo4
+        actor.getProperty().setColorLevel(127.5);
 
-// ----------------------------------------------------------------------------
-// Set up mapper and actor for the slice
-// ----------------------------------------------------------------------------
-// todo3
-const mapper = vtkImageMapper.newInstance();
-mapper.setInputData(imageData); // 修改：直接输入原始三维数据
-// todo
-console.log("vtkImageMapper.SlicingMode:",vtkImageMapper.SlicingMode,vtkImageMapper.SlicingMode.Y)
-// mapper.setSlicingMode(vtkImageMapper.SlicingMode.Y); // 新增：设置切片方向为 Y 轴
-mapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)
-mapper.setSlice(ySliceIndex); // 新增：设置切片位置
-// mapper.setScalarVisibility(true);
-// mapper.setColorWindow(255); // default
-// mapper.setColorLevel(127.5); // default
+        // ----------------------------------------------------------------------------
+        // Configure the color map: blue → white → red
+        // Use full scalar range from the data
+        // ----------------------------------------------------------------------------
+        const scalarRange = imageData.getPointData().getScalars().getRange();// todo3
+        const ctf = vtkColorTransferFunction.newInstance();
+        ctf.addRGBPoint(scalarRange[0], 0, 0, 1); // blue
+        ctf.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // white
+        ctf.addRGBPoint(scalarRange[1], 1, 0, 0); // red
 
-const actor = vtkImageSlice.newInstance();
-actor.setMapper(mapper);
+        actor.getProperty().setRGBTransferFunction(0, ctf);// todo6
 
+        // ----------------------------------------------------------------------------
+        // Set opacity to fully opaque (no transparency variation)
+        // ----------------------------------------------------------------------------
+        const ofun = vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(0, 1.0);
+        ofun.addPoint(255, 1.0);
+        actor.getProperty().setScalarOpacity(0, ofun);
+        actor.getProperty().setUseLookupTableScalarRange(true); // todo明确设置使用查找表标量范围
 
-// todo4
-// Correctly set the color window and level on the actor's property
-actor.getProperty().setColorWindow(255);
-actor.getProperty().setColorLevel(127.5);
+        // ----------------------------------------------------------------------------
+        // Add actor to renderer
+        // ----------------------------------------------------------------------------
+        renderer.addActor(actor);
 
-// ----------------------------------------------------------------------------
-// Configure the color map: blue → white → red
-// Use full scalar range from the data
-// ----------------------------------------------------------------------------
-// todo3
-// const scalarRange = sliceImageData.getPointData().getScalars().getRange();
-const scalarRange = imageData.getPointData().getScalars().getRange();
-// const scalarRange = imageData.getPointData().getArrayByName('Pressure').getRange(); 
+        // ----------------------------------------------------------------------------
+        // Add orientation marker with XYZ axes in bottom-right corner
+        // ----------------------------------------------------------------------------
+        const cubeActor = vtkAnnotatedCubeActor.newInstance();
+        const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+          actor: cubeActor,
+        }); // 移除在 newInstance() 调用中设置 interactor// todo5
+        orientationWidget.setInteractor(fullScreenRenderer.getInteractor());
+        orientationWidget.setViewportCorner(
+          vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+        );
+        orientationWidget.setViewportSize(0.2); // 例如，将视口大小设置为渲染窗口的20%
+        orientationWidget.setMinPixelSize(100);
+        orientationWidget.setMaxPixelSize(200);
+        orientationWidget.setEnabled(true);
 
-console.log('Scalar Range:', scalarRange); // Add this line for debugging
-const ctf = vtkColorTransferFunction.newInstance();
-ctf.addRGBPoint(scalarRange[0], 0, 0, 1); // blue
-ctf.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // white
-ctf.addRGBPoint(scalarRange[1], 1, 0, 0); // red
-
-// mapper.setLookupTable(ctf);
-// TransformStreamDefaultController
-// todo6
-actor.getProperty().setRGBTransferFunction(0, ctf);
-
-// ----------------------------------------------------------------------------
-// Set opacity to fully opaque (no transparency variation)
-// ----------------------------------------------------------------------------
-const ofun = vtkPiecewiseFunction.newInstance();
-
-ofun.addPoint(0, 1.0);
-ofun.addPoint(255, 1.0);
-actor.getProperty().setScalarOpacity(0,ofun);
-//todo
-actor.getProperty().setUseLookupTableScalarRange(true); // 明确设置使用查找表标量范围
-
-// ----------------------------------------------------------------------------
-// Add actor to renderer
-// ----------------------------------------------------------------------------
-renderer.addActor(actor);
-
-// ----------------------------------------------------------------------------
-// Add orientation marker with XYZ axes in bottom-right corner
-// ----------------------------------------------------------------------------
-
-// todo5
-// ...
-const cubeActor = vtkAnnotatedCubeActor.newInstance();
-const orientationWidget = vtkOrientationMarkerWidget.newInstance({
-  actor: cubeActor,
-  // 移除在 newInstance() 调用中设置 interactor
-});
-
-// 单独在实例化之后设置 interactor
-orientationWidget.setInteractor(fullScreenRenderer.getInteractor());
-
-// orientationWidget.setViewport(0.8, 0.0, 1.0, 0.2); // bottom-right corner
-// todo 
-orientationWidget.setViewportCorner(
-  vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
-);
-
-// 你也可以设置视口的大小，而不是直接指定坐标
-orientationWidget.setViewportSize(0.2); // 例如，将视口大小设置为渲染窗口的20%
-orientationWidget.setMinPixelSize(100);
-orientationWidget.setMaxPixelSize(200);
-orientationWidget.setEnabled(true);
-// ----------------------------------------------------------------------------
-// Final rendering
-// ----------------------------------------------------------------------------
-renderer.resetCamera();
-renderWindow.render();
-});
-});
-</script>
+        // ----------------------------------------------------------------------------
+        // Final rendering
+        // ----------------------------------------------------------------------------
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+    });
+  </script>
 </body>
 
 </html>

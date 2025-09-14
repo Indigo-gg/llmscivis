@@ -29,143 +29,125 @@ class RAGAgent:
         :return: 结合了上下文信息的最终提示
         """
         return self.searcher.search(analysis, prompt, metadata_filters=metadata_filters)
-# 使用示例
-def main():
-     # 初始化搜索器
-    searcher = VTKSearcherV2()
-    
-    # 文件路径
-    excel_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
-    benchmark_prompts,splited_queries,=get_data_from_excel(excel_path)
 
-    # 创建结果文件
-    output_file = "retrieval_results.json"
-    
-    # 准备存储所有结果的列表
-    all_results = []
-    
+def retrieval_step(searcher, excel_path):
+    """
+    负责从Excel读取查询并执行检索过程，将检索结果保存到列表中。
+
+    Args:
+        searcher (VTKSearcherV2): 搜索器实例。
+        excel_path (str): 包含查询的Excel文件路径。
+
+    Returns:
+        list: 包含每个查询检索结果的字典列表。
+    """
+    benchmark_prompts, splited_queries = get_data_from_excel(excel_path)
+    all_retrieval_results = []
+
     for i, query_list in enumerate(splited_queries):
+        original_query = benchmark_prompts[i] if i < len(benchmark_prompts) else "N/A"
+        
+        # 准备检索结果的初始字典
+        result_entry = {
+            "index": i + 1,
+            "original_query": original_query,
+            "splited_queries": query_list,
+            "final_prompt": "",
+            "retrieval_time": 0.0,
+            "status": "success"
+        }
+
         if not query_list:
             print(f"跳过第{i+1}行：空的或无效的splited_prompt")
-            all_results.append({
-                "index": i+1,
-                "status": "skipped",
-                "reason": "空的或无效的splited_prompt"
-            })
+            result_entry.update({"status": "skipped", "reason": "空的或无效的splited_prompt"})
+            all_retrieval_results.append(result_entry)
             continue
-        
-        # 获取对应的原始查询
-        original_query = benchmark_prompts[i] if i < len(benchmark_prompts) else "N/A"
+
         print(f"\n处理第{i+1}行，原始查询: {original_query}")
         
-        # 记录开始时间
         start_time = time.time()
-        
-        # 进行搜索
         final_prompt = searcher.search(original_query, query_list)
-        
-        # 记录检索时间
         retrieval_time = time.time() - start_time
+        
         print(f"检索耗时: {retrieval_time:.2f}秒")
         
-        # 使用LLM生成代码
+        result_entry.update({
+            "final_prompt": final_prompt,
+            "retrieval_time": round(retrieval_time, 2)
+        })
+        all_retrieval_results.append(result_entry)
+
+    return all_retrieval_results
+
+def generation_step(retrieval_results, output_file="generation_results.json"):
+    """
+    负责利用检索结果调用LLM生成代码，并将最终结果保存到JSON文件。
+
+    Args:
+        retrieval_results (list): 包含检索结果的字典列表。
+        output_file (str): 保存最终结果的JSON文件路径。
+    """
+    for result_entry in retrieval_results:
+        # 跳过已标记为“跳过”的结果
+        if result_entry.get("status") == "skipped":
+            continue
+        
+        final_prompt = result_entry["final_prompt"]
         generated_code = ""
         llm_start_time = time.time()
+
+        print(f"\n为第{result_entry['index']}行生成代码...")
+        
         try:
-            generated_code = get_llm_response(final_prompt, model_name="qwen3-plus",system=ollama_config.code_sytstem)
+            generated_code = get_llm_response(final_prompt, model_name="qwen3-plus", system=ollama_config.code_sytstem)
             print(f"代码生成成功")
         except Exception as e:
             print(f"代码生成失败: {e}")
             generated_code = f"代码生成失败: {e}"
+            result_entry["status"] = "failed"
         
-        # 记录LLM生成时间
         llm_time = time.time() - llm_start_time
-        total_time = time.time() - start_time
+        total_time = result_entry["retrieval_time"] + llm_time
         
-        # 输出结果到控制台
+        # 更新字典，添加生成结果
+        result_entry.update({
+            "generated_code": generated_code,
+            "llm_generation_time": round(llm_time, 2),
+            "total_time": round(total_time, 2)
+        })
+
         print(f"最终提示:\n{final_prompt}\n")
         print(f"生成的代码:\n{generated_code}\n")
         print(f"LLM生成耗时: {llm_time:.2f}秒")
         print(f"总耗时: {total_time:.2f}秒")
-        
-        # 保存结果到列表
-        result_entry = {
-            "index": i+1,
-            "original_query": original_query,
-            "splited_queries": query_list,
-            "final_prompt": final_prompt,
-            "generated_code": generated_code,
-            "retrieval_time": round(retrieval_time, 2),
-            "llm_generation_time": round(llm_time, 2),
-            "total_time": round(total_time, 2),
-            "status": "success"
-        }
-        all_results.append(result_entry)
-    
-    # 将结果写入JSON文件
+
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
+            json.dump(retrieval_results, f, ensure_ascii=False, indent=2)
         print(f"\n所有结果已保存到 {output_file} 文件中")
     except Exception as e:
         print(f"保存结果到JSON文件时出错: {e}")
 
-def json_to_excel(json_file_path, excel_file_path):
+# ----------------------------------------------------------------------------
+
+def main():
     """
-    读取JSON文件并将结果保存到Excel文件
-    
-    Args:
-        json_file_path: JSON文件路径
-        excel_file_path: 输出Excel文件路径
+    主函数，调用拆分后的检索和生成步骤。
     """
-    # 读取JSON文件
-    try:
-        with open(json_file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        print(f"成功读取JSON文件: {json_file_path}")
-    except Exception as e:
-        print(f"读取JSON文件时出错: {e}")
-        return
+    # 初始化搜索器
+    searcher = VTKSearcherV2()
+    excel_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
+    output_file = "retrieval_results.json"
     
-    # 转换数据为DataFrame
-    try:
-        df = pd.DataFrame(data)
-        print("数据转换为DataFrame成功")
-    except Exception as e:
-        print(f"数据转换时出错: {e}")
-        return
+    # 步骤1：执行检索
+    all_retrieval_results = retrieval_step(searcher, excel_path)
     
-    # 保存到Excel文件
-    try:
-        with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='w') as writer:
-            df.to_excel(writer, sheet_name='第二期实验结果备份', index=False)
-        print(f"处理完成，结果已保存到 {excel_file_path}")
-    except Exception as e:
-        print(f"保存文件时出错: {e}")
-        # 尝试另存为新文件
-        backup_file = excel_file_path.replace('.xlsx', '_backup.xlsx')
-        try:
-            with pd.ExcelWriter(backup_file, engine='openpyxl', mode='w') as writer:
-                df.to_excel(writer, sheet_name='检索结果', index=False)
-            print(f"已保存到备份文件: {backup_file}")
-        except Exception as backup_e:
-            print(f"保存备份文件时也出错: {backup_e}")
-            # 最后尝试直接保存为CSV作为备用方案
-            csv_file = excel_file_path.replace('.xlsx', '_result.csv')
-            try:
-                df.to_csv(csv_file, index=False, encoding='utf-8-sig')
-                print(f"已保存为CSV文件: {csv_file}")
-            except Exception as csv_e:
-                print(f"保存CSV文件也失败: {csv_e}")
-  
+    # 步骤2：执行生成
+    generation_step(all_retrieval_results, output_file)
 
 if __name__ == "__main__":
-    # main()
-    #尝试读取excel文件，并把json结果写入excel文件中
-    json_file_path = "D:\\Pcode\\LLM4VIS\\llmscivis\\retrieval_results.json"
-    excel_file_path = "D:\\Pcode\\LLM4VIS\\llmscivis\\data\\recoreds\\res2.xlsx"
-    json_to_excel(json_file_path, excel_file_path)
+    main()
     
-    
-    
-   
+    # 以下代码用于将JSON结果转换为Excel，可以根据需要独立运行
+    # excel_output_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//experiment_results.xlsx"
+    # json_to_excel(output_file, excel_output_path)

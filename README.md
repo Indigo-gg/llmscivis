@@ -60,10 +60,16 @@ python app.py
     npm run dev
 ```
 
-# 一键运行(linux/windows)
+
+## 预览结果
+预览结果的时候，比如使用liveserver预览html结果，需要请求数据集。
+数据集服务器可以单独开启
+
+### 运行数据集服务器
 ```shell
-    bash run.sh
+    python app.py
 ```
+
 ## 以下文件包含测试函数
 
 - llm_agent/rag_agent.py

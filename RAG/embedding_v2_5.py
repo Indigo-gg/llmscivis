@@ -214,7 +214,7 @@ def process_rag_benchmark(input_file, output_file):
         output_file: 输出Excel文件路径
     """
     # 读取Excel文件
-    df = pd.read_excel(input_file, sheet_name='检索效果对比')
+    df = pd.read_excel(input_file, sheet_name='第二期实验数据')
     
     # 确保必要的列存在，如果不存在则创建并初始化为空字符串
     if 'rag_retrieval_result' not in df.columns:
@@ -273,13 +273,13 @@ def process_rag_benchmark(input_file, output_file):
     # 保存到Excel文件
     try:
         with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-            df.to_excel(writer, sheet_name='检索效果对比', index=False)
+            df.to_excel(writer, sheet_name='第二期实验数据', index=False)
         print(f"RAG检索处理完成，结果已保存到 {output_file}")
     except Exception as e:
         print(f"保存文件时出错: {e}")
         # 尝试另存为新文件
         backup_file = output_file.replace('.xlsx', '_rag_backup.xlsx')
-        df.to_excel(backup_file, sheet_name='检索效果对比', index=False)
+        df.to_excel(backup_file, sheet_name='第二期实验数据', index=False)
         print(f"已保存到备份文件: {backup_file}")
 
 def batch_process_rag_benchmark():
@@ -287,7 +287,7 @@ def batch_process_rag_benchmark():
     批量处理RAG基准问题的主函数
     """
     try:
-        path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res8-19.xlsx"
+        path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
         process_rag_benchmark(input_file=path, output_file=path)
         print("所有RAG问题处理完成！")
     except Exception as e:

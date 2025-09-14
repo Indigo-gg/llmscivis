@@ -1,0 +1,385 @@
+差异比较报告
+==================================================
+正在比较文件：D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\cutter.html 和 D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\cutter_modified.html
+--- D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\cutter.html
++++ D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\cutter_modified.html
+@@ -33,17 +33,16 @@
+<div id="orientation"></div>
+</div>
+
+-<script type="module">
+-import '@kitware/vtk.js/Rendering/Profiles/Volume'; // Ensure volume rendering profile is included
+-import vtkGenericRenderWindow from '@kitware/vtk.js/Rendering/Misc/GenericRenderWindow';
+-import vtkHttpDataSetReader from '@kitware/vtk.js/IO/Core/HttpDataSetReader';
+-import vtkImageSliceMapper from '@kitware/vtk.js/Rendering/Core/ImageSliceMapper';
+-import vtkImageSlice from '@kitware/vtk.js/Rendering/Core/ImageSlice';
+-import vtkColorTransferFunction from '@kitware/vtk.js/Rendering/Core/ColorTransferFunction';
+-import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
+-import vtkOrientationMarkerWidget from '@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget';
+-import vtkAxesActor from '@kitware/vtk.js/Rendering/Core/AxesActor';
+-
++<script>
++const vtkGenericRenderWindow = vtk.Rendering.Misc.vtkGenericRenderWindow;
++const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
++const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;;
++const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
++const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
++const vtkDataArray = vtk.Common.Core.vtkDataArray;
++const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
++const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
++const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+// ----------------------------------------------------------------------------
+// Create the main render window
+// ----------------------------------------------------------------------------
+@@ -55,7 +54,7 @@
+// ----------------------------------------------------------------------------
+// Load dataset from URL
+// ----------------------------------------------------------------------------
+-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
++const reader = vtkXMLImageDataReader.newInstance();
+reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti').then(() => {
+reader.loadData().then(() => {
+const imageData = reader.getOutputData();
+@@ -74,9 +73,9 @@
+// ------------------------------
+// Create mapper and set slicing mode
+// ------------------------------
+-const mapper = vtkImageSliceMapper.newInstance();
++const mapper = vtkImageMapper.newInstance();
+mapper.setInputData(imageData);
+-mapper.setSlicingMode(vtkImageSliceMapper.SlicingMode.Y); // Slice along Y axis
++mapper.setSlicingMode(1);
+mapper.setSlice(yIndex); // Set slice index
+
+// ------------------------------
+@@ -125,12 +124,10 @@
+orientationWidget.setViewportSize(0.2);
+orientationWidget.setMinPixelSize(100);
+orientationWidget.setMaxPixelSize(150);
+-orientationWidget.setContainer(document.getElementById('orientation'));
+orientationWidget.setViewportCorner(
+vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+);
+orientationWidget.setEnabled(true);
+-orientationWidget.setInteractive(false); // No UI controls
+});
+});
+</script>
+
+==================================================
+差异统计：
+  总差异行数: 29
+  新增行数: 13
+  删除行数: 16
+  修改行数: 13
+==================================================
+正在比较文件：D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\isosurface.html 和 D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\isosurface_modified.html
+--- D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\isosurface.html
++++ D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\isosurface_modified.html
+@@ -20,21 +20,20 @@
+
+<!-- Load VTK.js from CDN -->
+<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+-<script type="module">
++<script>
+// Import necessary VTK modules
+-import '@kitware/vtk.js/Rendering/Profiles/Geometry';
+-import vtkFullScreenRenderWindow from '@kitware/vtk.js/Rendering/Misc/FullScreenRenderWindow';
+-import vtkXMLImageDataReader from '@kitware/vtk.js/IO/XML/XMLImageDataReader';
+-import vtkHttpDataSetReader from '@kitware/vtk.js/IO/Core/HttpDataSetReader';
+-import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
+-import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
+-import vtkContourFilter from '@kitware/vtk.js/Filters/General/ContourFilter';
+-import vtkColorTransferFunction from '@kitware/vtk.js/Rendering/Core/ColorTransferFunction';
+-import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
+-import vtkOrientationMarkerWidget from '@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget';
+-import vtkAxesActor from '@kitware/vtk.js/Rendering/Core/AxesActor';
+-import vtkCalculator from '@kitware/vtk.js/Filters/General/Calculator';
+-
++const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
++const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
++const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
++const vtkMapper = vtk.Rendering.Core.vtkMapper;
++const vtkActor = vtk.Rendering.Core.vtkActor;
++const vtkContourFilter = vtk.Filters.General.vtkContourFilter;
++const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
++const vtkDataArray = vtk.Common.Core.vtkDataArray;
++const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
++const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
++const vtkCalculator = vtk.Filters.General.vtkCalculator;
++const vtkImageMarchingCubes= vtk.Filters.General.vtkImageMarchingCubes;
+// Create renderer and render window
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+rootContainer: document.getElementById('vtk-container'),
+@@ -44,10 +43,10 @@
+const renderWindow = fullScreenRenderer.getRenderWindow();
+
+// Load the VTI file
+-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
++const reader = vtkXMLImageDataReader.newInstance();
+reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+reader.loadData().then(() => {
+-const imageData = reader.getOutputData();
++const imageData = reader.getOutputData(0);
+
+// Determine which array to use:
+// Try to compute magnitude from v02 and v03, else fallback to prs
+@@ -56,56 +55,39 @@
+let scalarName = 'prs';
+
+if (arrayNames.includes('v02') && arrayNames.includes('v03')) {
+-// Compute magnitude of vectors from v02 and v03
+-const calculator = vtkCalculator.newInstance();
+-calculator.setInputData(imageData);
+-calculator.setFormula({
+-// velocity magnitude = sqrt(v02^2 + v03^2)
+-getArrays: () => [
+-{ name: 'v02', location: 'pointData' },
+-{ name: 'v03', location: 'pointData' },
+-],
+-evaluate: (arraysIn, arraysOut) => {
+-const v02 = arraysIn[0].getData();
+-const v03 = arraysIn[1].getData();
+-const mag = new Float32Array(v02.length);
+-for (let i = 0; i < v02.length; i++) {
+-mag[i] = Math.sqrt(v02[i] ** 2 + v03[i] ** 2);
++const v02Array = pointData.getArrayByName('v02');
++const v03Array = pointData.getArrayByName('v03');
++if (v02Array && v03Array) {
++const numPoints = imageData.getNumberOfPoints();
++const magnitudeData = new Float64Array(numPoints);
++const v02 = v02Array.getData();
++const v03 = v03Array.getData();
++
++for (let i = 0; i < numPoints; i++) {
++magnitudeData[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+}
+-arraysOut[0] = vtkDataArray.newInstance({
+-name: 'velocityMagnitude',
+-values: mag,
++const vtkDataArray = vtk.Common.Core.vtkDataArray;
++const magnitudeVtkArray = vtkDataArray.newInstance({
++numberOfComponents: 1,
++values: magnitudeData,
++name: 'velocityMag',
+});
+-},
+-outputArray: [
+-{
+-name: 'velocityMagnitude',
+-location: 'pointData',
+-},
+-],
+-});
+-calculator.update();
+-scalarName = 'velocityMagnitude';
+-}
+-
++pointData.addArray(magnitudeVtkArray);
++pointData.setActiveScalars('velocityMag');
++scalarName = 'velocityMag';
++}}//把原来使用vtkcalculator替换成了手动计算
+// Extract scalar range
+const scalarArray = pointData.getArrayByName(scalarName);
+const dataRange = scalarArray.getRange();
+const midValue = (dataRange[0] + dataRange[1]) / 2;
+
+// Create contour (isosurface) filter
+-const contour = vtkContourFilter.newInstance();
+-contour.setInputData(imageData);
+-contour.setComputeNormals(true); // Enable smooth shading
+-contour.setScalars({
+-arrayName: scalarName,
+-attributeType: vtkDataArray.AttributeTypes.SCALARS,
+-});
+-contour.setValue(0, midValue); // Isosurface at mid-value
+-
++const marchingCubes = vtkImageMarchingCubes.newInstance({contourValue: midValue,computeNormals: true,mergePoints: true,});//原来的vtkContourFilter当前vtkjs版本无效，替换成类似功能的vtkImageMarchingCubes
++marchingCubes.setInputData(imageData);
++marchingCubes.update(); // 强制更新过滤器
+// Mapper
+const mapper = vtkMapper.newInstance();
+-mapper.setInputConnection(contour.getOutputPort());
++mapper.setInputConnection(marchingCubes.getOutputPort());
+mapper.setColorModeToMapScalars();
+mapper.setScalarModeToUsePointFieldData();
+mapper.setScalarRange(...dataRange);
+
+==================================================
+差异统计：
+  总差异行数: 94
+  新增行数: 38
+  删除行数: 56
+  修改行数: 36
+==================================================
+正在比较文件：D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\streamline_tracing.html 和 D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\streamline_tracing_modified.html
+--- D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\streamline_tracing.html
++++ D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\streamline_tracing_modified.html
+@@ -3,20 +3,29 @@
+<head>
+<meta charset="UTF-8">
+<title>VTK.js - Isabel Streamline Visualization</title>
+-<script type="module">
+-import 'https://unpkg.com/vtk.js@34.10.0/vtk.js';
+-
+-// Import necessary VTK modules
+-import vtkFullScreenRenderWindow from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Misc/FullScreenRenderWindow.js';
+-import vtkXMLImageDataReader from 'https://unpkg.com/vtk.js@34.10.0/Sources/IO/XML/XMLImageDataReader.js';
+-import vtkHttpDataSetReader from 'https://unpkg.com/vtk.js@34.10.0/Sources/IO/Core/HttpDataSetReader.js';
+-import vtkStreamTracer from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/Flow/StreamTracer.js';
+-import vtkLineSource from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/Sources/LineSource.js';
+-import vtkTubeFilter from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/TubeFilter.js';
+-import vtkMapper from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Mapper.js';
+-import vtkActor from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Actor.js';
+-import vtkOutlineFilter from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/OutlineFilter.js';
+-
++<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
++<style>
++body {
++margin: 0;
++overflow: hidden;
++}
++</style>
++</head>
++<body>
++</body>
++<script>
++// 从全局vtk对象获取所需模块
++const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
++const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
++const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
++const vtkStreamTracer = vtk.Filters.General.vtkStreamTracer;
++const vtkLineSource = vtk.Filters.Sources.vtkLineSource;
++const vtkTubeFilter = vtk.Filters.General.vtkTubeFilter;
++const vtkMapper = vtk.Rendering.Core.vtkMapper;
++const vtkActor = vtk.Rendering.Core.vtkActor;
++const vtkPointSource = vtk.Filters.Sources.vtkPointSource;
++const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
++const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+// ----------------------------------------------------------------------------
+// Setup rendering environment
+// ----------------------------------------------------------------------------
+@@ -29,8 +38,8 @@
+// Load VTI Isabel Dataset
+// ----------------------------------------------------------------------------
+
+-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
+
++const reader=vtkXMLImageDataReader.newInstance();
+// Load the dataset from the specified URL
+// ✅ User requirement: Load from http://127.0.0.1:5000/dataset/isabel.vti
+reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+@@ -50,10 +59,14 @@
+// ----------------------------------------------------------------------------
+
+// ✅ User requirement: Seed at center with sufficient density
+-const seedLine = vtkLineSource.newInstance({
+-point1: [center[0] - 10, center[1], center[2]],
+-point2: [center[0] + 10, center[1], center[2]],
+-resolution: 50, // More resolution = more seed points
++const pointSource = vtkPointSource.newInstance({
++center: center,
++radius: Math.max(
++bounds[1] - bounds[0],
++bounds[3] - bounds[2],
++bounds[5] - bounds[4]
++) * 0.4,
++numberOfPoints: 500 // We'll use more points for better coverage
+});
+
+// ----------------------------------------------------------------------------
+@@ -61,23 +74,17 @@
+// ----------------------------------------------------------------------------
+
+// ✅ User requirement: Use "Velocity" array
+-const streamTracer = vtkStreamTracer.newInstance({
+-inputConnection: imageData.getOutputPort(),
+-seedConnection: seedLine.getOutputPort(),
+-integratorType: 'RungeKutta4',
+-maximumPropagation: 200,
+-initialIntegrationStep: 0.5,
+-integrationDirection: 2, // FORWARD and BACKWARD
+-});
+-streamTracer.setInputArrayToProcess(0, 'Velocity', 'pointData', 'vectors');
+-
++const streamline = vtkImageStreamline.newInstance();
++streamline.setInputData(imageData);
++streamline.setInputConnection(pointSource.getOutputPort(), 1); // 种子点数据
++streamline.set({maximumNumberOfSteps: 1000,integrationStep: 0.5});
+// ----------------------------------------------------------------------------
+// Tube Filter to visualize streamlines as tubes
+// ----------------------------------------------------------------------------
+
+// ✅ User requirement: Render streamlines in cyan with line width
+const tubeFilter = vtkTubeFilter.newInstance();
+-tubeFilter.setInputConnection(streamTracer.getOutputPort());
++tubeFilter.setInputConnection(streamline.getOutputPort());
+tubeFilter.setRadius(0.3);
+tubeFilter.setNumberOfSides(12);
+
+@@ -118,13 +125,4 @@
+});
+});
+</script>
+-<style>
+-body {
+-margin: 0;
+-overflow: hidden;
+-}
+-</style>
+-</head>
+-<body>
+-</body>
+</html>
+
+==================================================
+差异统计：
+  总差异行数: 76
+  新增行数: 37
+  删除行数: 39
+  修改行数: 23
+==================================================
+正在比较文件：D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\volume_rendering.html 和 D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\volume_rendering_modified.html
+--- D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\volume_rendering.html
++++ D:\Pcode\LLM4VIS\llmscivis\experiment_results\generated_code\chatgpt-4o-without-rag\volume_rendering_modified.html
+@@ -34,12 +34,13 @@
+const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+const vtkDataArray = vtk.Common.Core.vtkDataArray;
+
++const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+// ----------------------------------------------------------------------------
+// Create render window, renderer, etc.
+// ----------------------------------------------------------------------------
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+background: [0, 0, 0],
+-rootContainer: document.body,
++rootContainer: document.getElementById('vtk-container'),
+containerStyle: { height: '100%' },
+});
+const renderer = fullScreenRenderer.getRenderer();
+@@ -48,7 +49,7 @@
+// ----------------------------------------------------------------------------
+// Load VTI dataset from provided URL
+// ----------------------------------------------------------------------------
+-const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
++const reader=vtkXMLImageDataReader.newInstance();
+
+// Set URL to dataset (User Requirement: Load from specific path)
+reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+@@ -134,7 +135,7 @@
+const camera = renderer.getActiveCamera();
+const center = data.getCenter();
+camera.setFocalPoint(...center);
+-camera.setPosition(center[0], center[1], center[2] + 100); // +Z
++camera.setPosition(center[0], center[1], center[2] + 500); // +Z
+camera.setViewUp([0, 1, 0]);
+renderer.resetCameraClippingRange();
+
+
+==================================================
+差异统计：
+  总差异行数: 7
+  新增行数: 4
+  删除行数: 3
+  修改行数: 3
+==================================================

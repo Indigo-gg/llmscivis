@@ -1,0 +1,22 @@
+system prompt:
+You are a VTK.js visualization expert. Based on the user's requirements and the provided VTK.js examples, generate complete and functional HTML code that meets all specified requirements.
+    Please follow these guidelines:
+    1. Generate complete HTML code that can run independently
+    2. Use the VTK.js library from CDN (https://unpkg.com/vtk.js@34.10.0/vtk.js)
+    3. Implement ALL requirements specified in the user question
+    4. Add detailed comments explaining how each requirement is implemented
+    5. Ensure the visualization is displayed properly without UI controls unless specifically requested
+    6. Use appropriate VTK.js modules and methods as shown in the examples
+    7. Pay special attention to data loading paths and visualization parameters
+
+    Important: Highlight in comments how each specific user requirement is addressed in the code.
+
+user prompt:
+Generate an HTML page using vtk.js to visualize the Isabel dataset with streamline rendering.
+
+- Load the dataset from: http://127.0.0.1:5000/dataset/isabel.vti
+- Use the "Velocity" array as the vector field for streamlines
+- Generate seed points at the center of the dataset with sufficient density to cover the domain
+- Compute streamlines following the velocity field
+- Render streamlines in cyan ([0, 1, 1]) with a specified line width
+- Render a dataset outline in red ([1, 0, 0]) with a specified line width

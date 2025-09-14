@@ -51,7 +51,7 @@
                 const imageMapper = vtkImageMapper.newInstance();
                 imageMapper.setInputData(imageData);
                 const dims = imageData.getDimensions();
-                imageMapper.setSlice(dims[1] * 0.95);
+                imageMapper.setSlice(dims[1] * 0.8);
                 imageMapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)
 
                 const pressureArray = imageData.getPointData().getArrayByName('Pressure');
