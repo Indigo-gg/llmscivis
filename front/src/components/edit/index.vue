@@ -4,7 +4,11 @@
       <slot name="actions"></slot>
     </div>
     <div v-if="!isShowVis" class="code-container">
-      <div class="monaco-editor-container" ref="editorContainer"></div>
+      <div v-if="hasContent" class="monaco-editor-container" ref="editorContainer"></div>
+      <div v-else class="empty-state">
+        <v-icon size="64" color="grey-lighten-1">mdi-code-tags</v-icon>
+        <p class="empty-text">暂无生成代码</p>
+      </div>
     </div>
     <div class="preview-frame" v-else>
       <iframe ref="previewFrame" sandbox="allow-scripts allow-same-origin allow-top-navigation"
@@ -14,7 +18,7 @@
 </template>
 
 <script>
-import { onMounted, nextTick, ref, watch } from 'vue';
+import { onMounted, nextTick, ref, watch, computed } from 'vue';
 import * as monaco from 'monaco-editor';
 
 export default {
@@ -36,10 +40,17 @@ export default {
     const previewFrame = ref(null);
     let editor = null;
 
+    const hasContent = computed(() => {
+      return props.htmlContent && 
+             props.htmlContent.trim() !== '' && 
+             props.htmlContent !== 'Ground Truth:' &&
+             props.htmlContent !== 'Generated Code:';
+    });
+
     function initEditor() {
       // Ensure we destroy any existing editor first
       destroyEditor();
-      if (editorContainer.value) { // Check if container exists
+      if (editorContainer.value && hasContent.value) { // Check if container exists and has content
         // 初始化Monaco编辑器
         editor = monaco.editor.create(editorContainer.value, {
           value: extractHtmlCode(props.htmlContent), // Use current prop value
@@ -192,6 +203,21 @@ export default {
 
     watch(() => props.htmlContent, (newValue) => {
       const extractedValue = extractHtmlCode(newValue);
+      
+      // 检查是否有内容
+      if (!hasContent.value) {
+        destroyEditor();
+        return;
+      }
+      
+      // 如果没有编辑器但有内容，初始化编辑器
+      if (!editor && !props.isShowVis) {
+        nextTick(() => {
+          initEditor();
+        });
+        return;
+      }
+      
       // Only update if the editor exists and its value differs from the extracted prop value
       if (editor && editor.getValue() !== extractedValue) {
         // Use a try-catch block in case the editor is disposed unexpectedly
@@ -207,7 +233,8 @@ export default {
 
     return {
       editorContainer,
-      previewFrame
+      previewFrame,
+      hasContent
     };
   },
 };
@@ -252,6 +279,22 @@ export default {
 
 .monaco-editor .margin {
   margin-left: 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 300px;
+  height: 100%;
+}
+
+.empty-text {
+  margin-top: 12px;
+  font-size: 16px;
+  color: #9e9e9e;
 }
 
 .preview-container:fullscreen {

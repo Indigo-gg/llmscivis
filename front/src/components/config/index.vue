@@ -86,11 +86,6 @@
                              prepend-icon="mdi-database"
                              @change="updateWorkflow('rag')"
                  ></v-checkbox>
-                 <v-checkbox v-model="iterativeLoopSelected"
-                             :label="'Iterative loop'"
-                             prepend-icon="mdi-reload"
-                             @change="updateWorkflow('iterativeLoop')"
-                 ></v-checkbox>
                </div>
              </div>
            </div>
@@ -191,14 +186,12 @@ export default {
       workflow:{
         inquiryExpansion:false,
         rag:false,
-        iterativeLoop:false,
       },
       evalUser:appConfig.eval_user
     });
     // const emit= defineEmits(['start'])
     let inquiryExpansionSelected = ref(false);
     let ragSelected = ref(false);
-    let iterativeLoopSelected = ref(false);
 
     const info = reactive({
       message: '',
@@ -407,46 +400,20 @@ export default {
       switch (type) {
 
         case 'inquiryExpansion':
-          // inquiryExpansionSelected.value = !inquiryExpansionSelected.value;
-          if (inquiryExpansionSelected.value) {
-
-            // ragSelected.value = true;
-            // iterativeLoopSelected.value = true;
-          }
           newCase.value.workflow.inquiryExpansion=inquiryExpansionSelected.value
           console.log('1',newCase.value.workflow);
-
           break;
         case 'rag':
-          // ragSelected.value = !ragSelected.value;
           if (ragSelected.value) {
-            // iterativeLoopSelected.value = true;
             inquiryExpansionSelected.value = true;
           }
           newCase.value.workflow.inquiryExpansion=inquiryExpansionSelected.value
           newCase.value.workflow.rag=ragSelected.value
           console.log('2',newCase.value.workflow);
           break;
-        case 'iterativeLoop':
-          // iterativeLoopSelected.value = !iterativeLoopSelected.value;
-          if(iterativeLoopSelected.value){
-            inquiryExpansionSelected.value = true;
-            ragSelected.value = true;
-            // inquiryExpansionSelected=true
-          }
-          newCase.value.workflow.inquiryExpansion=inquiryExpansionSelected.value
-          newCase.value.workflow.rag=ragSelected.value
-          newCase.value.workflow.iterativeLoop=iterativeLoopSelected.value
-          console.log('3',newCase.value.workflow);
-          break;
-          default:
-            console.log('workflow',newCase.value.workflow);
-
+        default:
+          console.log('workflow',newCase.value.workflow);
       }
-
-      //检测workflow的boolean值，并赋给newCase.value.workflow
-      // if(inquiryExpansionSelected.value)
-
     };
 
 
@@ -461,7 +428,6 @@ export default {
       handleUpload,
       showAddDialog,
       updateWorkflow,
-      iterativeLoopSelected,
       inquiryExpansionSelected,
       ragSelected,
       info,

@@ -4,7 +4,13 @@
       <slot name="actions"></slot>
     </div>
     <div v-if="!isShowVis" class="code-container">
-      <pre><code class="hljs" v-html="highlightedCode"></code></pre>
+      <div v-if="hasContent">
+        <pre><code class="hljs" v-html="highlightedCode"></code></pre>
+      </div>
+      <div v-else class="empty-state">
+        <v-icon size="64" color="grey-lighten-1">mdi-file-code</v-icon>
+        <p class="empty-text">暂无Ground Truth代码</p>
+      </div>
     </div>
     <div class="preview-frame" v-else>
       <iframe ref="previewFrame" sandbox="allow-scripts allow-same-origin allow-top-navigation"
@@ -53,6 +59,13 @@ export default {
     const highlightedCode = computed(() => {
 
       return hljs.highlightAuto(extractHtmlCode(props.htmlContent)).value;
+    })
+
+    const hasContent = computed(() => {
+      return props.htmlContent && 
+             props.htmlContent.trim() !== '' && 
+             props.htmlContent !== 'Ground Truth:' &&
+             props.htmlContent !== 'Generated Code:';
     })
 
 
@@ -182,7 +195,8 @@ export default {
     });
     return {
       previewFrame,
-      highlightedCode
+      highlightedCode,
+      hasContent
     };
   },
 };
@@ -225,6 +239,21 @@ export default {
   font-family: 'Courier New', Courier, monospace;
   /* 等宽字体 */
   font-size: 14px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 300px;
+}
+
+.empty-text {
+  margin-top: 12px;
+  font-size: 16px;
+  color: #9e9e9e;
 }
 
 .preview-container:fullscreen {

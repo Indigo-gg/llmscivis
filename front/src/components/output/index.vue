@@ -22,12 +22,16 @@
                 </v-btn-group>
               </v-card-title>
               <v-card-text>
-                <div class="console-container" ref="consoleContainer">
+                <div v-if="filteredLogs.length > 0" class="console-container" ref="consoleContainer">
                   <div v-for="(log, index) in filteredLogs" :key="index" class="log-entry" :class="log.type">
                     <v-icon :color="getLogColor(log.type)" size="small" class="mr-2">{{ getLogIcon(log.type) }}</v-icon>
                     <span class="log-timestamp">{{ formatTimestamp(log.timestamp) }}</span>
                     <span class="log-message">{{ log.message }}</span>
                   </div>
+                </div>
+                <div v-else class="empty-state">
+                  <v-icon size="48" color="grey-lighten-1">mdi-console</v-icon>
+                  <p class="empty-text">暂无控制台输出</p>
                 </div>
               </v-card-text>
               <v-card-actions>
@@ -39,8 +43,23 @@
             <v-card variant="tonal">
               <v-card-title>Evaluator Output</v-card-title>
               <v-card-text>
-                <div class="v-card-text markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
+                <div v-if="evaluatorOutput && evaluatorOutput.trim()" class="markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
+                <div v-else class="empty-state">
+                  <v-icon size="48" color="grey-lighten-1">mdi-clipboard-text</v-icon>
+                  <p class="empty-text">暂无评估结果</p>
+                </div>
               </v-card-text>
+              <v-card-actions>
+                <v-btn 
+                  icon="mdi-download" 
+                  size="small" 
+                  variant="text"
+                  title="导出评估结果"
+                  @click="$emit('export-results')"
+                >
+                  导出
+                </v-btn>
+              </v-card-actions>
             </v-card>
           </v-col>
         </v-row>
@@ -63,14 +82,11 @@ export default {
     },
     evaluatorOutput: {
       type: String,
-      required: true,
+      required: false,
       default: ""
-    },
-    triggerErrorAnalysis: {
-      type: Function,
-      required: true
     }
   },
+  emits: ['export-results'],
   setup(props) {
     const selectedLogLevel = ref('all');
     const consoleContainer = ref(null);
@@ -153,10 +169,15 @@ export default {
 }
 
 .console-container {
-  font-family: monospace;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   text-align: left;
   overflow: auto;
   max-height: 300px;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+  color: #333333;
 }
 
 .log-entry {
@@ -168,19 +189,19 @@ export default {
 }
 
 .log-entry.error {
-  background-color: rgba(244, 67, 54, 0.1);
+  background-color: rgba(244, 67, 54, 0.05);
 }
 
 .log-entry.warn {
-  background-color: rgba(255, 152, 0, 0.1);
+  background-color: rgba(255, 152, 0, 0.05);
 }
 
 .log-entry.info {
-  background-color: rgba(3, 169, 244, 0.1);
+  background-color: rgba(3, 169, 244, 0.05);
 }
 
 .log-entry.log {
-  background-color: rgba(76, 175, 80, 0.1);
+  background-color: rgba(76, 175, 80, 0.05);
 }
 
 .log-timestamp {
@@ -191,5 +212,20 @@ export default {
 
 .log-message {
   flex: 1;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 150px;
+}
+
+.empty-text {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #9e9e9e;
 }
 </style>
