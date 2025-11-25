@@ -49,6 +49,7 @@ const appConfig = {
         'gemini-2.5',
         'deepseek-r1',
         "chatGPT-4o-mini",
+        'deepseek-v3:671b'
 
     ],
     evaluator_prompt: `# Role: An expert for vtk.js and web-based scientific visualization

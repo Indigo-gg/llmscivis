@@ -56,6 +56,9 @@ def get_llm_response(prompt: str, model_name, system) -> str:
         elif model_name in ollama_config.models_aihub.keys():
             print("使用aihub模型")
             return get_aihub_response(prompt, ollama_config.models_aihub[model_name], system)
+        elif model_name in ollama_config.models_cst.keys():
+            print("使用cst模型")
+            return get_cst_response(prompt, ollama_config.models_cst[model_name], system)
         else:
             return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -125,7 +128,19 @@ def get_deepseek_response(prompt: str, model_name, system) -> str:
     # print(response)
     content = response.choices[0].message.content
     return content or ""
-
+def get_cst_response(prompt: str, model_name, system) -> str:
+    """调用deepseek获取回答"""
+    app = OpenAI(api_key=app_config.cst_apikey, base_url=app_config.cst_url)
+    response = app.chat.completions.create(
+        model=model_name,
+        stream=False,
+        messages=[
+            {'role': 'system', 'content': system},
+            {"role": "user", "content": prompt}
+        ],
+    )
+    content = response.choices[0].message.content
+    return content or ""
 def get_deepseek_response_stream(prompt: str, model_name, system):
     app = OpenAI(api_key=app_config.deepseek_apikey, base_url=app_config.deepseek_url)
     """调用deepseek获取流式回答"""

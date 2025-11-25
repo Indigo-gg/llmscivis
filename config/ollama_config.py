@@ -9,6 +9,9 @@ class OllamaConfig:
             'deepseek-r1':'deepseek-r1-250120',
             'deepseek-r1-distill-qwen-32b':'deepseek-r1-distill-qwen-32b-250120'
         }
+        self.models_cst={
+            'deepseek-v3:671b':'deepseek-v3:671b'
+        }
         self.models_ollama = {
             "llama3.2-1b": 'llama3.2:1b',
         }

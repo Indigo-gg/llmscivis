@@ -1,71 +1,65 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="12">
-        <v-row>
-          <v-col cols="6">
-            <v-card variant="tonal">
-              <v-card-title class="d-flex align-center">
-                Console Output
-                <v-spacer></v-spacer>
-                <v-btn-group variant="outlined" class="ml-1" density="compact">
-                  <v-btn :color="selectedLogLevel === 'all' ? 'primary' : undefined" @click="selectedLogLevel = 'all'"
-                    size="x-small">All</v-btn>
-                  <v-btn :color="selectedLogLevel === 'error' ? 'error' : undefined" @click="selectedLogLevel = 'error'"
-                    size="x-small">Error</v-btn>
-                  <v-btn :color="selectedLogLevel === 'warn' ? 'warning' : undefined" @click="selectedLogLevel = 'warn'"
-                    size="x-small">Warn</v-btn>
-                  <v-btn :color="selectedLogLevel === 'info' ? 'info' : undefined" @click="selectedLogLevel = 'info'"
-                    size="x-small">Info</v-btn>
-                  <v-btn :color="selectedLogLevel === 'log' ? 'success' : undefined" @click="selectedLogLevel = 'log'"
-                    size="x-small">Log</v-btn>
-                </v-btn-group>
-              </v-card-title>
-              <v-card-text>
-                <div v-if="filteredLogs.length > 0" class="console-container" ref="consoleContainer">
-                  <div v-for="(log, index) in filteredLogs" :key="index" class="log-entry" :class="log.type">
-                    <v-icon :color="getLogColor(log.type)" size="small" class="mr-2">{{ getLogIcon(log.type) }}</v-icon>
-                    <span class="log-timestamp">{{ formatTimestamp(log.timestamp) }}</span>
-                    <span class="log-message">{{ log.message }}</span>
-                  </div>
-                </div>
-                <div v-else class="empty-state">
-                  <v-icon size="48" color="grey-lighten-1">mdi-console</v-icon>
-                  <p class="empty-text">暂无控制台输出</p>
-                </div>
-              </v-card-text>
-              <v-card-actions>
-                <slot name="actions"></slot>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-          <v-col cols="6">
-            <v-card variant="tonal">
-              <v-card-title>Evaluator Output</v-card-title>
-              <v-card-text>
-                <div v-if="evaluatorOutput && evaluatorOutput.trim()" class="markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
-                <div v-else class="empty-state">
-                  <v-icon size="48" color="grey-lighten-1">mdi-clipboard-text</v-icon>
-                  <p class="empty-text">暂无评估结果</p>
-                </div>
-              </v-card-text>
-              <v-card-actions>
-                <v-btn 
-                  icon="mdi-download" 
-                  size="small" 
-                  variant="text"
-                  title="导出评估结果"
-                  @click="$emit('export-results')"
-                >
-                  导出
-                </v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
+  <div class="output-wrapper">
+    <v-row class="output-row">
+      <v-col cols="12" md="6" class="console-col">
+        <v-card variant="tonal" class="output-card">
+          <v-card-title class="d-flex align-center">
+            Console Output
+            <v-spacer></v-spacer>
+            <v-btn-group variant="outlined" class="ml-1" density="compact">
+              <v-btn :color="selectedLogLevel === 'all' ? 'primary' : undefined" @click="selectedLogLevel = 'all'"
+                size="x-small">All</v-btn>
+              <v-btn :color="selectedLogLevel === 'error' ? 'error' : undefined" @click="selectedLogLevel = 'error'"
+                size="x-small">Error</v-btn>
+              <v-btn :color="selectedLogLevel === 'warn' ? 'warning' : undefined" @click="selectedLogLevel = 'warn'"
+                size="x-small">Warn</v-btn>
+              <v-btn :color="selectedLogLevel === 'info' ? 'info' : undefined" @click="selectedLogLevel = 'info'"
+                size="x-small">Info</v-btn>
+              <v-btn :color="selectedLogLevel === 'log' ? 'success' : undefined" @click="selectedLogLevel = 'log'"
+                size="x-small">Log</v-btn>
+            </v-btn-group>
+          </v-card-title>
+          <v-card-text class="console-content">
+            <div v-if="filteredLogs.length > 0" class="console-container" ref="consoleContainer">
+              <div v-for="(log, index) in filteredLogs" :key="index" class="log-entry" :class="log.type">
+                <v-icon :color="getLogColor(log.type)" size="small" class="mr-2">{{ getLogIcon(log.type) }}</v-icon>
+                <span class="log-timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+                <span class="log-message">{{ log.message }}</span>
+              </div>
+            </div>
+            <div v-else class="empty-state">
+              <v-icon size="48" color="grey-lighten-1">mdi-console</v-icon>
+              <p class="empty-text">暂无控制台输出</p>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6" class="evaluator-col">
+        <v-card variant="tonal" class="output-card">
+          <div class="evaluator-header">
+            <v-card-title class="flex-grow-1">Evaluator Output</v-card-title>
+            <v-btn 
+              icon="mdi-download" 
+              size="x-small" 
+              variant="text"
+              title="导出评估结果"
+              class="export-btn"
+              @click="$emit('export-results')"
+            >
+              <v-icon>mdi-download</v-icon>
+            </v-btn>
+          </div>
+          <v-card-text class="evaluator-content">
+            <div v-if="evaluatorOutput && evaluatorOutput.trim()" class="markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
+            <div v-else class="empty-state">
+              <v-icon size="48" color="grey-lighten-1">mdi-clipboard-text</v-icon>
+              <p class="empty-text">暂无评估结果</p>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
-  </v-container>
+  </div>
 </template>
 
 <script>
@@ -92,19 +86,13 @@ export default {
     const consoleContainer = ref(null);
 
     const filteredLogs = computed(() => {
-      // nextTick(() => {
       const logs = Array.isArray(props.consoleOutput) ? props.consoleOutput : [];
       console.log('consoleOutput:', logs);
       if (selectedLogLevel.value === 'all') {
         return logs;
       }
-      // 创建新的过滤后的数组，而不是修改 logs
       const filteredLogs = logs.filter(log => log.type === selectedLogLevel.value);
-      // console.log('filter log:', filteredLogs);
       return filteredLogs;
-      // });
-      // 确保 consoleOutput 是数组
-
     });
 
     watch(() => props.consoleOutput.length, () => {
@@ -158,6 +146,51 @@ export default {
 </script>
 
 <style scoped>
+.output-wrapper {
+  width: 100%;
+  padding: 0;
+}
+
+.output-row {
+  margin: 0;
+}
+
+.console-col,
+.evaluator-col {
+  padding: 8px;
+}
+
+.output-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-content,
+.evaluator-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.evaluator-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 8px;
+}
+
+.evaluator-header .v-card-title {
+  margin: 0;
+  padding: 0;
+}
+
+.export-btn {
+  flex-shrink: 0;
+}
+
 .v-card-text {
   white-space: pre-wrap;
 }
@@ -172,7 +205,7 @@ export default {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   text-align: left;
   overflow: auto;
-  max-height: 300px;
+  flex: 1;
   background-color: #f5f5f5;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
