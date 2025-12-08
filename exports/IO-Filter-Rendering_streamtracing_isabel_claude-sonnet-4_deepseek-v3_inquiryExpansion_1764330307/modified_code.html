@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js Isabel Dataset Streamline Visualization</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Initialize the full screen render window
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create data reader for the Isabel dataset
+        const reader = vtk.IO.Core.vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+
+        // Load the Isabel dataset from the specified URL
+        reader
+            .setUrl('http://127.0.0.1:5000/dataset/isabel.vti', { loadData: true })
+            .then(() => {
+                const imageData = reader.getOutputData();
+                
+                // Get dataset bounds to generate seed points at center
+                const bounds = imageData.getBounds();
+                const centerX = (bounds[0] + bounds[1]) / 2;
+                const centerY = (bounds[2] + bounds[3]) / 2;
+                const centerZ = (bounds[4] + bounds[5]) / 2;
+                
+                // Calculate dimensions for seed point distribution
+                const xRange = bounds[1] - bounds[0];
+                const yRange = bounds[3] - bounds[2];
+                const zRange = bounds[5] - bounds[4];
+                
+                // Create seed points with sufficient density around the center
+                const seeds = vtk.Common.DataModel.vtkPolyData.newInstance();
+                const points = vtk.Common.Core.vtkPoints.newInstance();
+                const verts = vtk.Common.Core.vtkCellArray.newInstance();
+                
+                // Generate a grid of seed points centered in the domain
+                const seedDensity = 5; // Number of seeds per dimension
+                const seedSpacing = Math.min(xRange, yRange, zRange) / (seedDensity * 2);
+                
+                let pointId = 0;
+                for (let i = -seedDensity/2; i <= seedDensity/2; i++) {
+                    for (let j = -seedDensity/2; j <= seedDensity/2; j++) {
+                        for (let k = -seedDensity/2; k <= seedDensity/2; k++) {
+                            const x = centerX + i * seedSpacing;
+                            const y = centerY + j * seedSpacing;
+                            const z = centerZ + k * seedSpacing;
+                            
+                            // Check if point is within bounds
+                            if (x >= bounds[0] && x <= bounds[1] &&
+                                y >= bounds[2] && y <= bounds[3] &&
+                                z >= bounds[4] && z <= bounds[5]) {
+                                points.insertNextPoint([x, y, z]);
+                                verts.insertNextCell([pointId]);
+                                pointId++;
+                            }
+                        }
+                    }
+                }
+                
+                seeds.setPoints(points);
+                seeds.setVerts(verts);
+                
+                // Create streamline filter
+                const streamline = vtk.Filters.FlowField.vtkStreamTracer.newInstance({
+                    integrationDirection: vtk.Filters.FlowField.vtkStreamTracer.IntegrationDirection.BOTH,
+                    integrationStepUnit: vtk.Filters.FlowField.vtkStreamTracer.IntegrationStepUnit.LENGTH_UNIT,
+                    initialIntegrationStep: 0.1,
+                    maximumIntegrationStep: 1.0,
+                    maximumNumberOfSteps: 2000,
+                    maximumPropagation: 100.0,
+                });
+                
+                // Set the vector field input (Isabel dataset with "Velocity" array)
+                streamline.setInputData(imageData);
+                streamline.setInputArrayToProcess(0, 'Velocity', 'PointData', 'Vector');
+                
+                // Set seed points as the source
+                streamline.setSourceData(seeds);
+                
+                // Create mapper and actor for streamlines
+                const streamlineMapper = vtk.Rendering.Core.vtkMapper.newInstance();
+                streamlineMapper.setInputConnection(streamline.getOutputPort());
+                
+                const streamlineActor = vtk.Rendering.Core.vtkActor.newInstance();
+                streamlineActor.setMapper(streamlineMapper);
+                
+                // Set streamline color to cyan [0, 1, 1] and line width
+                streamlineActor.getProperty().setColor(0, 1, 1);
+                streamlineActor.getProperty().setLineWidth(2);
+                
+                // Create outline filter for dataset bounds
+                const outline = vtk.Filters.General.vtkOutlineFilter.newInstance();
+                outline.setInputData(imageData);
+                
+                // Create mapper and actor for outline
+                const outlineMapper = vtk.Rendering.Core.vtkMapper.newInstance();
+                outlineMapper.setInputConnection(outline.getOutputPort());
+                
+                const outlineActor = vtk.Rendering.Core.vtkActor.newInstance();
+                outlineActor.setMapper(outlineMapper);
+                
+                // Set outline color to red [1, 0, 0] and line width
+                outlineActor.getProperty().setColor(1, 0, 0);
+                outlineActor.getProperty().setLineWidth(2);
+                outlineActor.getProperty().setRepresentationToWireframe();
+                
+                // Add actors to renderer
+                renderer.addActor(streamlineActor);
+                renderer.addActor(outlineActor);
+                
+                // Reset camera and render
+                renderer.resetCamera();
+                renderWindow.render();
+                
+                // Store references for debugging
+                window.reader = reader;
+                window.streamline = streamline;
+                window.streamlineMapper = streamlineMapper;
+                window.streamlineActor = streamlineActor;
+                window.outline = outline;
+                window.outlineMapper = outlineMapper;
+                window.outlineActor = outlineActor;
+                window.renderer = renderer;
+                window.renderWindow = renderWindow;
+            })
+            .catch((error) => {
+                console.error('Error loading dataset:', error);
+            });
+    </script>
+
+</body>
+
+</html>

@@ -1,5 +1,6 @@
 import html2canvas from 'html2canvas';
 import { handleExport } from '../api/api';
+import { convertToHundredScale } from './scoreUtils.js';
 
 export const ExportUtils = {
     // 等待元素渲染完成
@@ -96,6 +97,89 @@ export const ExportUtils = {
         });
     },
 
+    // Transform evaluation data to new format with English field names
+    transformEvaluationData(currentCase) {
+        // Extract automated checks
+        const automatedChecks = {
+            executable: currentCase.automatedExecutable ?? null,
+            has_output: currentCase.automatedValidOutput ?? null,
+            error_count: currentCase.consoleOutput ? 
+                currentCase.consoleOutput.filter(log => log.type === 'error').length : 0
+        };
+
+        // Extract LLM evaluation with score conversion
+        let llmEvaluation = null;
+        if (currentCase.parsedEvaluation) {
+            const dimensions = {};
+            if (currentCase.parsedEvaluation.dimensions) {
+                Object.keys(currentCase.parsedEvaluation.dimensions).forEach(key => {
+                    const dim = currentCase.parsedEvaluation.dimensions[key];
+                    const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+                    dimensions[snakeKey] = {
+                        score: convertToHundredScale(dim.score, 1) || 0,
+                        reason: dim.reason || ''
+                    };
+                });
+            }
+
+            llmEvaluation = {
+                overall_score: convertToHundredScale(currentCase.parsedEvaluation.overall, 1) || 0,
+                dimensions: dimensions,
+                critique: currentCase.parsedEvaluation.critique || '',
+                raw_output: currentCase.evaluatorEvaluation || ''
+            };
+        } else if (currentCase.score) {
+            // Fallback to old format
+            llmEvaluation = {
+                overall_score: convertToHundredScale(currentCase.score, 1) || 0,
+                dimensions: {},
+                critique: '',
+                raw_output: currentCase.evaluatorEvaluation || ''
+            };
+        }
+
+        // Extract manual evaluation with score conversion
+        let manualEvaluation = null;
+        if (currentCase.manualEvaluation && typeof currentCase.manualEvaluation === 'object') {
+            if (Array.isArray(currentCase.manualEvaluation) && currentCase.manualEvaluation.length > 0) {
+                const latest = currentCase.manualEvaluation[currentCase.manualEvaluation.length - 1];
+                manualEvaluation = {
+                    correction_cost: latest.correctionCost || 0,
+                    functionality: convertToHundredScale(latest.functionality, 1) || 0,
+                    visual_quality: convertToHundredScale(latest.visualQuality, 1) || 0,
+                    code_quality: convertToHundredScale(latest.codeQuality, 1) || 0,
+                    timestamp: latest.timestamp || null
+                };
+            } else {
+                manualEvaluation = {
+                    correction_cost: currentCase.manualEvaluation.correctionCost || 0,
+                    functionality: convertToHundredScale(currentCase.manualEvaluation.functionality, 1) || 0,
+                    visual_quality: convertToHundredScale(currentCase.manualEvaluation.visualQuality, 1) || 0,
+                    code_quality: convertToHundredScale(currentCase.manualEvaluation.codeQuality, 1) || 0,
+                    timestamp: currentCase.manualEvaluation.timestamp || null
+                };
+            }
+        }
+
+        // Build transformed data object
+        return {
+            evalId: currentCase.evalId?.toString() || '0',  // Backend expects evalId
+            evaluation_id: currentCase.evalId?.toString() || '0',
+            timestamp: new Date().toISOString(),
+            prompt: currentCase.prompt || '',
+            generator_model: currentCase.generator || '',
+            evaluator_model: currentCase.evaluator || '',
+            automated_checks: automatedChecks,
+            llm_evaluation: llmEvaluation,
+            manual_evaluation: manualEvaluation,
+            retrieval_results: currentCase.retrievalResults || [],
+            query_expansion: currentCase.queryExpansion || '',
+            console_output: currentCase.consoleOutput || [],
+            generated_code: currentCase.generatedCode || '',
+            ground_truth: currentCase.groundTruth || ''
+        };
+    },
+
     // 导出结果
     async exportResults(data, elements) {
         try {
@@ -129,12 +213,15 @@ export const ExportUtils = {
                 truthImage = null;
             }
 
+            // Transform data to new format with English field names
+            const transformedData = this.transformEvaluationData(data);
+
             // 准备导出数据
             const exportData = {
-                ...data,
+                ...transformedData,
                 generatedImage,
                 truthImage,
-                exportTime: new Date().toISOString()
+                export_time: new Date().toISOString()
             };
 
             // 调用后端API

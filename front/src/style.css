@@ -77,3 +77,35 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Custom Scrollbar Styles */
+/* WebKit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 4px;
+  min-height: 40px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #888888;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f5f5f5;
+}

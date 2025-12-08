@@ -1,5 +1,5 @@
 <script setup>
-// import HelloWorld from './components/HelloWorld.vue'
+// ... existing code ...
 import Demo from './components/demo.vue'
 </script>
 

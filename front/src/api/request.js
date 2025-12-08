@@ -1,5 +1,5 @@
 import axios from 'axios';
-const baseURL='http://127.0.0.1:5000'
+const baseURL='http://127.0.0.1:5001'
 // 创建axios实例
 const service = axios.create({
     baseURL: baseURL, // 设置统一的请求前缀

@@ -1,7 +1,11 @@
 <template>
   <div class="preview-container">
-    <div class="preview-header">
-      <slot name="actions"></slot>
+    <!-- Editor title bar - Theme color can be modified in editor-title-bar class -->
+    <div class="editor-title-bar">
+      <h3 class="editor-title">{{ title }}</h3>
+      <div class="title-actions">
+        <slot name="actions"></slot>
+      </div>
     </div>
     <div v-if="!isShowVis" class="code-container">
       <div v-if="hasContent">
@@ -9,7 +13,7 @@
       </div>
       <div v-else class="empty-state">
         <v-icon size="64" color="grey-lighten-1">mdi-file-code</v-icon>
-        <p class="empty-text">暂无Ground Truth代码</p>
+        <p class="empty-text">No {{ title }}</p>
       </div>
     </div>
     <div class="preview-frame" v-else>
@@ -22,7 +26,7 @@
 <script>
 import { onMounted, nextTick, ref, watch, computed } from 'vue';
 import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css'; // 选择一种高亮主题
+import 'highlight.js/styles/github.css'; // Select a highlight theme
 
 export default {
   name: 'index',
@@ -36,163 +40,160 @@ export default {
       type: Boolean,
       required: false,
       default: false
+    },
+    title: {
+      type: String,
+      required: false,
+      default: 'Ground Truth'
     }
   },
-  setup(props, { emit }) {  // 正确获取emit
+  setup(props, { emit }) {
     const previewFrame = ref(null);
 
-    // onMounted(async () => {
-    //   await nextTick(); // 确保DOM更新
-    //   if (props.isShowVis) {  // 初始加载检查
-    //     loadHtmlContentIntoIframe();
-    //   }
-    // });
-
-
     function extractHtmlCode(input) {
-      const regex = /```html([\s\S]*?)```/
-      const match = input.match(regex);
-
-      // 如果匹配成功，返回提取的代码，否则返回
+      // Extract HTML code from markdown code block
+      const htmlBlockRegex = /```html([\s\S]*?)```/;
+      const match = input.match(htmlBlockRegex);
       return match ? match[1].trim() : input;
     }
-    const highlightedCode = computed(() => {
 
+    const highlightedCode = computed(() => {
       return hljs.highlightAuto(extractHtmlCode(props.htmlContent)).value;
-    })
+    });
 
     const hasContent = computed(() => {
       return props.htmlContent && 
              props.htmlContent.trim() !== '' && 
              props.htmlContent !== 'Ground Truth:' &&
              props.htmlContent !== 'Generated Code:';
-    })
-
+    });
 
     function loadHtmlContentIntoIframe() {
       const iframe = previewFrame.value;
-      if (iframe) {
+      if (!iframe) {
+        console.error('iframe ref not found');
+        return;
+      }
+
+      try {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (!doc) {
+          console.error('Cannot access iframe document');
+          return;
+        }
+
+        const content = extractHtmlCode(props.htmlContent);
+        
+        // Build console script
+        const consoleScript = (
+          '// Capture global errors\n' +
+          'window.onerror = function(message, source, lineno, colno, error) {\n' +
+          '  window.parent.postMessage({\n' +
+          '    type: "console",\n' +
+          '    logType: "error",\n' +
+          '    message: "Error: " + message + " (at " + source + ":" + lineno + ":" + colno + ")",\n' +
+          '    timestamp: new Date().toISOString()\n' +
+          '  }, "*");\n' +
+          '  return false;\n' +
+          '};\n' +
+          'window.addEventListener("unhandledrejection", function(event) {\n' +
+          '  window.parent.postMessage({\n' +
+          '    type: "console",\n' +
+          '    logType: "error",\n' +
+          '    message: "Unhandled Promise Rejection: " + event.reason,\n' +
+          '    timestamp: new Date().toISOString()\n' +
+          '  }, "*");\n' +
+          '});\n' +
+          '["log", "info", "warn", "error", "debug", "trace"].forEach(type => {\n' +
+          '  const originalConsole = console[type];\n' +
+          '  console[type] = function(...args) {\n' +
+          '    const processedArgs = args.map(arg => {\n' +
+          '      if (arg === null) return "null";\n' +
+          '      if (arg === undefined) return "undefined";\n' +
+          '      if (typeof arg === "object") {\n' +
+          '        try { \n' +
+          '          return JSON.stringify(arg);\n' +
+          '        } catch(e) { \n' +
+          '          return String(arg);\n' +
+          '        }\n' +
+          '      }\n' +
+          '      return String(arg);\n' +
+          '    });\n' +
+          '    originalConsole.apply(this, args);\n' +
+          '    window.parent.postMessage({\n' +
+          '      type: "console",\n' +
+          '      logType: type,\n' +
+          '      message: processedArgs.join(" "),\n' +
+          '      timestamp: new Date().toISOString()\n' +
+          '    }, "*");\n' +
+          '  };\n' +
+          '});'
+        );
+
+        // Build complete HTML - using string concatenation to avoid Vue parser issues
+        const htmlStart = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+        const scriptTag = '<scr' + 'ipt>' + consoleScript + '</scr' + 'ipt>';
+        const bodyStart = '</head><body>';
+        const bodyEnd = '</body></html>';
+        const fullHtml = htmlStart + scriptTag + bodyStart + content + bodyEnd;
+
         doc.open();
-        doc.write('');
+        doc.write(fullHtml);
         doc.close();
 
-        nextTick(() => {
-          // 注入错误处理和控制台重写代码
-          const consoleScript = `
-            <script>
-              // 捕获全局错误
-              window.onerror = function(message, source, lineno, colno, error) {
-                window.parent.postMessage({
-                  type: 'console',
-                  logType: 'error',
-                  message: 'Error: ' + message + ' (at ' + source + ':' + lineno + ':' + colno + ')',
-                  timestamp: new Date().toISOString()
-                }, '*');
-                return false;
-              };
+        // Setup message listener for console output
+        const messageHandler = (event) => {
+          if (event.data && event.data.type === 'console') {
+            const logEntry = {
+              type: event.data.logType,
+              message: typeof event.data.message === 'string' ? event.data.message : String(event.data.message),
+              timestamp: event.data.timestamp
+            };
 
-              // 捕获 Promise 错误
-              window.addEventListener('unhandledrejection', function(event) {
-                window.parent.postMessage({
-                  type: 'console',
-                  logType: 'error',
-                  message: 'Unhandled Promise Rejection: ' + event.reason,
-                  timestamp: new Date().toISOString()
-                }, '*');
-              });
+            emit('console-output', [logEntry]);
 
-              // 重写所有console方法
-              ['log', 'info', 'warn', 'error'].forEach(type => {
-                const originalConsole = console[type];
-                console[type] = function(...args) {
-                  // 处理复杂对象
-                  const processedArgs = args.map(arg => {
-                    if (typeof arg === 'object') {
-                      try {
-                        return JSON.stringify(arg);
-                      } catch (e) {
-                        return String(arg);
-                      }
-                    }
-                    return String(arg);
-                  });
-
-                  // 保持原始输出
-                  originalConsole.apply(this, args);
-                  
-                  // 发送消息到父窗口
-                  window.parent.postMessage({
-                    type: 'console',
-                    logType: type,
-                    message: processedArgs,
-                    timestamp: new Date().toISOString()
-                  }, '*');
-                };
-              });
-            <\/script>
-          `;
-
-          const content = extractHtmlCode(props.htmlContent);
-          doc.open();
-          // Create a basic HTML structure first
-          doc.write('<!DOCTYPE html><html><head></head><body></body></html>');
-          doc.close(); // Close the document write stream before modifying the body
-
-          // Inject the console script and the actual content into the body
-          if (doc.body) {
-            // Inject console script into head
-            const scriptElement = doc.createElement('script');
-            // Remove <script> tags from the consoleScript string before setting textContent
-            scriptElement.textContent = consoleScript.replace(/^\s*<script>\s*|\s*<\/script>\s*$/g, '');
-            doc.head.appendChild(scriptElement);
-
-            // Set the main content in the body
-            doc.body.innerHTML = content;
-          } else {
-             console.error("Iframe body not found after writing basic structure.");
-             emit('error', { type: 'error', message: 'Failed to load content: iframe body not found.' });
+            if (event.data.logType === 'error') {
+              emit('error', logEntry);
+            }
           }
+        };
 
-          // 清除之前的事件监听器
-          const messageHandler = (event) => {
-            if (event.data && event.data.type === 'console') {
-              const logEntry = {
-                type: event.data.logType,
-                message: Array.isArray(event.data.message) ? event.data.message.join(' ') : event.data.message,
-                timestamp: event.data.timestamp
-              };
-
-              // 立即发送日志
-              emit('console-output', [logEntry]);
-
-              // 如果是错误类型，同时触发error事件
-              if (event.data.logType === 'error') {
-                emit('error', logEntry);
-              }
-            }
-          };
-
-          window.removeEventListener('message', messageHandler);
-          window.addEventListener('message', messageHandler);
-          // 新增：调试输出日志内容，便于排查日志传递问题
-          window.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'console') {
-              console.log('[Preview] 收到iframe日志：', event.data);
-            }
-          });
-        });
+        window.removeEventListener('message', messageHandler);
+        window.addEventListener('message', messageHandler);
+      } catch (error) {
+        console.error('Error in loadHtmlContentIntoIframe:', error);
+        emit('error', { type: 'error', message: 'Failed to load iframe content: ' + error.message });
       }
     }
 
-    watch(() => props.isShowVis, (newValue) => {  // 移除不正确的emit参数
-      // if (newValue) {
-      console.log(`isShowVis changed to ` + newValue);
-      nextTick(() => {
-        loadHtmlContentIntoIframe();
-      });
-
+    watch(() => props.isShowVis, (newValue) => {
+      console.log('isShowVis changed to ' + newValue);
+      if (newValue) {
+        nextTick(() => {
+          if (previewFrame.value) {
+            try {
+              loadHtmlContentIntoIframe();
+            } catch (error) {
+              console.error('Error loading iframe content:', error);
+              emit('error', { type: 'error', message: 'Failed to load preview: ' + error.message });
+            }
+          } else {
+            console.error('Preview iframe element not found');
+            emit('error', { type: 'error', message: 'Preview iframe element not found' });
+          }
+        });
+      }
     });
+
+    // Watch for htmlContent changes to reload when content updates
+    watch(() => props.htmlContent, (newValue) => {
+      if (newValue && hasContent.value && props.isShowVis) {
+        nextTick(() => {
+          loadHtmlContentIntoIframe();
+        });
+      }
+    });
+
     return {
       previewFrame,
       highlightedCode,
@@ -204,41 +205,68 @@ export default {
 </script>
 
 <style scoped>
+/* Theme color definition - Modify here to change editor title appearance */
+.editor-title-bar {
+  background-color: #4a5258;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-bottom: 2px solid #3a4248;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.editor-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .preview-container {
   position: relative;
   width: 100%;
   height: 70vh;
-  /*background-color: #2c3e50;*/
   margin: 5px;
+  border: 1px solid #3a4248;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #f5f5f5;
 }
 
 .preview-frame {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 50px);
   border: none;
-  /* 可选：移除边框 */
 }
 
 .code-container {
-  height: 100%;
+  height: calc(100% - 50px);
+  background-color: #f5f5f5;
 }
 
 .code-container pre {
   margin: 0;
-  padding: 10px;
+  padding: 12px;
   height: 100%;
   text-align: left;
-  /*background-color: #f6f8fa; !* 背景色 *!*/
-  border-radius: 4px;
-  /* 圆角 */
+  border-radius: 0;
   overflow-x: auto;
-  /* 水平溢出时滚动 */
+  background-color: #f5f5f5;
 }
 
 .hljs {
-  font-family: 'Courier New', Courier, monospace;
-  /* 等宽字体 */
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
+  line-height: 1.5;
+  background-color: #f5f5f5 !important;
 }
 
 .empty-state {

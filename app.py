@@ -92,8 +92,16 @@ def generation():
     #     }
     final_prompt=obj['prompt']
     analysis=''
+    analysis_text = ''
+    retrieval_results = []
+    
     if obj['workflow']['inquiryExpansion']:
         analysis=analyze_query(obj['prompt'],model_name=ollama_config.inquiry_expansion_model,system=None)
+        # Convert analysis result to text for display
+        if isinstance(analysis, list):
+            analysis_text = '\n'.join([item.get('description', '') for item in analysis if isinstance(item, dict)])
+        else:
+            analysis_text = str(analysis) if analysis else ''
         final_prompt=analysis
         print('after_analysis\n',final_prompt)
 
@@ -101,11 +109,16 @@ def generation():
         rag_agent = RAGAgent()
         final_prompt = rag_agent.search(analysis,obj['prompt'])
         print('rag prompt\n',final_prompt)
+        
+        # Extract retrieval results for frontend display
+        retrieval_results = rag_agent.get_retrieval_metadata()
     
     response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
 
     data_dict['generated_code']=response
     data_dict['final_prompt']=final_prompt
+    data_dict['analysis']=analysis_text
+    data_dict['retrieval_results']=retrieval_results
     add_data(data_dict)
 
     return Response(json.dumps(data_dict), content_type='application/json')
@@ -160,7 +173,7 @@ def handle_code_error():
         ])
         
         # 重新生成代码
-        new_code = get_llm_response(enhancement_prompt, ollama_config.models_deepseek['deepseek-v3'])
+        new_code = get_llm_response(enhancement_prompt, ollama_config.models_cst['deepseek-v3'])
         
         return jsonify({
             'success': True,
@@ -186,28 +199,62 @@ def evaluation():
     eval_result = evaluator_agent.evaluate(obj['generatedCode'], obj["groundTruth"], obj['evaluatorPrompt'],obj['evaluator'])
     obj['score']=eval_result['score']
     obj['evaluatorEvaluation']=eval_result['evaluator_evaluation']
+    
+    # 构建响应数据
     data_dict = {
         "score":obj['score'],
         "eval_id":obj['evalId'],
         "evaluator_evaluation":obj['evaluatorEvaluation'],
+        "parsed_evaluation": eval_result.get('parsed_evaluation')  # 新增字段
     }
     modify_object(data_dict)
     # 返回 evaluate 结果给前端
     return Response(json.dumps(data_dict), content_type='application/json')
 
 
+@app.route('/get_models', methods=["GET"])
+def get_models():
+    """Get all available models from ollama_config"""
+    models = []
+    
+    # Collect keys from all model dictionaries
+    model_sources = [
+        ollama_config.models_cst,
+        ollama_config.models_ollama,
+        ollama_config.models_qwen,
+        ollama_config.models_aihub
+    ]
+    
+    for source in model_sources:
+        models.extend(list(source.keys()))
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_models = []
+    for model in models:
+        if model not in seen:
+            seen.add(model)
+            unique_models.append(model)
+    
+    return jsonify(unique_models)
+
 @app.route('/get_all_data', methods=["GET"])
 def get_all():
     data_list = get_all_data()
     return Response(json.dumps(data_list), content_type='application/json')
 
-def read_directory_structure(base_path, current_path):
+def read_directory_structure(base_path, current_path, include_content=False):
+    """Read directory structure. Set include_content=True to load file contents."""
     structure = []
     full_current_path = os.path.join(base_path, current_path)
     if not os.path.exists(full_current_path):
         return structure
 
     for item_name in os.listdir(full_current_path):
+        # Skip 'data' folder and README files
+        if item_name == 'data' or item_name.lower() == 'readme.md':
+            continue
+            
         item_path = os.path.join(full_current_path, item_name)
         relative_item_path = os.path.join(current_path, item_name)
         if os.path.isdir(item_path):
@@ -215,20 +262,38 @@ def read_directory_structure(base_path, current_path):
                 'name': item_name,
                 'type': 'directory',
                 'path': relative_item_path,
-                'children': read_directory_structure(base_path, relative_item_path)
+                'children': read_directory_structure(base_path, relative_item_path, include_content)
             })
         else:
-            try:
-                with open(item_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            except Exception as e:
-                content = f"Error reading file: {e}"
-            structure.append({
+            file_item = {
                 'name': item_name,
                 'type': 'file',
                 'path': relative_item_path,
-                'content': content
-            })
+            }
+            
+            # Only load content if explicitly requested
+            if include_content:
+                content = None
+                # Try multiple encodings to handle different file types
+                encodings = ['utf-8', 'gbk', 'latin-1', 'cp1252']
+                for encoding in encodings:
+                    try:
+                        with open(item_path, 'r', encoding=encoding) as f:
+                            content = f.read()
+                        break  # Successfully read the file
+                    except (UnicodeDecodeError, LookupError):
+                        continue  # Try next encoding
+                    except Exception as e:
+                        content = f"Error reading file: {e}"
+                        break  # Stop trying on non-encoding errors
+                
+                # If all encodings failed, set a default error message
+                if content is None:
+                    content = f"Unable to read file with available encodings"
+                
+                file_item['content'] = content
+            
+            structure.append(file_item)
     return structure
 
 @app.route('/get_case_list', methods=["GET"])
@@ -240,12 +305,14 @@ def get_case_list():
             # 目录不存在，返回空数组
             return jsonify([])
         
-        tree_structure = read_directory_structure(base_path, '')
+        # Only load content when explicitly requested via query parameter
+        include_content = request.args.get('include_content', 'false').lower() == 'true'
+        tree_structure = read_directory_structure(base_path, '', include_content=include_content)
         return jsonify(tree_structure)
     except Exception as e:
-        # 发生错误时返回空数组和错误信息
+        # 发生错误时返回空数组
         print(f"Error in get_case_list: {e}")
-        return jsonify({'error': str(e), 'data': []}), 500
+        return jsonify([]), 500
 
 # save update the contents in file
 @app.route('/save', methods=["POST"])
@@ -268,9 +335,19 @@ def export_results():
         d = request.json
         export_dir = "exports"
         export_case_dir = ''
-        print(d["evalId"])
-        modify_object_with_export(d)
-        data=get_object_by_id(d)
+        
+        # Support both evalId and evaluation_id field names
+        eval_id = d.get("evalId") or d.get("evaluation_id")
+        if not eval_id:
+            raise ValueError("Missing evalId or evaluation_id in request")
+            
+        print(f"Processing export for evalId: {eval_id}")
+        
+        # Create a dict with the expected field name for backend functions
+        export_dict = {"evalId": eval_id}
+        
+        modify_object_with_export(export_dict)
+        data=get_object_by_id(export_dict)
         # print(f"Type of data: {type(data)}, Data: {data}")
         if 'generated_code' in data and 'path' in data and 'generator' in data and 'evaluator' in data and 'workflow' in data:
             generated_code = data['generated_code']
@@ -327,10 +404,14 @@ def export_results():
 
       
         for image_type in ['generatedImage', 'truthImage']:
-            if data.get(image_type):
+            # Check in both d (request data) and data (database data)
+            image_data = d.get(image_type) or data.get(image_type)
+            if image_data:
                 # 解码base64图片数据
-                img_data = base64.b64decode(data[image_type].split(',')[1])
-                with open(f"{export_dir}/{image_type}.png", 'wb') as f:
+                img_data = base64.b64decode(image_data.split(',')[1])
+                # Save to export_case_dir if available, otherwise to export_dir
+                image_dir = export_case_dir if export_case_dir else export_dir
+                with open(f"{image_dir}/{image_type}.png", 'wb') as f:
                     f.write(img_data)
         
         # 确保 export_case_dir 已经被正确赋值后再使用
@@ -370,8 +451,9 @@ def get_exported_cases():
     # 定义 exports 目录的绝对路径
     exports_path = os.path.join(os.getcwd(), 'exports')
     
-    # 调用辅助函数读取目录结构
-    tree_structure = read_directory_structure(exports_path, '')
+    # 只有当明确指定时才加载文件内容
+    include_content = request.args.get('include_content', 'false').lower() == 'true'
+    tree_structure = read_directory_structure(exports_path, '', include_content=include_content)
     
     return Response(json.dumps(tree_structure), content_type='application/json')
 
@@ -457,5 +539,5 @@ def get_dataset_file(filename):
         return Response(content, content_type=content_type)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False, port=5001)
     # get_message()

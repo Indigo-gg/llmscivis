@@ -29,7 +29,7 @@
             </div>
             <div v-else class="empty-state">
               <v-icon size="48" color="grey-lighten-1">mdi-console</v-icon>
-              <p class="empty-text">暂无控制台输出</p>
+              <p class="empty-text">No console output</p>
             </div>
           </v-card-text>
         </v-card>
@@ -42,7 +42,7 @@
               icon="mdi-download" 
               size="x-small" 
               variant="text"
-              title="导出评估结果"
+              title="Export Evaluation Results"
               class="export-btn"
               @click="$emit('export-results')"
             >
@@ -50,10 +50,80 @@
             </v-btn>
           </div>
           <v-card-text class="evaluator-content">
-            <div v-if="evaluatorOutput && evaluatorOutput.trim()" class="markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
+            <!-- Structured evaluation display when parsedEvaluation is available -->
+            <div v-if="parsedEvaluation && parsedEvaluation.overall !== null" class="structured-evaluation">
+              <!-- Overall Assessment Section -->
+              <div class="overall-assessment">
+                <div class="assessment-header">
+                  <v-icon size="small" color="primary" class="mr-2">mdi-clipboard-text</v-icon>
+                  <span class="assessment-title">Overall Assessment</span>
+                </div>
+                <div class="assessment-content">
+                  {{ parsedEvaluation.critique || 'No critique provided' }}
+                </div>
+              </div>
+
+              <v-divider class="my-4"></v-divider>
+
+              <!-- Radar Chart Section -->
+              <div class="radar-chart-section">
+                <div class="section-title">
+                  <v-icon size="small" class="mr-1" color="#4a5568">mdi-chart-radar</v-icon>
+                  Model Evaluation
+                </div>
+                <div class="radar-chart-wrapper">
+                  <div class="radar-chart-container">
+                    <canvas ref="radarChart" width="400" height="300" style="max-width: 100%; height: auto;"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <v-divider class="my-4"></v-divider>
+
+              <!-- Detailed Breakdown Section -->
+              <div class="detailed-breakdown">
+                <div class="breakdown-title">Detailed Breakdown</div>
+                <v-expansion-panels variant="accordion" class="mt-2">
+                  <v-expansion-panel
+                    v-for="(dimData, dimName) in parsedEvaluation.dimensions"
+                    :key="dimName"
+                    elevation="0"
+                  >
+                    <v-expansion-panel-title>
+                      <div class="dimension-header">
+                        <v-icon size="small" color="#6b7280" class="mr-2">
+                          {{ getDimensionIcon(dimName) }}
+                        </v-icon>
+                        <span class="dimension-name">{{ formatDimensionName(dimName) }}</span>
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          size="small"
+                          color="#6b7280"
+                          variant="flat"
+                          class="score-chip"
+                          text-color="white"
+                        >
+                          {{ convertToHundredScale(dimData.score) }}
+                        </v-chip>
+                      </div>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div class="dimension-reason">
+                        {{ dimData.reason || 'No reason provided' }}
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
+            </div>
+
+            <!-- Fallback to Markdown rendering for non-structured data -->
+            <div v-else-if="evaluatorOutput && evaluatorOutput.trim()" class="markdown-container" v-html="parseMarkdown(evaluatorOutput)"></div>
+            
+            <!-- Empty state -->
             <div v-else class="empty-state">
               <v-icon size="48" color="grey-lighten-1">mdi-clipboard-text</v-icon>
-              <p class="empty-text">暂无评估结果</p>
+              <p class="empty-text">No evaluation results</p>
             </div>
           </v-card-text>
         </v-card>
@@ -64,7 +134,9 @@
 
 <script>
 import { marked } from "marked";
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onMounted } from "vue";
+import Chart from "chart.js/auto";
+import { convertToHundredScale, getScoreColor } from "@/utils/scoreUtils.js";
 
 export default {
   name: "index",
@@ -78,12 +150,19 @@ export default {
       type: String,
       required: false,
       default: ""
+    },
+    parsedEvaluation: {  // New: Parsed evaluation data
+      type: Object,
+      required: false,
+      default: null
     }
   },
   emits: ['export-results'],
   setup(props) {
     const selectedLogLevel = ref('all');
     const consoleContainer = ref(null);
+    const radarChart = ref(null);
+    const radarChartInstance = ref(null);
 
     const filteredLogs = computed(() => {
       const logs = Array.isArray(props.consoleOutput) ? props.consoleOutput : [];
@@ -133,13 +212,153 @@ export default {
       return marked.parse(markdown);
     };
 
+    // Format dimension name for display
+    const formatDimensionName = (name) => {
+      // Convert CamelCase to separate words
+      return name.replace(/([A-Z])/g, ' $1').trim();
+    };
+
+    // Get icon for each dimension
+    const getDimensionIcon = (name) => {
+      const iconMap = {
+        'Functionality': 'mdi-cog',
+        'VisualQuality': 'mdi-palette',
+        'CodeQuality': 'mdi-code-tags'
+      };
+      return iconMap[name] || 'mdi-chart-box';
+    };
+
+    // Draw radar chart with Chart.js
+    const drawRadarChart = async () => {
+      if (!props.parsedEvaluation || !props.parsedEvaluation.dimensions) return;
+
+      // Wait for DOM to be ready
+      await nextTick();
+      
+      // Check if canvas element exists
+      if (!radarChart.value) {
+        console.warn('Canvas element not found, retrying in next tick');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!radarChart.value) {
+          console.error('Canvas element still not found');
+          return;
+        }
+      }
+
+      const dims = props.parsedEvaluation.dimensions;
+      const labels = Object.keys(dims);
+      if (labels.length === 0) return;
+      
+      const scores = labels.map(key => convertToHundredScale(dims[key].score, 0) || 0);
+      const chartLabels = labels.map(label => formatDimensionName(label));
+
+      // Destroy existing chart if it exists
+      if (radarChartInstance.value) {
+        radarChartInstance.value.destroy();
+        radarChartInstance.value = null;
+      }
+
+      // Reset canvas dimensions to ensure proper rendering
+      if (radarChart.value) {
+        radarChart.value.width = 400;
+        radarChart.value.height = 300;
+      }
+
+      const ctx = radarChart.value?.getContext('2d');
+      if (!ctx) {
+        console.error('Failed to get canvas 2D context');
+        return;
+      }
+      radarChartInstance.value = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            {
+              label: 'Evaluation Score',
+              data: scores,
+              borderColor: '#4a5568',
+              backgroundColor: 'rgba(74, 85, 104, 0.15)',
+              borderWidth: 2.5,
+              pointBackgroundColor: '#4a5568',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              padding: 12,
+              titleFont: { size: 13 },
+              bodyFont: { size: 12 },
+              borderColor: '#4a5568',
+              borderWidth: 1,
+              callbacks: {
+                label: function(context) {
+                  return context.label + ': ' + context.parsed.r;
+                }
+              }
+            }
+          },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: {
+                stepSize: 20,
+                font: { size: 11 },
+                color: '#999',
+                callback: function(value) {
+                  return value;
+                }
+              },
+              grid: {
+                color: '#e5e7eb',
+                drawBorder: false
+              },
+              pointLabels: {
+                font: { size: 12, weight: 'bold' },
+                color: '#4a5568',
+                padding: 8
+              }
+            }
+          }
+        }
+      });
+    };
+
+    // Watch for data changes and redraw chart
+    watch(() => props.parsedEvaluation, () => {
+      drawRadarChart();
+    }, { deep: true });
+
+    onMounted(() => {
+      drawRadarChart();
+    });
+
     return {
       selectedLogLevel,
       filteredLogs,
       getLogColor,
       getLogIcon,
       formatTimestamp,
-      parseMarkdown
+      parseMarkdown,
+      formatDimensionName,
+      getDimensionIcon,
+      convertToHundredScale,
+      getScoreColor,
+      consoleContainer,
+      radarChart,
+      radarChartInstance
     };
   },
 };
@@ -260,5 +479,117 @@ export default {
   margin-top: 12px;
   font-size: 14px;
   color: #9e9e9e;
+}
+
+/* Structured Evaluation Styles */
+.structured-evaluation {
+  text-align: left;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.overall-assessment {
+  background-color: #f3f4f6;
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 3px solid #6b7280;
+}
+
+.assessment-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.assessment-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.assessment-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  font-style: italic;
+}
+
+.detailed-breakdown {
+  margin-top: 8px;
+  background-color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.breakdown-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 12px;
+  padding-left: 8px;
+  border-left: 3px solid #6b7280;
+}
+
+.dimension-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.dimension-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.score-chip {
+  font-weight: 600;
+}
+
+.dimension-reason {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #5a6470;
+  padding: 8px 0;
+}
+
+/* Radar Chart Styles */
+.radar-chart-section {
+  margin: 12px 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #4b5563;
+  padding-left: 8px;
+  border-left: 3px solid #6b7280;
+}
+
+.radar-chart-wrapper {
+  margin: 12px 0;
+  background-color: #ffffff;
+  /* padding: 8px; */
+  width: 100%;
+  height: 300px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.radar-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: auto;
+}
+
+.radar-chart-container canvas {
+  max-width: 60%;
+  height: auto;
+  background-color: #ffffff;
 }
 </style>

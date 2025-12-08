@@ -1,47 +1,153 @@
 <template>
-  <v-card variant="outlined" class="evaluation-score-card" :color="cardColor">
+  <v-card variant="outlined" class="evaluation-score-card">
+    <!-- Card Title -->
     <v-card-title class="card-title">
       <v-icon class="mr-2">mdi-star</v-icon>
-      评估分数
+      Evaluation Results
     </v-card-title>
-    <v-card-text>
-      <div v-if="hasScore" class="score-display">
-        <div class="score-number" :style="{ color: scoreColor }">
-          {{ displayScore }}
+
+    <v-card-text class="card-content">
+      <!-- Top Section: Overall Score + Automated Checks Badges -->
+      <div class="top-section">
+        <div class="overall-score" :class="{ 'unscored': displayOverallScore === 0 }" :style="displayOverallScore === 0 ? { color: '#9e9e9e' } : { color: overallScoreColor }">
+          {{ displayOverallScore || 'N/A' }}
         </div>
-        <v-rating
-          :model-value="ratingValue"
-          readonly
-          :length="5"
-          :size="32"
-          color="yellow-darken-2"
-          class="rating-stars"
-        ></v-rating>
-        <div class="score-level" :style="{ color: scoreColor }">
-          {{ scoreLevel }}
+        <div class="score-label">Overall Score</div>
+        
+        <!-- Automated Checks Badges -->
+        <div class="badges-container" v-if="checkStatus !== 'idle'">
+          <!-- 代码语法检查：在生成代码前显示等待，生成后显示通过，待后续实现实际检查逻辑 -->
+          <v-chip
+            size="small"
+            :color="checkStatus === 'loading' ? 'warning' : 'success'"
+            variant="flat"
+            class="mr-2"
+          >
+            <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-check-circle' }}</v-icon>
+            {{ checkStatus === 'loading' ? 'Checking' : 'Executable' }}
+          </v-chip>
+          <v-chip
+            size="small"
+            :color="checkStatus === 'loading' ? 'warning' : 'success'"
+            variant="flat"
+          >
+            <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-code-braces-box' }}</v-icon>
+            {{ checkStatus === 'loading' ? 'Validating' : 'Valid' }}
+          </v-chip>
         </div>
       </div>
-      <div v-else class="empty-state">
-        <v-icon size="64" color="grey-lighten-1">mdi-star-outline</v-icon>
-        <p class="empty-text">暂无评估分数</p>
+
+      <v-divider class="my-4"></v-divider>
+
+      <!-- Manual Evaluation Section -->
+      <div class="manual-evaluation-section">
+        <div class="section-subtitle">
+          <v-icon size="small" class="mr-1" color="#5c6370">mdi-account-edit</v-icon>
+          Manual Evaluation
+        </div>
+        
+        <div class="manual-form">
+          <!-- Correction Cost Slider -->
+          <div class="slider-group">
+            <div class="slider-label">Correction Cost</div>
+            <v-slider
+              v-model="manualCorrectionCost"
+              :min="0"
+              :max="100"
+              :step="1"
+              color="#546e7a"
+              density="compact"
+            >
+              <template v-slot:append>
+                <span class="slider-value">{{ manualCorrectionCost }}</span>
+              </template>
+            </v-slider>
+            <div class="slider-hint">Modified Lines / Total Lines</div>
+          </div>
+
+          <!-- Functionality Rating Slider -->
+          <div class="slider-group">
+            <div class="slider-label">Functionality Rating</div>
+            <v-slider
+              v-model="manualFunctionality"
+              :min="0"
+              :max="100"
+              :step="1"
+              color="#546e7a"
+              density="compact"
+            >
+              <template v-slot:append>
+                <span class="slider-value">{{ manualFunctionality }}</span>
+              </template>
+            </v-slider>
+            <div class="slider-hint">Missing Features ← → Complete</div>
+          </div>
+
+          <!-- Visual Quality Rating Slider -->
+          <div class="slider-group">
+            <div class="slider-label">Visual Quality Rating</div>
+            <v-slider
+              v-model="manualVisualQuality"
+              :min="0"
+              :max="100"
+              :step="1"
+              color="#546e7a"
+              density="compact"
+            >
+              <template v-slot:append>
+                <span class="slider-value">{{ manualVisualQuality }}</span>
+              </template>
+            </v-slider>
+            <div class="slider-hint">Needs Improvement ← → Excellent</div>
+          </div>
+
+          <!-- Code Quality Rating Slider -->
+          <div class="slider-group">
+            <div class="slider-label">Code Quality Rating</div>
+            <v-slider
+              v-model="manualCodeQuality"
+              :min="0"
+              :max="100"
+              :step="1"
+              color="#546e7a"
+              density="compact"
+            >
+              <template v-slot:append>
+                <span class="slider-value">{{ manualCodeQuality }}</span>
+              </template>
+            </v-slider>
+            <div class="slider-hint">Obfuscated ← → Readable</div>
+          </div>
+        </div>
       </div>
     </v-card-text>
+
+    <!-- Action Button -->
     <v-card-actions>
-      <v-btn
+      <!-- <v-btn
         variant="tonal"
         color="primary"
         @click="$emit('trigger-evaluation')"
         :loading="isLoading"
         block
+      > -->
+      <v-btn
+        variant="tonal"
+        color="primary"
+        :loading="isLoading"
+        block
       >
-        <v-icon left>mdi-play-circle-outline</v-icon>
-        开始评估
+        <v-icon start>mdi-play-circle-outline</v-icon>
+        Save Human Evaluation
       </v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
 <script>
+import { ref, computed, watch } from 'vue';
+import { convertToHundredScale, getScoreColor } from '@/utils/scoreUtils';
+
 export default {
   name: 'EvaluationScoreCard',
   props: {
@@ -55,46 +161,139 @@ export default {
       required: false,
       default: ''
     },
+    parsedEvaluation: {
+      type: Object,
+      required: false,
+      default: null
+    },
+    automatedChecks: {
+      type: Object,
+      required: false,
+      default: null
+    },
+    manualEvaluation: {
+      type: Object,
+      required: false,
+      default: null
+    },
+    evalId: {
+      type: [String, Number],
+      required: false,
+      default: ''
+    },
     isLoading: {
       type: Boolean,
       default: false
     }
   },
-  emits: ['trigger-evaluation'],
-  computed: {
-    hasScore() {
-      return this.score !== '' && this.score !== null && this.score !== undefined;
-    },
-    displayScore() {
-      if (!this.hasScore) return '0';
-      const numScore = typeof this.score === 'string' ? parseFloat(this.score) : this.score;
-      return isNaN(numScore) ? '0' : numScore.toFixed(1);
-    },
-    numericScore() {
-      const num = parseFloat(this.displayScore);
-      return isNaN(num) ? 0 : num;
-    },
-    scoreColor() {
-      if (this.numericScore >= 81) return '#4caf50'; // 绿色
-      if (this.numericScore >= 61) return '#ffc107'; // 黄色
-      return '#f44336'; // 红色
-    },
-    cardColor() {
-      if (!this.hasScore) return '';
-      if (this.numericScore >= 81) return 'green-lighten-5';
-      if (this.numericScore >= 61) return 'yellow-lighten-5';
-      return 'red-lighten-5';
-    },
-    scoreLevel() {
-      if (this.numericScore >= 90) return '优秀';
-      if (this.numericScore >= 81) return '良好';
-      if (this.numericScore >= 61) return '及格';
-      return '不及格';
-    },
-    ratingValue() {
-      // 将分数转换为5星评分
-      return (this.numericScore / 100) * 5;
-    }
+  emits: ['trigger-evaluation', 'submit-manual-evaluation'],
+  setup(props, { emit }) {
+
+    // Check status management
+    const checkStatus = ref('idle'); // idle, loading, passed, failed
+
+    // Manual evaluation form state
+    const manualCorrectionCost = ref(0);
+    const manualFunctionality = ref(50);
+    const manualVisualQuality = ref(50);
+    const manualCodeQuality = ref(50);
+    const isManualSubmitting = ref(false);
+
+    // Computed properties
+    const hasScore = computed(() => {
+      return props.score !== '' && props.score !== null && props.score !== undefined;
+    });
+
+    const hasParsedEvaluation = computed(() => {
+      return props.parsedEvaluation && 
+             props.parsedEvaluation.dimensions && 
+             Object.keys(props.parsedEvaluation.dimensions).length > 0;
+    });
+
+    const displayOverallScore = computed(() => {
+      if (hasParsedEvaluation.value && props.parsedEvaluation.overall !== null) {
+        return convertToHundredScale(props.parsedEvaluation.overall, 0) || 0;
+      }
+      if (hasScore.value) {
+        return convertToHundredScale(props.score, 0) || 0;
+      }
+      return 0;
+    });
+
+    const overallScoreColor = computed(() => {
+      return getScoreColor(displayOverallScore.value, true);
+    });
+
+    const scoreLevel = computed(() => {
+      const score = displayOverallScore.value;
+      if (score >= 90) return 'Excellent';
+      if (score >= 80) return 'Good';
+      if (score >= 60) return 'Pass';
+      return 'Fail';
+    });
+
+    // Methods
+
+
+    const submitManualEvaluation = () => {
+      isManualSubmitting.value = true;
+      
+      const manualData = {
+        evalId: props.evalId,
+        correctionCost: manualCorrectionCost.value,
+        functionality: manualFunctionality.value,
+        visualQuality: manualVisualQuality.value,
+        codeQuality: manualCodeQuality.value,
+        timestamp: new Date().toISOString()
+      };
+
+      emit('submit-manual-evaluation', manualData);
+      
+      setTimeout(() => {
+        isManualSubmitting.value = false;
+      }, 500);
+    };
+
+    // Watch for manual evaluation data and load it
+    watch(() => props.manualEvaluation, (newVal) => {
+      if (newVal) {
+        manualCorrectionCost.value = newVal.correctionCost || 0;
+        manualFunctionality.value = newVal.functionality || 50;
+        manualVisualQuality.value = newVal.visualQuality || 50;
+        manualCodeQuality.value = newVal.codeQuality || 50;
+      }
+    }, { immediate: true });
+
+    // Watch for generated code and update check status
+    watch(() => props.isLoading, (newVal) => {
+      if (newVal) {
+        // When code is being generated, set status to loading
+        checkStatus.value = 'loading';
+      }
+    });
+
+    // Watch for when evaluation completes
+    watch(() => props.parsedEvaluation, (newVal) => {
+      if (newVal && !props.isLoading) {
+        // When evaluation is complete, set status to passed
+        checkStatus.value = 'passed';
+      }
+    }, { deep: true });
+
+    return {
+      checkStatus,
+      manualCorrectionCost,
+      manualFunctionality,
+      manualVisualQuality,
+      manualCodeQuality,
+      isManualSubmitting,
+      hasScore,
+      hasParsedEvaluation,
+      displayOverallScore,
+      overallScoreColor,
+      scoreLevel,
+      submitManualEvaluation
+    };
   }
 }
 </script>
@@ -112,28 +311,39 @@ export default {
   border-bottom: 1px solid #e0e0e0;
 }
 
-.score-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+.card-content {
+  padding: 12px;
+  max-height:300px;
+  overflow-y: auto;
 }
 
-.score-number {
-  font-size: 48px;
+.top-section {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.overall-score {
+  font-size: 52px;
   font-weight: 700;
   line-height: 1;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
 }
 
-.rating-stars {
-  margin-bottom: 12px;
+.overall-score.unscored {
+  color: #9e9e9e !important;
 }
 
-.score-level {
-  font-size: 18px;
-  font-weight: 500;
+.score-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.badges-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .empty-state {
@@ -148,6 +358,59 @@ export default {
 .empty-text {
   margin-top: 12px;
   font-size: 16px;
-  color: #9e9e9e;
+  color: #b0bec5;
+}
+
+.manual-evaluation-section {
+  background-color: #fafbfc;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #546e7a;
+  margin-top: 12px;
+}
+
+.section-subtitle {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #37474f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.manual-form {
+  margin-top: 8px;
+}
+
+.slider-group {
+  margin-bottom: 14px;
+}
+
+.slider-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.slider-value {
+  min-width: 35px;
+  text-align: right;
+  font-weight: 500;
+  font-size: 14px;
+  color: #546e7a;
+}
+
+.slider-hint {
+  font-size: 11px;
+  color: #999;
+  margin-top: -8px;
+  text-align: center;
+}
+
+.mb-3 {
+  margin-bottom: 12px;
 }
 </style>

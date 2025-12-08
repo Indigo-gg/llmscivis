@@ -206,92 +206,92 @@ Content Library: {des}
 
 def process_rag_benchmark(input_file, output_file):
     """
-    读取Excel文件中的Benchmark prompt列，对每个问题进行RAG检索，
-    统计检索耗时，并将结果写入Excel文件
+    Read the Benchmark prompt column from Excel file, perform RAG retrieval for each question,
+    record retrieval time, and write results to Excel file
     
     Args:
-        input_file: 输入Excel文件路径
-        output_file: 输出Excel文件路径
+        input_file: Input Excel file path
+        output_file: Output Excel file path
     """
     # 读取Excel文件
     df = pd.read_excel(input_file, sheet_name='第二期实验数据')
     
-    # 确保必要的列存在，如果不存在则创建并初始化为空字符串
+    # Ensure necessary columns exist, create and initialize to empty string if not
     if 'rag_retrieval_result' not in df.columns:
         df['rag_retrieval_result'] = ''
     if 'time_spend_rag' not in df.columns:
         df['time_spend_rag'] = ''
     
-    # 强制将这两列转换为字符串类型，避免数据类型冲突
+    # Force convert these columns to string type to avoid data type conflicts
     df['rag_retrieval_result'] = df['rag_retrieval_result'].astype(str)
     df['time_spend_rag'] = df['time_spend_rag'].astype(str)
     
-    # 处理每个问题
+    # Process each question
     for index, row in df.iterrows():
         prompt = row['Benchmark prompt']
         
         if pd.isna(prompt) or prompt == '':
-            print(f"跳过第{index+1}行：空问题")
-            # 确保空值也被转换为字符串
+            print(f"Skipping row {index+1}: Empty question")
+            # Ensure empty values are also converted to strings
             df.at[index, 'rag_retrieval_result'] = str("")
             df.at[index, 'time_spend_rag'] = str("")
             continue
             
-        print(f"正在处理第{index+1}个问题的RAG检索...")
+        print(f"Processing RAG retrieval for question {index+1}...")
         
-        # 记录开始时间
+        # Record start time
         start_time = time.time()
         
         try:
-            # 进行RAG检索
+            # Perform RAG retrieval
             result = main(prompt)
             
             # 记录结束时间
             end_time = time.time()
             time_spent = end_time - start_time
             
-            # 将结果写入DataFrame，确保转换为字符串
+            # Write results to DataFrame, ensure conversion to string
             if result is not None:
-                # 保存检索结果
+                # Save retrieval results
                 df.at[index, 'rag_retrieval_result'] = str(result)
                 df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
-                print(f"第{index+1}个问题RAG检索完成，耗时: {time_spent:.2f}秒")
+                print(f"RAG retrieval for question {index+1} completed, time spent: {time_spent:.2f} seconds")
             else:
-                df.at[index, 'rag_retrieval_result'] = str("检索失败")
+                df.at[index, 'rag_retrieval_result'] = str("Retrieval failed")
                 df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
-                print(f"第{index+1}个问题检索失败，耗时: {time_spent:.2f}秒")
+                print(f"Retrieval failed for question {index+1}, time spent: {time_spent:.2f} seconds")
                 
         except Exception as e:
-            # 记录结束时间
+            # Record end time
             end_time = time.time()
             time_spent = end_time - start_time
             
-            df.at[index, 'rag_retrieval_result'] = str(f"检索出错: {str(e)}")
+            df.at[index, 'rag_retrieval_result'] = str(f"Retrieval error: {str(e)}")
             df.at[index, 'time_spend_rag'] = str(f"{time_spent:.2f}")
-            print(f"第{index+1}个问题检索出错: {e}，耗时: {time_spent:.2f}秒")
+            print(f"Retrieval error for question {index+1}: {e}, time spent: {time_spent:.2f} seconds")
     
-    # 保存到Excel文件
+    # Save to Excel file
     try:
         with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
             df.to_excel(writer, sheet_name='第二期实验数据', index=False)
         print(f"RAG检索处理完成，结果已保存到 {output_file}")
     except Exception as e:
-        print(f"保存文件时出错: {e}")
-        # 尝试另存为新文件
+        print(f"Error saving file: {e}")
+        # Try to save as new file
         backup_file = output_file.replace('.xlsx', '_rag_backup.xlsx')
         df.to_excel(backup_file, sheet_name='第二期实验数据', index=False)
         print(f"已保存到备份文件: {backup_file}")
 
 def batch_process_rag_benchmark():
     """
-    批量处理RAG基准问题的主函数
+    Main function for batch processing RAG benchmark questions
     """
     try:
         path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
         process_rag_benchmark(input_file=path, output_file=path)
-        print("所有RAG问题处理完成！")
+        print("All RAG questions processed!")
     except Exception as e:
-        print(f"批量处理RAG过程中出错: {e}")
+        print(f"Error during batch RAG processing: {e}")
 
 
 
@@ -300,7 +300,7 @@ if __name__ == "__main__":
 
 
 # if __name__ == "__main__":
-#    # 读取res2.xlsx文件，然后使用benchmark prompt的问题调用函数，记录耗时和返回的结果，耗时写在time_spend_llm列，返回的结果写在llm_result列
+#    # Read res2.xlsx file, then call function with benchmark prompt questions, record time spent and results, write time spent in time_spend_llm column, write results in llm_result column
 #    pass
 
     

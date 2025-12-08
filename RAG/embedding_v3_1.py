@@ -288,14 +288,20 @@ def rerank_results(raw_results, analyzed_query):
 
 #     return final_results
 
-def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5):
+def search_code_optimized_with_stages(query, k, similarity_threshold, recall_k_multiplier=5):
     """
-    优化后的检索阶段：根据用户查询获取匹配的代码块，并结合元数据进行重排。
+    优化后的检索阶段：根据用户查询获取匹配的代码块，并返回两个阶段的结果。
+    
     Args:
         query (str): 用户查询文本。
         k (int): 返回最终前 k 个最相关的结果。
         similarity_threshold (float, optional): 基础余弦相似度阈值。只召回高于此阈值的结果。
         recall_k_multiplier (int): 初始召回阶段返回的文档数量是 k 的倍数。
+        
+    Returns:
+        tuple: (raw_results, reranked_results)
+            - raw_results: 初筛结果（第一阶段 - FAISS 语义搜索）
+            - reranked_results: 重排序结果（第二阶段 - 重排）
     """
     global index
     
@@ -310,7 +316,7 @@ def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5)
         # 如果仍然未训练，则返回空结果
         if index.ntotal == 0:
             print("错误: FAISS 索引无法加载，请检查数据目录和文件")
-            return []
+            return [], []
     
     # --- 阶段1: 查询分析 ---
     analyzed_query = analyze_query(query)
@@ -320,7 +326,7 @@ def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5)
     query_vector = embed_text(query)
     if query_vector.shape[1] != embedding_dim:
         print(f"错误: 查询向量维度不匹配 ({query_vector.shape[1]} != {embedding_dim})")
-        return []
+        return [], []
 
     recall_k = k * recall_k_multiplier
     distances, indices = index.search(query_vector, recall_k)
@@ -347,9 +353,27 @@ def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5)
     # --- 阶段3: 精细化重排 ---
     if not raw_results:
         print("初始召回阶段未找到结果。")
-        return []
+        return raw_results, []
 
     reranked_results = rerank_results(raw_results, analyzed_query)
+    
+    # 返回两个阶段的所有结果（不再截断）
+    return raw_results, reranked_results
+
+
+def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5):
+    """
+    优化后的检索阶段：根据用户查询获取匹配的代码块，并结合元数据进行重排。
+    只返回最终的 k 个结果（向后兼容）。
+    
+    Args:
+        query (str): 用户查询文本。
+        k (int): 返回最终前 k 个最相关的结果。
+        similarity_threshold (float, optional): 基础余弦相似度阈值。只召回高于此阈值的结果。
+        recall_k_multiplier (int): 初始召回阶段返回的文档数量是 k 的倍数。
+    """
+    # 调用新的函数获取两个阶段的结果
+    raw_results, reranked_results = search_code_optimized_with_stages(query, k, similarity_threshold, recall_k_multiplier)
     
     # --- 阶段4: 最终选择与返回 ---
     final_results = []
@@ -359,6 +383,278 @@ def search_code_optimized(query, k, similarity_threshold, recall_k_multiplier=5)
             break
 
     return final_results
+
+
+def search_code_with_topk_analysis(query, k, similarity_threshold, recall_k_multiplier=5):
+    """
+    优化后的检索阶段：返回前K个选中结果和剩余结果的对比分析数据。
+    
+    Args:
+        query (str): 用户查询文本。
+        k (int): 选中的前K个结果数。
+        similarity_threshold (float, optional): 基础余弦相似度阈值。
+        recall_k_multiplier (int): 初始召回阶段返回的文档数量是 k 的倍数。
+    
+    Returns:
+        dict: 包含以下字段的分析数据
+            - 'query': 查询文本
+            - 'raw_results': 初筛结果列表
+            - 'reranked_results': 重排序结果列表
+            - 'top_k_results': 前K个选中的结果
+            - 'remaining_results': 剩余的其他结果
+            - 'analysis': 统计分析数据
+    """
+    # 获取两个阶段的所有结果
+    raw_results, reranked_results = search_code_optimized_with_stages(query, k, similarity_threshold, recall_k_multiplier)
+    
+    # 分割前K个和剩余结果
+    top_k_results = reranked_results[:k]
+    remaining_results = reranked_results[k:]
+    
+    # 生成分析数据
+    analysis = {
+        'query': query,
+        'total_raw_count': len(raw_results),
+        'total_reranked_count': len(reranked_results),
+        'top_k_count': len(top_k_results),
+        'remaining_count': len(remaining_results),
+        'top_k_stats': _analyze_result_group(top_k_results),
+        'remaining_stats': _analyze_result_group(remaining_results),
+        'comparison': _compare_result_groups(top_k_results, remaining_results)
+    }
+    
+    return {
+        'query': query,
+        'raw_results': raw_results,
+        'reranked_results': reranked_results,
+        'top_k_results': top_k_results,
+        'remaining_results': remaining_results,
+        'analysis': analysis
+    }
+
+
+def _analyze_result_group(results):
+    """
+    对一组结果进行统计分析。
+    
+    Args:
+        results: 结果列表
+    
+    Returns:
+        dict: 统计数据
+    """
+    if not results:
+        return {
+            'count': 0,
+            'avg_faiss_similarity': 0,
+            'avg_rerank_score': 0,
+            'modules': [],
+            'module_count': 0
+        }
+    
+    faiss_sims = [r.get('faiss_similarity', 0) for r in results]
+    rerank_scores = [r.get('rerank_score', 0) for r in results]
+    
+    # 收集所有模块
+    all_modules = []
+    for r in results:
+        meta = r.get('meta_info', {})
+        modules = meta.get('vtkjs_modules', [])
+        if isinstance(modules, list):
+            all_modules.extend(modules)
+    
+    return {
+        'count': len(results),
+        'avg_faiss_similarity': sum(faiss_sims) / len(faiss_sims) if faiss_sims else 0,
+        'min_faiss_similarity': min(faiss_sims) if faiss_sims else 0,
+        'max_faiss_similarity': max(faiss_sims) if faiss_sims else 0,
+        'avg_rerank_score': sum(rerank_scores) / len(rerank_scores) if rerank_scores else 0,
+        'min_rerank_score': min(rerank_scores) if rerank_scores else 0,
+        'max_rerank_score': max(rerank_scores) if rerank_scores else 0,
+        'total_modules': len(all_modules),
+        'unique_modules': len(set(all_modules)),
+        'top_modules': _get_top_modules(all_modules, n=10)
+    }
+
+
+def _compare_result_groups(top_k, remaining):
+    """
+    对两组结果进行对比分析。
+    
+    Returns:
+        dict: 对比数据
+    """
+    top_k_stats = _analyze_result_group(top_k)
+    remaining_stats = _analyze_result_group(remaining)
+    
+    return {
+        'faiss_similarity_diff': top_k_stats['avg_faiss_similarity'] - remaining_stats['avg_faiss_similarity'],
+        'rerank_score_diff': top_k_stats['avg_rerank_score'] - remaining_stats['avg_rerank_score'],
+        'top_k_avg_faiss': top_k_stats['avg_faiss_similarity'],
+        'remaining_avg_faiss': remaining_stats['avg_faiss_similarity'],
+        'top_k_avg_rerank': top_k_stats['avg_rerank_score'],
+        'remaining_avg_rerank': remaining_stats['avg_rerank_score']
+    }
+
+
+def _get_top_modules(modules, n=10):
+    """
+    获取出现最频繁的前N个模块。
+    
+    Args:
+        modules: 模块列表
+        n: 返回的模块数量
+    
+    Returns:
+        list: 排序的模块列表（降序）
+    """
+    from collections import Counter
+    if not modules:
+        return []
+    module_counts = Counter(modules)
+    return [item[0] for item in module_counts.most_common(n)]
+
+
+def search_code_optimized_with_analysis(query, k, similarity_threshold, recall_k_multiplier=5):
+    """
+    优化后的检索阶段（带分析）：返回前K个选中结果和剩余结果的对比分析数据。
+    
+    Args:
+        query (str): 用户查询文本。
+        k (int): 返回最终前 k 个最相关的结果。
+        similarity_threshold (float, optional): 基础余弦相似度阈值。
+        recall_k_multiplier (int): 初始召回阶段返回的文档数量是 k 的倍数。
+        
+    Returns:
+        dict: 包含以下信息的字典
+            - 'selected_top_k': 前K个选中的结果列表
+            - 'remaining': 剩余的未选中结果列表
+            - 'analysis': 选中结果和剩余结果的对比分析
+                - 'top_k_count': 选中结果数
+                - 'remaining_count': 剩余结果数
+                - 'top_k_avg_rerank_score': 选中结果平均重排分数
+                - 'remaining_avg_rerank_score': 剩余结果平均重排分数
+                - 'top_k_avg_faiss_sim': 选中结果平均FAISS相似度
+                - 'remaining_avg_faiss_sim': 剩余结果平均FAISS相似度
+                - 'score_gap': 选中和剩余的重排分数差距
+                - 'top_k_module_distribution': 选中结果的模块分布
+                - 'remaining_module_distribution': 剩余结果的模块分布
+                - 'details': 详细对比信息
+    """
+    # 调用新的函数获取两个阶段的结果
+    raw_results, reranked_results = search_code_optimized_with_stages(query, k, similarity_threshold, recall_k_multiplier)
+    
+    # --- 分割选中和剩余的结果 ---
+    selected_top_k = []
+    remaining = []
+    
+    for i, doc in enumerate(reranked_results):
+        if i < k:
+            selected_top_k.append(doc)
+        else:
+            remaining.append(doc)
+    
+    # --- 分析数据 ---
+    analysis = {}
+    
+    # 基本统计
+    analysis['top_k_count'] = len(selected_top_k)
+    analysis['remaining_count'] = len(remaining)
+    
+    # 重排分数统计
+    if selected_top_k:
+        top_k_scores = [doc.get('rerank_score', 0) for doc in selected_top_k]
+        analysis['top_k_avg_rerank_score'] = np.mean(top_k_scores)
+        analysis['top_k_min_rerank_score'] = np.min(top_k_scores)
+        analysis['top_k_max_rerank_score'] = np.max(top_k_scores)
+        analysis['top_k_std_rerank_score'] = np.std(top_k_scores) if len(top_k_scores) > 1 else 0
+    else:
+        analysis['top_k_avg_rerank_score'] = 0
+        analysis['top_k_min_rerank_score'] = 0
+        analysis['top_k_max_rerank_score'] = 0
+        analysis['top_k_std_rerank_score'] = 0
+    
+    if remaining:
+        remaining_scores = [doc.get('rerank_score', 0) for doc in remaining]
+        analysis['remaining_avg_rerank_score'] = np.mean(remaining_scores)
+        analysis['remaining_min_rerank_score'] = np.min(remaining_scores)
+        analysis['remaining_max_rerank_score'] = np.max(remaining_scores)
+        analysis['remaining_std_rerank_score'] = np.std(remaining_scores) if len(remaining_scores) > 1 else 0
+        
+        # 计算分数差距
+        if analysis['top_k_count'] > 0 and analysis['remaining_count'] > 0:
+            analysis['score_gap'] = analysis['top_k_avg_rerank_score'] - analysis['remaining_avg_rerank_score']
+            analysis['score_gap_ratio'] = (analysis['top_k_avg_rerank_score'] / analysis['remaining_avg_rerank_score']) if analysis['remaining_avg_rerank_score'] != 0 else 0
+    else:
+        analysis['remaining_avg_rerank_score'] = 0
+        analysis['remaining_min_rerank_score'] = 0
+        analysis['remaining_max_rerank_score'] = 0
+        analysis['remaining_std_rerank_score'] = 0
+        analysis['score_gap'] = 0
+        analysis['score_gap_ratio'] = 0
+    
+    # FAISS相似度统计
+    if selected_top_k:
+        top_k_faiss_sims = [doc.get('faiss_similarity', 0) for doc in selected_top_k]
+        analysis['top_k_avg_faiss_sim'] = np.mean(top_k_faiss_sims)
+        analysis['top_k_min_faiss_sim'] = np.min(top_k_faiss_sims)
+        analysis['top_k_max_faiss_sim'] = np.max(top_k_faiss_sims)
+    else:
+        analysis['top_k_avg_faiss_sim'] = 0
+        analysis['top_k_min_faiss_sim'] = 0
+        analysis['top_k_max_faiss_sim'] = 0
+    
+    if remaining:
+        remaining_faiss_sims = [doc.get('faiss_similarity', 0) for doc in remaining]
+        analysis['remaining_avg_faiss_sim'] = np.mean(remaining_faiss_sims)
+        analysis['remaining_min_faiss_sim'] = np.min(remaining_faiss_sims)
+        analysis['remaining_max_faiss_sim'] = np.max(remaining_faiss_sims)
+    else:
+        analysis['remaining_avg_faiss_sim'] = 0
+        analysis['remaining_min_faiss_sim'] = 0
+        analysis['remaining_max_faiss_sim'] = 0
+    
+    # 模块分布统计
+    def count_modules(docs):
+        """统计文档列表中的模块分布"""
+        module_dist = {}
+        total_modules = 0
+        for doc in docs:
+            meta = doc.get('meta_info', {})
+            modules = meta.get('vtkjs_modules', [])
+            total_modules += len(modules)
+            for module in modules:
+                module_dist[module] = module_dist.get(module, 0) + 1
+        return module_dist, total_modules
+    
+    top_k_modules, top_k_total_modules = count_modules(selected_top_k)
+    remaining_modules, remaining_total_modules = count_modules(remaining)
+    
+    analysis['top_k_module_distribution'] = top_k_modules
+    analysis['remaining_module_distribution'] = remaining_modules
+    analysis['top_k_avg_modules_per_doc'] = top_k_total_modules / len(selected_top_k) if selected_top_k else 0
+    analysis['remaining_avg_modules_per_doc'] = remaining_total_modules / len(remaining) if remaining else 0
+    
+    # 计算两组之间的不同模块
+    all_top_k_modules = set(top_k_modules.keys())
+    all_remaining_modules = set(remaining_modules.keys())
+    analysis['unique_to_selected'] = list(all_top_k_modules - all_remaining_modules)
+    analysis['unique_to_remaining'] = list(all_remaining_modules - all_top_k_modules)
+    analysis['common_modules'] = list(all_top_k_modules & all_remaining_modules)
+    
+    # 详细对比信息
+    analysis['details'] = {
+        'query': query,
+        'k_value': k,
+        'threshold': similarity_threshold,
+        'recall_multiplier': recall_k_multiplier
+    }
+    
+    return {
+        'selected_top_k': selected_top_k,
+        'remaining': remaining,
+        'analysis': analysis
+    }
 
 
 
@@ -636,62 +932,7 @@ def process_nested_queries_and_log(splited_queries_nested, output_filename="outp
     
     # 返回所有结果
     return all_results
-
-
-# def search_multiple_queries_optimized(queries, k=5, similarity_threshold=0.3, recall_k_multiplier=5):
-#     """
-#     处理多个查询，对结果进行去重并返回匹配度最高的k个结果
     
-#     Args:
-#         queries (list): 查询字符串列表
-#         k (int): 返回最终前 k 个最相关的结果
-#         similarity_threshold (float): 基础余弦相似度阈值
-#         recall_k_multiplier (int): 初始召回阶段返回的文档数量是 k 的倍数
-        
-#     Returns:
-#         list: 去重后按分数排序的前k个结果
-#     """
-#     # 确保索引已训练
-#     if not index.is_trained:
-#         print("警告: FAISS 索引未训练，尝试重新加载数据...")
-#         load_data_from_directory(DATA_DIR)
-        
-#         # 如果仍然未训练，则返回空结果
-#         if not index.is_trained:
-#             print("错误: FAISS 索引无法训练，请检查数据目录和文件")
-#             return []
-    
-#     all_results = []
-    
-#     # 对每个查询执行检索
-#     for query in queries:
-#         # 使用现有的 search_code_optimized 函数进行检索
-#         query_results = search_code_optimized(
-#             query['description'], 
-#             k=k, 
-#             similarity_threshold=similarity_threshold, 
-#             recall_k_multiplier=recall_k_multiplier
-#         )
-#         all_results.extend(query_results)
-    
-#     # 去重处理：使用 faiss_id 作为唯一标识符
-#     unique_results = {}
-#     for result in all_results:
-#         faiss_id = result.get("faiss_id")
-#         rerank_score = result.get("rerank_score", 0)
-        
-#         # 如果这是第一次遇到该文档，或者找到了更高分数的相同文档
-#         if faiss_id not in unique_results or unique_results[faiss_id].get("rerank_score", 0) < rerank_score:
-#             unique_results[faiss_id] = result
-    
-#     # 转换为列表并按重排分数降序排序
-#     deduplicated_results = list(unique_results.values())
-#     deduplicated_results.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
-    
-#     # 返回前k个结果
-#     return deduplicated_results[:k]
-
-
 def read_splited_prompts(input_file="res2.xlsx"):
     """
     读取Excel文件中的splited_prompt列，解析其中的JSON列表数据
@@ -829,6 +1070,8 @@ def save_rag_results_to_excel(input_file="res2.xlsx", output_file="res2.xlsx", r
     except Exception as e:
         print(f"保存RAG结果时出错: {e}")
         return None
+
+
 
 
 if __name__ == '__main__':

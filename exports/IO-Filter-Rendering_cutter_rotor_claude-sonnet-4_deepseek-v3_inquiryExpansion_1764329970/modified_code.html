@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotor Dataset Visualization with Pressure Slice</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0.1, 0.1, 0.1],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create HTTP data reader to load the rotor dataset
+        const reader = vtk.IO.Core.vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+
+        // Load the rotor dataset from the specified URL
+        reader
+            .setUrl('http://127.0.0.1:5000/dataset/rotor.vti', { loadData: true })
+            .then(() => {
+                const imageData = reader.getOutputData();
+                
+                // Set the active scalar array to "Pressure"
+                const pointData = imageData.getPointData();
+                const pressureArray = pointData.getArrayByName('Pressure');
+                if (pressureArray) {
+                    pointData.setActiveScalars('Pressure');
+                }
+
+                // Get dataset dimensions to calculate 95% Y slice position
+                const dims = imageData.getDimensions();
+                const ySize = dims[1]; // Y dimension size
+                const sliceIndex = Math.floor(ySize * 0.95); // 95% depth along Y axis
+
+                // Create a plane to slice the dataset along Y axis
+                const plane = vtk.Common.DataModel.vtkPlane.newInstance();
+                plane.setOrigin(0, sliceIndex, 0);
+                plane.setNormal(0, 1, 0); // Normal pointing along Y axis
+
+                // Create cutter to slice the volume
+                const cutter = vtk.Filters.Core.vtkCutter.newInstance();
+                cutter.setInputData(imageData);
+                cutter.setCutFunction(plane);
+
+                // Create mapper for the slice
+                const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+                mapper.setInputConnection(cutter.getOutputPort());
+
+                // Get scalar range from pressure array for color mapping
+                const scalarRange = pressureArray.getRange();
+                mapper.setScalarRange(scalarRange);
+
+                // Create blue -> white -> red color map
+                const colorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+                colorTransferFunction.addRGBPoint(scalarRange[0], 0.0, 0.0, 1.0); // Blue at minimum
+                colorTransferFunction.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1.0, 1.0, 1.0); // White at middle
+                colorTransferFunction.addRGBPoint(scalarRange[1], 1.0, 0.0, 0.0); // Red at maximum
+
+                mapper.setLookupTable(colorTransferFunction);
+
+                // Create actor for the slice
+                const actor = vtk.Rendering.Core.vtkActor.newInstance();
+                actor.setMapper(mapper);
+                
+                // Set opacity to fully opaque
+                actor.getProperty().setOpacity(1.0);
+
+                // Add actor to renderer
+                renderer.addActor(actor);
+
+                // Add orientation marker (XYZ axes) in bottom-right corner
+                const orientationMarker = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
+                    actor: vtk.Rendering.Core.vtkAxesActor.newInstance(),
+                });
+                orientationMarker.setEnabled(true);
+                orientationMarker.setViewport({ xmin: 0.8, xmax: 1.0, ymin: 0.0, ymax: 0.2 });
+                orientationMarker.setInteractor(renderWindow.getInteractor());
+
+                // Reset camera and render
+                renderer.resetCamera();
+                renderWindow.render();
+            })
+            .catch((error) => {
+                console.error('Error loading dataset:', error);
+            });
+
+        // Store references for debugging
+        window.reader = reader;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+
+</body>
+
+</html>

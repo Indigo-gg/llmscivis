@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepwater Dataset Isosurface Visualization</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Create full screen render window with black background
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create HTTP data reader to load VTI file
+        const reader = vtk.IO.Core.vtkHttpDataSetReader.newInstance({ fetchGzip: false });
+
+        // Create calculator to compute velocity magnitude from v02 and v03 arrays
+        const calculator = vtk.Filters.General.vtkCalculator.newInstance();
+        calculator.setFormula({
+            getArrays: (inputDataSets) => ({
+                input: [
+                    { location: 'PointData', name: 'v02' },
+                    { location: 'PointData', name: 'v03' }
+                ],
+                output: [
+                    { location: 'PointData', name: 'Velocity Magnitude' }
+                ]
+            }),
+            evaluate: (arraysIn, arraysOut) => {
+                const [v02, v03] = arraysIn;
+                const velMag = arraysOut[0];
+                // Compute velocity magnitude as sqrt(v02^2 + v03^2)
+                for (let i = 0; i < v02.length; i++) {
+                    velMag[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+                }
+            }
+        });
+
+        // Create contour filter for isosurface generation
+        const contourFilter = vtk.Filters.Core.vtkContourFilter.newInstance();
+        
+        // Create mapper and actor for isosurface
+        const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+        const actor = vtk.Rendering.Core.vtkActor.newInstance();
+
+        // Set up the pipeline: reader -> calculator -> contour -> mapper -> actor
+        calculator.setInputConnection(reader.getOutputPort());
+        contourFilter.setInputConnection(calculator.getOutputPort());
+        mapper.setInputConnection(contourFilter.getOutputPort());
+        actor.setMapper(mapper);
+
+        // Configure actor properties for smooth shading and full opacity
+        const property = actor.getProperty();
+        property.setInterpolationToGouraud(); // Smooth shading
+        property.setOpacity(1.0); // Fully opaque
+
+        // Load the deepwater dataset
+        reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti', { loadData: true }).then(() => {
+            // After data is loaded, set up the visualization
+            const data = calculator.getOutputData();
+            const velocityArray = data.getPointData().getArray('Velocity Magnitude');
+            
+            if (velocityArray) {
+                const range = velocityArray.getRange();
+                const minVal = range[0];
+                const maxVal = range[1];
+                const midVal = (minVal + maxVal) / 2.0;
+
+                // Set contour value to mid-range
+                contourFilter.setContourValue(0, midVal);
+
+                // Create blue -> white -> red color transfer function
+                const colorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+                colorTransferFunction.addRGBPoint(minVal, 0.0, 0.0, 1.0); // Blue at minimum
+                colorTransferFunction.addRGBPoint(midVal, 1.0, 1.0, 1.0); // White at middle
+                colorTransferFunction.addRGBPoint(maxVal, 1.0, 0.0, 0.0); // Red at maximum
+
+                // Apply color map to mapper
+                mapper.setLookupTable(colorTransferFunction);
+                mapper.setScalarRange(minVal, maxVal);
+                mapper.setScalarModeToUsePointFieldData();
+                mapper.setColorModeToMapScalars();
+                mapper.setArrayAccessMode(1); // Use array name
+                mapper.setColorByArrayName('Velocity Magnitude');
+            }
+
+            // Add actor to renderer
+            renderer.addActor(actor);
+
+            // Create orientation marker (XYZ axes) in bottom-right corner
+            const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();
+            const orientationMarker = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
+                actor: axes,
+                interactor: renderWindow.getInteractor()
+            });
+            orientationMarker.setEnabled(true);
+            orientationMarker.setViewport({ xmin: 0.8, xmax: 1.0, ymin: 0.0, ymax: 0.2 }); // Bottom-right corner
+
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+        }).catch((error) => {
+            console.error('Error loading dataset:', error);
+        });
+
+        // Expose objects to global scope for debugging
+        window.reader = reader;
+        window.calculator = calculator;
+        window.contourFilter = contourFilter;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+
+</body>
+
+</html>

@@ -3,34 +3,25 @@ from config.app_config import app_config
 
 class OllamaConfig:
     def __init__(self):
-        self.models_deepseek = {
-            # "deepseek": 'deepseek-chat',
-            'deepseek-v3':'deepseek-v3-241226',
-            'deepseek-r1':'deepseek-r1-250120',
-            'deepseek-r1-distill-qwen-32b':'deepseek-r1-distill-qwen-32b-250120'
-        }
         self.models_cst={
-            'deepseek-v3:671b':'deepseek-v3:671b'
+            'deepseek-v3':'deepseek-v3:671b',
+            'qwen2.5-vl':'qwen2.5-vl:72b',
+            'qwen3':'qwen3:235b',
+            'deepseek-r1':'deepseek-r1:671b'
         }
         self.models_ollama = {
             "llama3.2-1b": 'llama3.2:1b',
         }
         self.models_qwen={
             "qwen3-turbo":"qwen-turbo-2025-04-28",
-            "qwen3-plus":"qwen-plus-2025-04-28",
-            "qwen-max":"qwen-max-2025-01-25",
+            "qwen3-plus":"qwen-plus-2025-09-11",
+            "qwen-max":"qwen3-max-2025-09-23",
             "qwen3-32b":"qwen3-32b",
             "qwen3-325b":"qwen3-235b-a22b",
             "qwen2.5-14b":"qwen2.5-14b-instruct-1m"
         }
         self.embedding_models = {
             "bge": 'BAAI/bge-small-en-v1.5',
-        }
-        self.models_coreai={
-            'claude-3.7-sonnet':'claude-3-7-sonnet-20250219',
-            'gemini-2.5':'gemini-2.5-pro-preview-05-06',
-            'chatGPT-4o-mini':"gpt-4o-mini",
-            'chatGPT-4o':' chatGPT-4o-latest'
         }
 
         self.models_aihub={

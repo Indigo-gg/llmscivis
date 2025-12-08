@@ -19,15 +19,26 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class RAGAgent:
     def __init__(self):
         self.searcher = VTKSearcherV2()
+        self.last_retrieval_results = []
 
     def search(self, analysis: list, prompt: str) -> str:
         """
-        检索数据，支持元数据过滤。
+        检索数据,支持元数据过滤。
         :param analysis: 查询分析结果
         :param prompt: 原始用户查询
         :return: 结合了上下文信息的最终提示
         """
-        return self.searcher.search(prompt,analysis)
+        result = self.searcher.search(prompt,analysis)
+        # Capture retrieval metadata from searcher
+        self.last_retrieval_results = self.searcher.last_retrieval_metadata
+        return result
+    
+    def get_retrieval_metadata(self) -> list:
+        """
+        获取最近一次检索的元数据用于前端展示
+        :return: 检索结果列表，包含title, description, relevance等字段
+        """
+        return self.last_retrieval_results
 
 def retrieval_step(searcher, excel_path):
     """

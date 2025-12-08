@@ -1,155 +1,147 @@
 <template>
-
-  <div>
-
-    <div class="list-container">
-    <v-list v-if="caseList && caseList.length > 0">
-      <v-list-item v-for="(item, index) in caseList" class="item" :key="index">
-        <v-list-item-content style="text-align: left">
-          <v-list-item-title>
-            <span class="prompt">
-              {{ item.prompt }}
-              <v-tooltip activator="parent" location="top">
-                <pre>{{ item.prompt }}</pre>
-              </v-tooltip>
-            </span>
-          </v-list-item-title>
-<!--          <v-list-item-title><span class="fileName">{{ item.fileName }}</span></v-list-item-title>-->
-        </v-list-item-content>
-      </v-list-item>
-    </v-list>
-    <!-- 空状态提示 -->
-    <div v-else class="empty-state">
-      <v-icon size="48" color="grey-lighten-1">mdi-folder-open-outline</v-icon>
-      <p class="empty-text">暂无案例数据</p>
+  <div class="config-sidebar">
+    <!-- Prompt Configuration Section -->
+    <div class="config-section prompt-section">
+      <h4 class="section-header">Prompt Configuration</h4>
+      <v-textarea
+        label="Prompt" 
+        rows="3"
+        v-model="newCase.prompt"
+        density="compact"
+        variant="outlined"
+        hide-details="auto"
+      ></v-textarea>
+      <v-textarea
+        label="Ground Truth"
+        v-model="newCase.groundTruth"
+        outlined
+        rows="8"
+        density="compact"
+        variant="outlined"
+        hide-details="auto"
+        class="mt-2"
+      ></v-textarea>
     </div>
-  </div>
-  <div class="upload">
-    <v-dialog v-model="showDialog" max-width="1200px">
-      <template v-slot:activator></template>
-      <v-card>
-        <v-card-title>create new case</v-card-title>
-       <v-card-item>
-         <div class="content">
-          <div class="left" style="min-width: 25%">
-            <v-treeview
-              :items="treeData"
-              item-key="path"
-              item-text="name"
-              density="compact"
-              activatable
-              return-object
-              open-on-click
-              @update:activated="handleActiveChange">
-              <template v-slot:prepend="{ item }">
-              
-                <v-icon v-if="item.type === 'file'">mdi-file-document-outline</v-icon>
-                <v-icon v-else>mdi-folder</v-icon>
-              </template>
-              <template v-slot:title="{ item }">
-                {{ item.name }}
-              </template>
-            </v-treeview>
-          </div>
-           <div class="middle" style="min-width: 40%">
-             <div class="input">
-               <v-text-field label="prompt" v-model="newCase.prompt"></v-text-field>
-             </div>
-             <v-textarea
-                 v-model="newCase.groundTruth"
-                 outlined
-                 placeholder="Please paste the ground truth here. "
-                 rows="15"
-             ></v-textarea>
-           </div>
-           <div class="right" style="min-width: 25%">
-              <div class="generator">
-                <v-select
-                    v-model="newCase.generator"
-                    :items="models"
-                    label="generator"
-                    outlined
-                ></v-select>
+
+    <!-- Model Settings Section -->
+    <div class="config-section model-section">
+      <h4 class="section-header">Model Settings</h4>
+      <v-select
+        v-model="newCase.generator"
+        :items="models"
+        label="Generator"
+        density="compact"
+        variant="outlined"
+        hide-details="auto"
+      ></v-select>
+      <v-select
+        v-model="newCase.evaluator"
+        :items="models"
+        label="Evaluator"
+        density="compact"
+        variant="outlined"
+        hide-details="auto"
+        class="mt-2"
+      ></v-select>
+    </div>
+
+    <!-- Workflow Options Section -->
+    <div class="config-section workflow-section">
+      <h4 class="section-header">Workflow Options</h4>
+      <v-checkbox 
+        v-model="inquiryExpansionSelected"
+        label="Inquiry Expansion"
+        prepend-icon="mdi-magnify-expand"
+        density="compact"
+        hide-details
+        @change="updateWorkflow('inquiryExpansion')"
+      ></v-checkbox>
+      <v-checkbox 
+        v-model="ragSelected"
+        label="RAG"
+        prepend-icon="mdi-database"
+        density="compact"
+        hide-details
+        @change="updateWorkflow('rag')"
+      ></v-checkbox>
+    </div>
+
+    <!-- Data Selection Section (Collapsible) -->
+    <div class="config-section data-section">
+      <v-expansion-panels variant="accordion">
+        <v-expansion-panel>
+          <v-expansion-panel-title class="expansion-header">
+            <v-icon class="mr-2">mdi-folder-open-outline</v-icon>
+            Select Task Case
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <div class="tree-container">
+              <v-treeview
+                v-if="treeData && treeData.length > 0"
+                :items="treeData"
+                item-key="path"
+                item-text="name"
+                density="compact"
+                activatable
+                return-object
+                open-on-click
+                @update:activated="handleActiveChange"
+              >
+                <template #prepend="{ item }">
+                  <v-icon v-if="item.type === 'file'" size="small">mdi-file-document-outline</v-icon>
+                  <v-icon v-else size="small">mdi-folder</v-icon>
+                </template>
+                <template #title="{ item }">
+                  {{ item.name }}
+                </template>
+              </v-treeview>
+              <div v-else class="empty-state-small">
+                <p class="empty-text-small">No case data available</p>
               </div>
-             <div class="evaluator">
-               <v-select
-                   v-model="newCase.evaluator"
-                   :items="models"
-                   label="evaluator"
-                   outlined
-               ></v-select>
-             </div>
-             <div class="workflow">
-               <div class="workflow-item">
-                 <v-checkbox v-model="inquiryExpansionSelected"
-                             :label="'Inquiry expansion'"
-                             prepend-icon="mdi-magnify-expand"
-                             @change="updateWorkflow('inquiryExpansion')"
-                 ></v-checkbox>
-                 <v-checkbox v-model="ragSelected"
-                             :label="'RAG'"
-                             prepend-icon="mdi-database"
-                             @change="updateWorkflow('rag')"
-                 ></v-checkbox>
-               </div>
-             </div>
-           </div>
+            </div>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
+    </div>
 
-         </div>
+    <!-- Generate Button (Fixed at bottom) -->
+    <div class="action-section">
+      <v-btn 
+        color="#4a5258" 
+        block 
+        :loading="isLoading"
+        @click="handleUpload"
+        class="generate-btn"
+      >
+        <v-icon left>mdi-play</v-icon>
+        Generate
+      </v-btn>
+    </div>
 
-        </v-card-item>
-
-        <v-card-actions>
-          <v-btn color="blue darken-1" text @click="showDialog = false">cancel</v-btn>
-          <!-- 绑定 loading 属性 -->
-          <v-btn color="blue darken-1" text @click="handleUpload">start</v-btn>
-        </v-card-actions>
-      </v-card>
-      <div class="workflow">
-        <div class="workflow-item">
-
-
-        </div>
-      </div>
-    </v-dialog>
-    <v-btn icon="mdi-plus" :loading="isLoading" color="blue" @click="showAddDialog">
-          <v-icon>mdi-plus</v-icon>
-        </v-btn>
-
-  </div>
-  <div>
+    <!-- Snackbar for notifications -->
     <v-snackbar
       v-model="info.snackbar"
       :timeout="info.timeout"
-  >
-    {{ info.message }}
-
-    <template v-slot:actions>
-      <div>
+    >
+      {{ info.message }}
+      <template v-slot:actions>
         <v-btn
           color="blue"
           variant="text"
           @click="info.snackbar = false"
-      >
-        Close
-      </v-btn>
-      </div>
-    </template>
-  </v-snackbar>
-
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
-
-  </div>
-
- 
-  <!-- 弹窗组件 -->
 </template>
 
 <script>
 import {onMounted,reactive, ref} from "vue";
 import workflow from "@/components/config/workflow.vue";
 import {appConfig} from "@/view/config.js";
-import {generateCode} from "@/api/api.js";
+import {generateCode, getModels} from "@/api/api.js";
 import { getCaseList } from "../../api/api";
 import { VTreeview } from "vuetify/labs/VTreeview";
 export default {
@@ -171,21 +163,15 @@ export default {
     }
   },
   setup(props, context) {
-    let showDialog = ref(false);
     const newCase = ref({
-      // prompt: null,
       path:null,
       name:null,
       prompt:appConfig.testDes,
       groundTruth:appConfig.testCode,
-      // groundTruth: null,
-      // fileName: null,
       evaluatorPrompt: appConfig.evaluator_prompt,
       generatorPrompt:appConfig.generator_prompt,
       generator:null,
       evaluator:null,
-      // score:'',
-      // evaluatorEvaluation:'',
       errorCount: 0,
       maxIterations: 3,
       workflow:{
@@ -194,7 +180,7 @@ export default {
       },
       evalUser:appConfig.eval_user
     });
-    // const emit= defineEmits(['start'])
+    
     let inquiryExpansionSelected = ref(false);
     let ragSelected = ref(false);
 
@@ -204,55 +190,50 @@ export default {
       snackbar: false
     });
 
-    // 添加 isLoading 状态变量
     const isLoading = ref(false);
-
-    // 定义 treeData 响应式变量
     const treeData = ref([]);
+    const models = ref([]);
 
-    // 定义获取树结构数据的异步函数
-    const fetchTreeData = async () => {
+    // Fetch models from backend
+    const fetchModels = async () => {
       try {
-        const response = await getCaseList();
-        // Ensure response.data is an array, otherwise provide an empty array or handle error
-        if (Array.isArray(response.data)) {
-          // Recursively remove content from file nodes
-          // const stripFileContent = (nodes) => {
-          //   return nodes.map(node => {
-          //     if (node.type === 'file' && node.content) {
-          //       const { content, ...rest } = node;
-          //       return rest;
-          //     }
-          //     if (node.children) {
-          //       node.children = stripFileContent(node.children);
-          //     }
-          //     return node;
-          //   });
-          // };
-          // treeData.value = stripFileContent(response.data);
-          treeData.value = response.data;
-          console.log('Processed treeData.value:', treeData.value);
-        } else {
-          console.error('Expected response.data to be an array, but got:', response.data);
-          treeData.value = []; // Default to empty array to prevent further errors
-        }
-        // console.log('Processed treeData.value (content stripped):', JSON.stringify(treeData.value, null, 2));
+        const response = await getModels();
+        models.value = response.data || [];
+        console.log('Models loaded:', models.value);
       } catch (error) {
-        console.error('Error fetching tree data:', error);
-        info.message = '获取用例列表失败';
-        info.snackbar = true;
+        console.error('Failed to fetch models:', error);
+        models.value = [];
       }
     };
 
-    // 处理树节点激活事件
+    // Fetch tree data on component mount
+    const fetchTreeData = async () => {
+      try {
+        const response = await getCaseList();
+        // Handle the response - it should be an array, but ensure we normalize it
+        const data = response.data || [];
+        if (Array.isArray(data)) {
+          treeData.value = data;
+          console.log('Processed treeData.value:', treeData.value);
+        } else {
+          console.error('Expected response.data to be an array, but got:', data);
+          treeData.value = [];
+        }
+      } catch (error) {
+        console.error('Error fetching tree data:', error);
+        info.message = 'Failed to fetch case list';
+        info.snackbar = true;
+        treeData.value = [];
+      }
+    };
+
+    // Handle tree node activation
     const handleActiveChange=(activeNodes)=> {
       console.log('activeNodes',activeNodes);
-      // activeNodes is an array containing the selected node object
       if (activeNodes && activeNodes.length > 0) {
         const selectedNode = activeNodes[0];
         const filePath = selectedNode.path;
 
-        // Find the corresponding node in treeData using the path
         const findNodeByPath = (nodes, path) => {
           for (const node of nodes) {
             if (node.path === path) {
@@ -271,7 +252,6 @@ export default {
         const node = findNodeByPath(treeData.value, filePath);
 
         if (node && node.type === 'file') {
-          // Find the parent directory
           const findParent = (nodes, targetNode) => {
             for (const node of nodes) {
               if (node.children) {
@@ -293,7 +273,6 @@ export default {
             let groundTruthContent = '';
             let descriptionContent = '';
 
-            // Look for ground_truth.html and description.txt in the parent directory's children
             for (const child of parentNode.children) {
               if (child.type === 'file') {
                 if (child.name === 'ground_truth.html' && child.content) {
@@ -304,28 +283,24 @@ export default {
               }
             }
 
-            // If ground_truth.html and description.txt are found, use their content
             if (groundTruthContent || descriptionContent) {
               newCase.value.groundTruth = groundTruthContent;
               newCase.value.prompt = descriptionContent;
               newCase.value.name = node.name;
               newCase.value.path = node.path;
             } else {
-              // Fallback: load the clicked file's content and generate prompt
               newCase.value.groundTruth = node.content || '';
-              newCase.value.prompt = `Please generate a VTK.js visualization code for the file: ${node.name}`; // Example prompt
+              newCase.value.prompt = `Please generate a VTK.js visualization code for the file: ${node.name}`;
               newCase.value.name = node.name;
               newCase.value.path = node.path;
             }
           } else {
-            // Fallback if parent not found: load the clicked file's content and generate prompt
             newCase.value.groundTruth = node.content || '';
-            newCase.value.prompt = `Please generate a VTK.js visualization code for the file: ${node.name}`; // Example prompt
+            newCase.value.prompt = `Please generate a VTK.js visualization code for the file: ${node.name}`;
             newCase.value.name = node.name;
             newCase.value.path = node.path;
           }
         } else {
-          // Handle directory clicks or no node found
           newCase.value.groundTruth = '';
           newCase.value.prompt = '';
           newCase.value.name = '';
@@ -334,69 +309,68 @@ export default {
       }
     }
 
-    const showAddDialog = ()=>{
-      console.log('showDialog',showDialog.value);
-      if (!showDialog.value)
-        showDialog.value = true;
-    }
     const handleUpload = () => {
-      // 处理上传逻辑
-      // 获取需要校验的字段
       const { prompt, groundTruth, generator, evaluator, maxIterations } = newCase.value;
-      // 字段校验逻辑
+      
+      // Field validation
       if (!prompt || prompt.trim() === '') {
-        info.message = 'prompt 不能为空';
+        info.message = 'Prompt cannot be empty';
         info.snackbar = true;
-        console.error('prompt 不能为空');
+        console.error('Prompt cannot be empty');
         return;
       }
 
       if (!maxIterations || maxIterations < 1) {
-        info.message = '最大迭代次数必须大于0';
+        info.message = 'Max iterations must be greater than 0';
         info.snackbar = true;
-        console.error('最大迭代次数必须大于0');
+        console.error('Max iterations must be greater than 0');
         return;
       }
 
       if (!groundTruth || groundTruth.trim() === '') {
-        info.message = 'groundTruth 不能为空';
+        info.message = 'Ground truth cannot be empty';
         info.snackbar = true;
-        console.error('groundTruth 不能为空');
+        console.error('Ground truth cannot be empty');
         return;
       }
 
       if (!generator || generator.trim() === '') {
-        info.message = 'generator 不能为空';
+        info.message = 'Generator cannot be empty';
         info.snackbar = true;
-        console.error('generator 不能为空');
+        console.error('Generator cannot be empty');
         return;
       }
 
       if (!evaluator || evaluator.trim() === '') {
-        info.message = 'evaluator 不能为空';
+        info.message = 'Evaluator cannot be empty';
         info.snackbar = true;
-        console.error('evaluator 不能为空');
+        console.error('Evaluator cannot be empty');
         return;
       }
 
-      // 设置加载状态为 true
       isLoading.value = true;
 
       generateCode(newCase.value).then((res)=>{
-        info.message = 'generation end';
-        info.snackbar = true;
-        context.emit('end', res.data);
+        // Check if generated code is valid
+        if (res.data && res.data.generated_code && res.data.generated_code.trim() !== '') {
+          info.message = '代码生成成功';
+          info.snackbar = true;
+          context.emit('end', res.data);
+        } else {
+          info.message = '代码生成失败：返回的代码为空';
+          info.snackbar = true;
+          console.error('Generated code is empty:', res.data);
+          // Still emit the response but mark it as failed
+          context.emit('end', res.data);
+        }
       }).catch(error => {
-        // 处理错误情况
-        info.message = 'generation failed: ' + error.message;
+        info.message = '代码生成失败: ' + (error.response?.data?.detail || error.message);
         info.snackbar = true;
         console.error('Generation failed:', error);
       }).finally(() => {
-        // 无论成功或失败，都设置加载状态为 false
         isLoading.value = false;
       });
 
-      showDialog.value = false;
       context.emit('getNewCase', newCase.value);
     };
 
@@ -423,23 +397,21 @@ export default {
 
 
     onMounted(()=>{
-      // sendCase()
-      fetchTreeData(); // 在组件挂载时调用获取数据函数
+      fetchModels();
+      fetchTreeData();
     })
-    // const showDialog = ref(false);
+    
     return {
       newCase,
-      showDialog, // 控制弹窗显示的变量
       handleUpload,
-      showAddDialog,
       updateWorkflow,
       inquiryExpansionSelected,
       ragSelected,
       info,
-      models:appConfig.models,
-      isLoading, // 暴露 isLoading 变量给模板
-      treeData, // 暴露 treeData 变量给模板
-      handleActiveChange, // 暴露 handleNodeClick 函数给模板
+      models,
+      isLoading,
+      treeData,
+      handleActiveChange,
     };
 
   }
@@ -447,51 +419,74 @@ export default {
 </script>
 
 <style scoped>
-.list-container {
-  height: 70vh;
-  overflow-y: scroll;
-}
-.upload {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 10vh;
-  text-align: center;
-}
-.item {
-  border-bottom: 1px solid #e5e5e5;
-}
-.content{
-  display: flex;
-  justify-content: space-around;
-}
-.item:hover {
-  background-color: #f5f5f5;
-  transform: scale(1.1);
-}
-.prompt {
-  color: #242424;
-  font-size: 18px;
-  cursor: pointer;
-}
-.fileName {
-  color: #747bff;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.empty-state {
+/* Config Sidebar - Modify config-sidebar class to change sidebar layout */
+.config-sidebar {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 16px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 150px;
-  padding: 40px 20px;
+  gap: 16px;
 }
 
-.empty-text {
-  margin-top: 12px;
+/* Section styling with military gray theme */
+.config-section {
+  border-bottom: 1px solid #e8e8e8;
+  padding-bottom: 16px;
+}
+
+.config-section:last-of-type {
+  border-bottom: none;
+}
+
+/* Section headers with military gray background */
+.section-header {
+  background-color: #4a5258;  /* Military Gray - Change this to modify theme */
+  color: #ffffff;
+  padding: 8px 12px;
+  margin: 0 -16px 12px -16px;
   font-size: 14px;
+  font-weight: 600;
+  border-bottom: 2px solid #3a4248;
+}
+
+/* Expansion panel header styling */
+.expansion-header {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Tree container */
+.tree-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+/* Empty state for tree */
+.empty-state-small {
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-text-small {
   color: #9e9e9e;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Action section for generate button */
+.action-section {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 2px solid #e8e8e8;
+}
+
+.generate-btn {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
 }
 </style>

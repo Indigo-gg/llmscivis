@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isabel Dataset Streamline Visualization</title>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        h1 {
+            font-size: 1.2em;
+            margin: 0 0 10px 0;
+        }
+        p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info">
+            <h1>Isabel Dataset Streamline Visualization</h1>
+            <p>Visualizing hurricane Isabel data with streamlines</p>
+            <p>Cyan: Velocity streamlines</p>
+            <p>Red: Dataset outline</p>
+        </div>
+        <div class="loading" id="loading">Loading dataset and generating streamlines...</div>
+    </div>
+
+    <script>
+        // Import required VTK.js modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkStreamTracer = vtk.Filters.General.vtkStreamTracer;
+        const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkPointSource = vtk.Filters.Sources.vtkPointSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+
+        // Force the loading of HttpDataAccessHelper to support gzip decompression
+        const vtkHttpDataAccessHelper = vtk.IO.Core.DataAccessHelper.HttpDataAccessHelper;
+
+        // Create full screen render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0.1, 0.1, 0.1], // Dark gray background
+            rootContainer: document.body,
+            container: document.getElementById('container')
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create reader for the Isabel dataset
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+            reader.loadData().then(() => {
+                // Get the dataset
+                const dataset = reader.getOutputData();
+                
+                // Remove loading message
+                document.getElementById('loading').style.display = 'none';
+                
+                // REQUIREMENT: Generate seed points at the center of the dataset with sufficient density
+                // Create seed points for streamlines
+                const bounds = dataset.getBounds();
+                const center = [
+                    (bounds[0] + bounds[1]) / 2,
+                    (bounds[2] + bounds[3]) / 2,
+                    (bounds[4] + bounds[5]) / 2
+                ];
+                
+                // Create a line of seed points along the Y-axis at the center
+                const numberOfSeeds = 100; // Sufficient density to cover the domain
+                const seedPoints = new Float32Array(numberOfSeeds * 3);
+                
+                for (let i = 0; i < numberOfSeeds; i++) {
+                    const ratio = (i / (numberOfSeeds - 1)) - 0.5;
+                    seedPoints[i * 3] = center[0];
+                    seedPoints[i * 3 + 1] = center[1] + ratio * (bounds[3] - bounds[2]) * 0.8;
+                    seedPoints[i * 3 + 2] = center[2];
+                }
+                
+                const seedSource = vtkPointSource.newInstance({
+                    numberOfPoints: 100, // Sufficient density to cover domain
+                    center: [
+                        (bounds[0] + bounds[1]) / 2, // X center
+                        (bounds[2] + bounds[3]) / 2, // Y center  
+                        (bounds[4] + bounds[5]) / 2  // Z center
+                    ],
+                    radius: Math.min(
+                        bounds[1] - bounds[0],
+                        bounds[3] - bounds[2],
+                        bounds[5] - bounds[4]
+                    ) * 0.3 // Radius covers good portion of domain
+                });
+                
+                // REQUIREMENT: Compute streamlines following the velocity field
+                // Create streamline filter
+                const streamline = vtkImageStreamline.newInstance();
+                streamline.setInputData(dataset);
+                streamline.setInputConnection(seedSource.getOutputPort(), 1); // 种子点数据
+                streamline.set({maximumNumberOfSteps: 1000,integrationStep: 0.5});
+                
+                // REQUIREMENT: Use the "Velocity" array as the vector field for streamlines
+                // Set the velocity array for tracing
+                const pointData = dataset.getPointData();
+                if (pointData.getArrayByName('Velocity')) {
+                    pointData.setActiveVectors('Velocity');
+                }
+                
+                // Configure streamline parameters
+                
+                // Create mapper and actor for streamlines
+                const streamlineMapper = vtkMapper.newInstance();
+                streamlineMapper.setInputConnection(streamline.getOutputPort());
+                
+                const streamlineActor = vtkActor.newInstance();
+                streamlineActor.setMapper(streamlineMapper);
+                
+                // REQUIREMENT: Render streamlines in cyan ([0, 1, 1]) with a specified line width
+                streamlineActor.getProperty().setColor(0, 1, 1); // Cyan color
+                streamlineActor.getProperty().setLineWidth(2); // Line width
+                
+                // Add streamline actor to renderer
+                renderer.addActor(streamlineActor);
+                
+                // REQUIREMENT: Render a dataset outline in red ([1, 0, 0]) with a specified line width
+                // Create outline filter
+                const outlineFilter = vtkOutlineFilter.newInstance();
+                outlineFilter.setInputData(dataset);
+                
+                // Create mapper and actor for outline
+                const outlineMapper = vtkMapper.newInstance();
+                outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+                
+                const outlineActor = vtkActor.newInstance();
+                outlineActor.setMapper(outlineMapper);
+                
+                outlineActor.getProperty().setColor(1, 0, 0); // Red color
+                outlineActor.getProperty().setLineWidth(3); // Line width
+                
+                // Add outline actor to renderer
+                renderer.addActor(outlineActor);
+                
+                // Reset camera and render
+                renderer.resetCamera();
+                renderWindow.render();
+            }).catch(error => {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').textContent = 'Error loading dataset. Please check the server.';
+            });
+        }).catch(error => {
+            console.error('Error setting URL:', error);
+            document.getElementById('loading').textContent = 'Error accessing dataset URL.';
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>

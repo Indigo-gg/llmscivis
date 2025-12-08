@@ -1,0 +1,329 @@
+
+    Generate only the HTML code without any additional text or markdown formatting.
+    User Requirements:
+    Generate an HTML page using vtk.js to visualize the Deepwater dataset with isosurface rendering.
+
+Load the dataset from: http://127.0.0.1:5000/dataset/deepwater.vti
+
+Compute velocity magnitude from arrays v02 and v03
+
+Generate an isosurface at the mid-value of the scalar range
+
+Use a blue → white → red color map spanning the scalar range (min to max)
+
+Set the isosurface to fully opaque with smooth shading
+
+Add an XYZ orientation marker in the bottom-right corne
+
+    Relevant VTK.js Examples:
+    示例 1:
+描述: Loads 3D volume data, writes it to a binary XML format using `vtkXMLImageDataWriter`, reads it back with `vtkXMLImageDataReader`, and visualizes it
+VTK.js 模块: ['vtk.IO.XML.vtkXMLImageDataWriter.newInstance', 'vtk.Common.DataModel.vtkPiecewiseFunction.newInstance', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.IO.XML.vtkXMLImageDataReader.newInstance', 'vtk.IO.XML.vtkXMLWriter.FormatTypes.BINARY', 'vtk.Rendering.Core.vtkColorTransferFunction.newInstance', 'vtk.Rendering.Core.vtkVolume.newInstance', 'vtk.Rendering.Core.vtkVolumeMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+代码:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js XMLImageDataWriter</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const dataPath = 'http://kitware.github.io/vtk-js/data/volume/headsq.vti';
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance();
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        const reader = vtk.IO.Core.vtkHttpDataSetReader.newInstance({ fetchGzip: true });
+
+        const writer = vtk.IO.XML.vtkXMLImageDataWriter.newInstance();
+        writer.setFormat(vtk.IO.XML.vtkXMLWriter.FormatTypes.BINARY);
+        writer.setInputConnection(reader.getOutputPort());
+
+        const writerReader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+
+        reader
+            .setUrl(dataPath, { loadData: true })
+            .then(() => {
+                const fileContents = writer.write(reader.getOutputData());
+
+                // Try to read it back.
+                const textEncoder = new TextEncoder();
+                writerReader.parseAsArrayBuffer(textEncoder.encode(fileContents));
+                renderer.resetCamera();
+                renderWindow.render();
+
+                const blob = new Blob([fileContents], { type: 'text/plain' });
+                const a = window.document.createElement('a');
+                a.href = window.URL.createObjectURL(blob, { type: 'text/plain' });
+                a.download = 'headsq.vti';
+                a.text = 'Download';
+                a.style.position = 'absolute';
+                a.style.left = '50%';
+                a.style.bottom = '10px';
+                document.body.appendChild(a);
+                a.style.background = 'white';
+                a.style.padding = '5px';
+            });
+
+        const actor = vtk.Rendering.Core.vtkVolume.newInstance();
+        const mapper = vtk.Rendering.Core.vtkVolumeMapper.newInstance();
+        mapper.setSampleDistance(1.1);
+        actor.setMapper(mapper);
+
+        mapper.setInputConnection(writerReader.getOutputPort());
+
+        // create color and opacity transfer functions
+        const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+        ctfun.addRGBPoint(200.0, 1.0, 1.0, 1.0);
+        ctfun.addRGBPoint(2000.0, 0.0, 0.0, 0.0);
+        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(200.0, 0.0);
+        ofun.addPoint(1200.0, 0.2);
+        ofun.addPoint(4000.0, 0.4);
+        actor.getProperty().setRGBTransferFunction(0, ctfun);
+        actor.getProperty().setScalarOpacity(0, ofun);
+        actor.getProperty().setScalarOpacityUnitDistance(0, 4.5);
+        // actor.getProperty().setInterpolationTypeToNearest();
+        // actor.getProperty().setInterpolationTypeToFastLinear();
+        actor.getProperty().setInterpolationTypeToLinear();
+
+        renderer.addActor(actor);
+
+        window.writer = writer;
+        window.writerReader = writerReader;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+
+</body>
+
+</html>
+
+--------------------------------------------------------------------------------------------------------------
+示例 2:
+描述: Loads 3D polydata, writes it to a string using `vtkXMLPolyDataWriter`, reads it back with `vtkXMLPolyDataReader`, and renders it, allowing download of the generated VTP file.
+VTK.js 模块: ['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.IO.XML.vtkXMLPolyDataWriter', 'vtk.IO.XML.vtkXMLWriter', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+代码:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js XMLImagePolyDataWriter</title>
+    <!-- <link rel="stylesheet" href="https://kit.fontawesome.com/419a5ebb56.css" crossorigin="anonymous"> -->
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+        const actor = vtk.Rendering.Core.vtkActor.newInstance();
+        const fullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const httpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const xmlPolyDataWriter = vtk.IO.XML.vtkXMLPolyDataWriter;
+        const xmlPolyDataReader = vtk.IO.XML.vtkXMLPolyDataReader;
+        const xmlWriter = vtk.IO.XML.vtkXMLWriter;
+        // Create instances using namespace paths
+        const fullScreenRenderer = fullScreenRenderWindow.newInstance();
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+        const reader = httpDataSetReader.newInstance({ fetchGzip: true });
+
+        const writer = xmlPolyDataWriter.newInstance();
+        writer.setFormat(xmlWriter.FormatTypes.BINARY);
+        writer.setInputConnection(reader.getOutputPort());
+
+        const writerReader = xmlPolyDataReader.newInstance();
+
+        reader.setUrl(`http://kitware.github.io/vtk-js/data/cow.vtp`, { loadData: true }).then(() => {
+            const fileContents = writer.write(reader.getOutputData());
+
+            // Try to read it back.
+            const textEncoder = new TextEncoder();
+            writerReader.parseAsArrayBuffer(textEncoder.encode(fileContents));
+            renderer.resetCamera();
+            renderWindow.render();
+
+            const blob = new Blob([fileContents], { type: 'text/plain' });
+            const a = window.document.createElement('a');
+            a.href = window.URL.createObjectURL(blob, { type: 'text/plain' });
+            a.download = 'cow.vtp';
+            a.text = 'Download';
+            a.style.position = 'absolute';
+            a.style.left = '50%';
+            a.style.bottom = '10px';
+            document.body.appendChild(a);
+            a.style.background = 'white';
+            a.style.padding = '5px';
+        });
+
+        actor.setMapper(mapper);
+
+        mapper.setInputConnection(writerReader.getOutputPort());
+
+        renderer.addActor(actor);
+
+        window.writer = writer;
+        window.writerReader = writerReader;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+
+    </script>
+
+</body>
+
+</html>
+
+--------------------------------------------------------------------------------------------------------------
+示例 3:
+描述: Loads and visualizes 3D elevation data from a CSV, applying a texture image, using `vtkElevationReader` and `vtkMapper`.
+
+VTK.js 模块: ['vtk.IO.Misc.vtkElevationReader.newInstance', 'vtk.Rendering.Core.vtkActor.newInstance', 'vtk.Rendering.Core.vtkMapper.newInstance', 'vtk.Rendering.Core.vtkTexture.newInstance', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']
+代码:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js ElevationReader</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+
+
+        const imagePath = 'http://kitware.github.io/vtk-js/data/elevation/dem.jpg';
+        // const imagePath = './dem.jpg'
+        const dataPath = 'http://kitware.github.io/vtk-js/data/elevation/dem.csv';
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+        const reader = vtk.IO.Misc.vtkElevationReader.newInstance({
+            xSpacing: 0.01568,
+            ySpacing: 0.01568,
+            zScaling: 0.06666,
+        });
+        const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+        const actor = vtk.Rendering.Core.vtkActor.newInstance();
+
+        mapper.setInputConnection(reader.getOutputPort());
+        actor.setMapper(mapper);
+
+        renderer.addActor(actor);
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // Download and apply Texture
+        const img = new Image();
+        img.src = imagePath;
+        //Add crossorigin="anonymous" to avoid CORS errors
+        img.crossOrigin = "anonymous"
+        img.onload = function textureLoaded() {
+            const texture = vtk.Rendering.Core.vtkTexture.newInstance();
+            texture.setInterpolate(true);
+            texture.setImage(img);
+            actor.addTexture(texture);
+            renderWindow.render();
+        };
+
+        // Download elevation and render when ready
+        reader.setUrl(dataPath).then(() => {
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+
+        window.reader = reader;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+
+</body>
+
+</html>
+
+--------------------------------------------------------------------------------------------------------------
+示例 4:
+描述: Loads and visualizes a 3D polygonal data file (`test_cone.vtp`) using `vtkXMLPolyDataReader` and `vtkMapper`.
+
+VTK.js 模块: ['vtk.IO.XML.vtkXMLPolyDataReader', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']
+代码:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js loading poly data, need to start by live server</title>
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLPolyDataReader = vtk.IO.XML.vtkXMLPolyDataReader;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+
+        // crete the render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // load the vtp data locally
+        const reader = vtkXMLPolyDataReader.newInstance();
+        // set url and load the data
+        reader.setUrl('../datasets/test_cone.vtp').then(() => {
+            reader.loadData().then(() => {
+                // assign data to actor
+                const mapper = vtkMapper.newInstance();
+                console.log(reader.getOutputData(0))
+                mapper.setInputData(reader.getOutputData(0));
+                const actor = vtkActor.newInstance();
+                actor.setMapper(mapper);
+
+                //  adding actor to render and render the data
+                renderer.addActor(actor);
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        });
+    </script>
+</body>
+
+</html>
+
+
+            

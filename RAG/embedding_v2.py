@@ -1,9 +1,9 @@
 import re
 from typing import List, Dict, Tuple
 import numpy as np
-from langchain_community.embeddings import OllamaEmbeddings # 替换为 OllamaEmbeddings
+from langchain_community.embeddings import OllamaEmbeddings # Replace with OllamaEmbeddings
 
-# 定义你的问题列表
+# Define your question list
 querys = [
     {"description": "Introduce necessary VTK.js modules via CDN link: https://unpkg.com/vtk.js"},
     {"description": "Data Loading — Load VTK dataset from http://127.0.0.1:5000/dataset/isabel.vti"},
@@ -13,7 +13,7 @@ querys = [
     {"description": "Integrate all components and render the visualization without GUI controls"}
 ]
 
-# 定义你的样本描述
+# Define your sample descriptions
 sample_text = """
 ### Filter-Calculator
 This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.
@@ -159,16 +159,16 @@ Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. T
 Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.
 """
 
-# 初始化嵌入模型，现在使用 OllamaEmbeddings
-# model="llama3.1" 会指示 Ollama 使用下载的 llama3.1 模型来生成嵌入
-# 如果你的 Ollama 服务不在默认地址 (http://localhost:11434)，请指定 base_url
+# Initialize embedding model, now using OllamaEmbeddings
+# model="llama3.1" will instruct Ollama to use the downloaded llama3.1 model to generate embeddings
+# If your Ollama service is not at the default address (http://localhost:11434), please specify base_url
 embeddings_model = OllamaEmbeddings(model="llama3.1")
 
 def parse_sample_descriptions(sample_text: str) -> List[Dict[str, str]]:
     """
-    解析样本描述字符串，提取标题和内容。
+    Parse sample description string, extract title and content.
     """
-    # 使用正则表达式匹配 ### 后面的标题和其后的内容，直到下一个 ### 或字符串结束
+    # Use regular expressions to match titles after ### and their content until the next ### or end of string
     pattern = re.compile(r"###\s*(.*?)\n(.*?)(?=\n###|\Z)", re.DOTALL)
     
     matches = pattern.finditer(sample_text)
@@ -181,15 +181,15 @@ def parse_sample_descriptions(sample_text: str) -> List[Dict[str, str]]:
 
 def get_embeddings(texts: List[str]) -> np.ndarray:
     """
-    将文本列表转换为嵌入向量。
+    Convert text list to embedding vectors.
     """
-    # OllamaEmbeddings 的 embed_documents 方法接收一个列表
+    # OllamaEmbeddings' embed_documents method receives a list
     embeddings = embeddings_model.embed_documents(texts)
     return np.array(embeddings)
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     """
-    计算两个向量的余弦相似度。
+    Calculate cosine similarity between two vectors.
     """
     dot_product = np.dot(vec1, vec2)
     norm_vec1 = np.linalg.norm(vec1)
@@ -204,11 +204,11 @@ def find_top_k_similar(
     k: int = 2
 ) -> List[Tuple[str, float, str]]:
     """
-    找到与给定查询描述最相似的 K 个样本描述。
+    Find the K most similar sample descriptions to the given query description.
     """
-    # 获取查询的嵌入
-    # 注意：OllamaEmbeddings 的 embed_documents 方法返回一个列表的列表，即使输入只有一个文本
-    # 所以我们取 [0] 来获取第一个（也是唯一一个）嵌入向量
+    # Get query embeddings
+    # Note: OllamaEmbeddings' embed_documents method returns a list of lists, even if the input is a single text
+    # So we take [0] to get the first (and only) embedding vector
     query_embedding = get_embeddings([query_description])[0] 
 
     similarities = []
@@ -216,39 +216,39 @@ def find_top_k_similar(
         sample_title = sample_desc_item['title']
         sample_desc_text = sample_desc_item['description']
         
-        # 获取样本的嵌入
+        # Get sample embeddings
         sample_embedding = get_embeddings([sample_desc_text])[0]
 
         similarity = cosine_similarity(query_embedding, sample_embedding)
         similarities.append((sample_title, similarity, sample_desc_text))
 
-    # 按相似度降序排序
+    # Sort by similarity in descending order
     similarities.sort(key=lambda x: x[1], reverse=True)
     
-    # 返回前 K 个
+    # Return top K
     return similarities[:k]
 
 if __name__ == "__main__":
-    # 1. 解析样本描述
+    # 1. Parse sample descriptions
     parsed_sample_data = parse_sample_descriptions(sample_text)
-    print(f"解析到 {len(parsed_sample_data)} 条样本描述。")
+    print(f"Parsed {len(parsed_sample_data)} sample descriptions.")
 
-    # 2. 对每个查询找到最相似的两条
-    print("\n--- 查找每个查询最相似的描述 (使用 Llama 3.1 嵌入) ---")
+    # 2. Find the two most similar for each query
+    print("\n--- Finding most similar descriptions for each query (using Llama 3.1 embeddings) ---")
     for i, query_item in enumerate(querys):
         query_desc = query_item['description']
-        print(f"\n查询 {i+1}: \"{query_desc}\"")
+        print(f"\nQuery {i+1}: \"{query_desc}\"")
         
         top_2_similar = find_top_k_similar(query_desc, parsed_sample_data, k=2)
         
         if top_2_similar:
             for j, (title, score, desc) in enumerate(top_2_similar):
-                print(f"  最相似 {j+1}:")
-                print(f"    标题: {title}")
-                print(f"    相似度: {score:.4f}")
-                # 如果你想显示内容，可以取消注释下面这行
-                # print(f"    内容: {desc[:100]}...") # 只显示部分内容
+                print(f"  Most similar {j+1}:")
+                print(f"    Title: {title}")
+                print(f"    Similarity: {score:.4f}")
+                # If you want to display content, uncomment the line below
+                # print(f"    Content: {desc[:100]}...") # 只显示部分内容
         else:
-            print("  未找到相似描述。")
+            print("  No similar descriptions found.")
 
-    print("\n--- 所有查询处理完毕 ---")
+    print("\n--- All queries processed ---")

@@ -7,7 +7,7 @@ from langchain.schema import Document
 import os
 import sys
 
-# 添加项目根目录到系统路径
+# Add project root directory to system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.app_config import app_config
@@ -27,26 +27,26 @@ def get_embedding():
     )
 
 def read_file(file_path):
-    """读取文件内容"""
+    """Read file content"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
     except UnicodeDecodeError:
-        # 如果UTF-8解码失败，尝试其他编码
+        # If UTF-8 decoding fails, try other encodings
         with open(file_path, 'r', encoding='gbk') as f:
             return f.read()
 
 def extract_code_meta(file_path):
-    """提取代码元信息并保存到同目录下"""
+    """Extract code metadata and save to the same directory"""
     meta = extract_vtkjs_meta(file_path)
-    # 生成元信息文件路径
+    # Generate metadata file path
     meta_file = os.path.splitext(file_path)[0] + '_meta.json'
-    # 保存元信息到JSON文件
+    # Save metadata to JSON file
     with open(meta_file, 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
     return meta
 def split_text_with_meta(text, meta, chunk_size=app_config.TRUNK_SIZE, chunk_overlap=app_config.TRUNK_OVERLAP):
-    """按指定大小分块，并将元信息加入每块metadata"""
+    """Split by specified size and add metadata to each chunk"""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -61,7 +61,7 @@ def split_text_with_meta(text, meta, chunk_size=app_config.TRUNK_SIZE, chunk_ove
     return docs
 
 def process_vtk_examples(vtk_dir):
-    """处理VTK示例文件夹，提取元信息并分块"""
+    """Process VTK example folder, extract metadata and split into chunks"""
     
     documents = []
     
@@ -71,7 +71,7 @@ def process_vtk_examples(vtk_dir):
             continue
         code_file = os.path.join(example_path, "code.html")
         if os.path.exists(code_file):
-            # 提取并保存元信息
+            # Extract and save metadata
             meta = extract_code_meta(code_file)
             code_content = read_file(code_file)
             docs = split_text_with_meta(code_content, meta, chunk_size=3000, chunk_overlap=200)
@@ -79,32 +79,32 @@ def process_vtk_examples(vtk_dir):
     return documents
 
 def main():
-    # 获取项目根目录
+    # Get project root directory
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # 确保data目录存在
+    # Ensure data directory exists
     data_dir = os.path.join(project_root, "data")
     os.makedirs(data_dir, exist_ok=True)
     
-    # 确保vtk-example目录存在
+    # Ensure vtk-example directory exists
     vtk_dir = os.path.join(data_dir, "vtkjs-examples","prompt-sample")
     os.makedirs(vtk_dir, exist_ok=True)
     
-    # 确保faiss_cache目录存在
+    # Ensure faiss_cache directory exists
     cache_dir = os.path.join(project_root, "data", "faiss_cache")
     os.makedirs(cache_dir, exist_ok=True)
     
-    print(f"数据目录: {vtk_dir}")
-    print("开始处理VTK示例...")
+    print(f"Data directory: {vtk_dir}")
+    print("Starting to process VTK examples...")
     documents = process_vtk_examples(vtk_dir)
-    print(f"共处理 {len(documents)} 个文档块")
-    print("初始化embedding模型...")
+    print(f"Processed {len(documents)} document chunks")
+    print("Initializing embedding model...")
     embeddings = get_embedding()
-    print("创建向量数据库...")
+    print("Creating vector database...")
     db = FAISS.from_documents(documents, embeddings)
-    print("保存向量数据库...")
+    print("Saving vector database...")
     db.save_local(cache_dir)
-    print("处理完成！")
+    print("Processing completed!")
 
 if __name__ == "__main__":
     main()

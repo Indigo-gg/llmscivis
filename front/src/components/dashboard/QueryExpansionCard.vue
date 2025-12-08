@@ -2,7 +2,7 @@
   <v-card variant="outlined" class="query-expansion-card">
     <v-card-title class="card-title">
       <v-icon class="mr-2">mdi-magnify-expand</v-icon>
-      查询拓展结果
+      Query Expansion Results
     </v-card-title>
     <v-card-text>
       <div v-if="content && content.trim()" class="content-area">
@@ -10,7 +10,7 @@
       </div>
       <div v-else class="empty-state">
         <v-icon size="64" color="grey-lighten-1">mdi-magnify-expand</v-icon>
-        <p class="empty-text">暂无查询拓展信息</p>
+        <p class="empty-text">No query expansion available</p>
       </div>
     </v-card-text>
   </v-card>
@@ -32,6 +32,8 @@ export default {
 <style scoped>
 .query-expansion-card {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-title {
@@ -39,14 +41,23 @@ export default {
   font-weight: 500;
   padding: 16px;
   border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.v-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 300px;
 }
 
 .content-area {
   text-align: left;
   white-space: pre-wrap;
   word-wrap: break-word;
-  max-height: 200px;
   overflow-y: auto;
+  flex: 1;
   color: #333333;
   line-height: 1.6;
 }
@@ -56,8 +67,8 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
   padding: 40px 20px;
-  min-height: 150px;
 }
 
 .empty-text {

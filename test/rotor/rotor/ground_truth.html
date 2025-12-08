@@ -4,114 +4,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>vtk.js streamtracing</title>
+    <title>Rotor Dataset Cutting Rendering</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #renderer {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 
 <body>
     <div id="renderer"></div>
-    <script src="https://unpkg.com/vtk.js"></script>
-
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
     <script>
-        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
-        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
-        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
         const vtkActor = vtk.Rendering.Core.vtkActor;
         const vtkMapper = vtk.Rendering.Core.vtkMapper;
-        const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
-        const Representation = vtk.Rendering.Core.vtkProperty.Representation;
-        const vtkDataArray = vtk.Common.Core.vtkDataArray;
-        const vtkImageData = vtk.Common.DataModel.vtkImageData;
-        const macro = vtk.macro;
         const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkPlane = vtk.Common.DataModel.vtkPlane;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
 
-        // ----------------------------------------------------------------------------
-        // Standard rendering code setup
-        // ----------------------------------------------------------------------------
-
-        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
-            background: [0, 0, 0],
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [1, 1, 1],
         });
-        const renderer = fullScreenRenderer.getRenderer();
-        const renderWindow = fullScreenRenderer.getRenderWindow();
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+        const renderer = fullScreenRenderWindow.getRenderer();
 
-        // ----------------------------------------------------------------------------
-        // Example code
-        // ----------------------------------------------------------------------------
-
-        function addRepresentation(name, filter, props = {}) {
-            const mapper = vtkMapper.newInstance();
-            mapper.setInputConnection(filter.getOutputPort());
-
-            const actor = vtkActor.newInstance();
-            actor.setMapper(mapper);
-            actor.getProperty().set(props);
-            renderer.addActor(actor);
-        }
-
-        // ----------------------------------------------------------------------------
-
-        // load testing data
         const reader = vtkXMLImageDataReader.newInstance();
-        reader.setUrl('..\\..\\..\\vtkjs-benchmark-datasets\\rotor_simplified.vti').then(() => {
+        reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
             reader.loadData().then(() => {
                 const imageData = reader.getOutputData(0);
-
                 imageData.getPointData().setActiveScalars('Pressure');
-                const mc = vtkImageMarchingCubes.newInstance({
-                    contourValue: 92000,
+
+                const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+                const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+
+                const imageMapper = vtkImageMapper.newInstance();
+                imageMapper.setInputData(imageData);
+                const dims = imageData.getDimensions();
+                imageMapper.setSlice(dims[1] * 0.95);
+                imageMapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)
+
+                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
+                const [pMin, pMax] = pressureArray.getRange();
+                const colorTransferFunction = vtkColorTransferFunction.newInstance();
+                colorTransferFunction.addRGBPoint(pMin, 0.0, 0.0, 0.8);
+                colorTransferFunction.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);
+                colorTransferFunction.addRGBPoint(pMax, 0.8, 0.0, 0.0);
+
+                // Add opacity transfer function
+                const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+                const opacityFunction = vtkPiecewiseFunction.newInstance();
+                opacityFunction.addPoint(pMin, 0.0001);
+                opacityFunction.addPoint((pMin + pMax) / 2, 0.8);
+                opacityFunction.addPoint(pMax, 1.0);
+
+                const imageSlice = vtkImageSlice.newInstance();
+                imageSlice.setMapper(imageMapper);
+                imageSlice.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+                imageSlice.getProperty().setPiecewiseFunction(0, opacityFunction);  // Set opacity function
+                imageSlice.getProperty().setScalarOpacity(0, opacityFunction);      // Set scalar opacity
+                imageSlice.getProperty().setUseLookupTableScalarRange(true);
+
+                renderer.addActor(imageSlice);
+
+                const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();
+                const widget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
+                    actor: axes,
+                    interactor: renderWindow.getInteractor(),
                 });
-                mc.setInputData(imageData);
-
-                imageData.getPointData().setActiveVectors('Velocity');
-                const velocityArray = imageData.getPointData().getArrayByName('Velocity');
-                console.log(velocityArray.toJSON())
-
-                const bounds = imageData.getBounds()
-
-                const pointSource = vtk.Filters.Sources.vtkPointSource.newInstance();
-                pointSource.setNumberOfPoints(1000);  // adjust for density
-                pointSource.setCenter(
-                    (bounds[0] + bounds[1]) / 2,
-                    (bounds[2] + bounds[3]) / 2,
-                    (bounds[4] + bounds[5]) / 2
+                widget.setEnabled(true);
+                widget.setViewportCorner(
+                    vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
                 );
-                pointSource.setRadius(Math.max(
-                    bounds[1] - bounds[0],
-                    bounds[3] - bounds[2],
-                    bounds[5] - bounds[4],
-                ) / 1.5);
-
-                const spacing = imageData.getSpacing();
-
-                const streamline = vtkImageStreamline.newInstance();
-                streamline.setInputData(imageData);  // velocity field
-                streamline.setInputConnection(pointSource.getOutputPort(), 1); // seeds
-
-                streamline.set({
-                    maximumNumberOfSteps: 1500,
-                    integratorType: 1,        // RK4
-                    integrationDirection: 1,  // both directions
-                    integrationStep: 0.005 * Math.min(...spacing),
-                });
-
-
-                const outlineFilter = vtkOutlineFilter.newInstance();
-                outlineFilter.setInputData(imageData);
-
-                addRepresentation("mc", mc, { diffuseColor: [0.8, 0.8, 0.8] }); // grey shell
-                addRepresentation('streamLine', streamline, {
-                    diffuseColor: [0, 1, 1],
-                    lineWidth: 5,
-                });
+                widget.setViewportSize(0.15);
 
                 renderer.resetCamera();
+                renderer.resetCameraClippingRange();
                 renderWindow.render();
             });
         });
-
-
     </script>
-
 </body>
 
 </html>

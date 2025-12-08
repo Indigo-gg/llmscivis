@@ -9,9 +9,9 @@
             :value="representation"
             @change="setRepresentation($event.target.value)"
         >
-          <option value="0">点图</option>
-          <option value="1">线图</option>
-          <option value="2">面图</option>
+          <option value="0">Point Plot</option>
+          <option value="1">Line Plot</option>
+          <option value="2">Surface Plot</option>
         </select>
       </div>
       <div class="input">
@@ -46,7 +46,7 @@ export default {
     const representation = ref(2)
 
     /**
-     * 这两个函数是干什么用的
+     * What are these two functions for
      * @param res
      */
     function setConeResolution(res) {
@@ -68,7 +68,7 @@ export default {
     });
 
     onMounted(() =>{
-      if(!context.value) {//如果没有context的话
+      if(!context.value) {//If there is no context
         const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
           rootContainer: vtkContainer.value
         })

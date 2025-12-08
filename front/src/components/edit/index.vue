@@ -1,13 +1,17 @@
 <template>
   <div class="preview-container">
-    <div class="preview-header">
-      <slot name="actions"></slot>
+    <!-- Editor title bar - Theme color can be modified in editor-title-bar class -->
+    <div class="editor-title-bar">
+      <h3 class="editor-title">Generated Code</h3>
+      <div class="title-actions">
+        <slot name="actions"></slot>
+      </div>
     </div>
     <div v-if="!isShowVis" class="code-container">
       <div v-if="hasContent" class="monaco-editor-container" ref="editorContainer"></div>
       <div v-else class="empty-state">
         <v-icon size="64" color="grey-lighten-1">mdi-code-tags</v-icon>
-        <p class="empty-text">暂无生成代码</p>
+        <p class="empty-text">No generated code</p>
       </div>
     </div>
     <div class="preview-frame" v-else>
@@ -51,7 +55,7 @@ export default {
       // Ensure we destroy any existing editor first
       destroyEditor();
       if (editorContainer.value && hasContent.value) { // Check if container exists and has content
-        // 初始化Monaco编辑器
+        // Initialize Monaco Editor
         editor = monaco.editor.create(editorContainer.value, {
           value: extractHtmlCode(props.htmlContent), // Use current prop value
           language: 'html',
@@ -81,7 +85,7 @@ export default {
           }
         });
 
-        // 监听编辑器内容变化
+        // Listen for editor content changes
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
           // Check if the new value is different from the prop to avoid potential issues
@@ -114,9 +118,9 @@ export default {
       const iframe = previewFrame.value;
       if (iframe) {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
-        // 提取内容
+        // Extract content
         const content = extractHtmlCode(props.htmlContent);
-        // 构建完整的 HTML 文档
+        // Build complete HTML document
         const consoleScript = `
           <script>
             window.onerror = function(message, source, lineno, colno, error) {
@@ -160,12 +164,12 @@ export default {
             });
           <\/script>
         `;
-        // 拼接完整 HTML
+        // Concatenate complete HTML
         const fullHtml = `<!DOCTYPE html><html><head>${consoleScript}</head><body>${content}</body></html>`;
         doc.open();
         doc.write(fullHtml);
         doc.close();
-        // 监听消息
+        // Listen for messages
         const messageHandler = (event) => {
           if (event.data && event.data.type === 'console') {
             const logEntry = {
@@ -204,13 +208,13 @@ export default {
     watch(() => props.htmlContent, (newValue) => {
       const extractedValue = extractHtmlCode(newValue);
       
-      // 检查是否有内容
+      // Check if there is content
       if (!hasContent.value) {
         destroyEditor();
         return;
       }
       
-      // 如果没有编辑器但有内容，初始化编辑器
+      // If there is no editor but there is content, initialize the editor
       if (!editor && !props.isShowVis) {
         nextTick(() => {
           initEditor();
@@ -241,39 +245,70 @@ export default {
 </script>
 
 <style scoped>
+/* Theme color definition - Modify here to change editor title appearance */
+.editor-title-bar {
+  background-color: #4a5258;  /* Military Gray - Change this to modify theme */
+  color: #ffffff;
+  padding: 12px 16px;
+  border-bottom: 2px solid #3a4248;  /* Darker Military Gray for border */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.editor-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .preview-container {
   position: relative;
   width: 100%;
   height: 70vh;
   margin: 5px;
+  border: 1px solid #3a4248;  /* Military Gray border */
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #f5f5f5;
 }
 
 .preview-frame {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 50px);  /* Account for title bar */
   border: none;
 }
 
 .code-container {
-  height: 100%;
+  height: calc(100% - 50px);  /* Account for title bar */
+  background-color: #f5f5f5;
 }
 
 .monaco-editor-container {
   height: 100%;
   width: 100%;
   overflow: auto;
-  text-align: left; /* 确保文本左对齐 */
+  text-align: left;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
 .monaco-editor-container .monaco-editor {
   text-align: left;
   padding-left: 0;
-  width: 100%; /* 确保编辑器宽度匹配容器 */
+  width: 100%;
 }
 
 .monaco-editor .monaco-editor-background {
   left: 0;
-  width: 100%; /* 确保编辑器宽度匹配容器 */
+  width: 100%;
   overflow: scroll;
 }
 

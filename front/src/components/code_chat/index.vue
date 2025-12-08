@@ -1,7 +1,7 @@
 <template>
   <div class="chat-window" style="height: 100%; width: 100%; overflow-y: auto;" ref="chatMessagesRef">
     <v-card v-if="!chatList || chatList.length === 0">
-      请开始对话！！！
+      Please start the conversation!!!
     </v-card>
     <v-list
         density="compact"
@@ -97,9 +97,9 @@ export default {
     const scrollToBottom = () => {
       nextTick(() => {
         if (chatMessagesRef.value) {
-          // 确保内容超出可视区域
+          // Ensure content exceeds the visible area
           if (chatMessagesRef.value.scrollHeight > chatMessagesRef.value.clientHeight) {
-            console.log('聊天窗口的高度', chatMessagesRef.value.scrollTop, chatMessagesRef.value.scrollHeight);
+            console.log('Chat window height', chatMessagesRef.value.scrollTop, chatMessagesRef.value.scrollHeight);
             chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
           }
         }

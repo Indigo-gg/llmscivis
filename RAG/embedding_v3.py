@@ -7,10 +7,10 @@ import hashlib
 import json
 import re
 
-# 导入 MongoDBManager 类（请确保此路径正确，或者您已将其定义在当前文件中）
+# Import MongoDBManager class (please ensure this path is correct, or you have defined it in the current file)
 from RAG.mongodb import MongoDBManager
 
-# 创建 MongoDB 连接管理器的实例
+# Create an instance of MongoDB connection manager
 mongo_manager = MongoDBManager(
     host='localhost',
     port=27017,
@@ -18,25 +18,25 @@ mongo_manager = MongoDBManager(
     collection_name='code_snippets'
 )
 
-# 加载嵌入模型
+# Load embedding model
 model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# 初始化 FAISS 向量数据库（在全局作用域中）
+# Initialize FAISS vector database (in global scope)
 embedding_dim = 384
 nlist = 100
 
-# 量化器：用于在子空间中进行精确搜索的索引。
+# Quantizer: Index used for precise search in subspaces.
 quantizer = faiss.IndexFlatIP(embedding_dim)
 
-# 创建 IndexIVFFlat 索引
+# Create IndexIVFFlat index
 base_index = faiss.IndexIVFFlat(quantizer, embedding_dim, nlist, faiss.METRIC_INNER_PRODUCT)
 index = faiss.IndexIDMap(base_index)
 
-# 定义数据目录
+# Define data directory
 DATA_DIR = 'd:\\Pcode\\LLM4VIS\\llmscivis\\data\\vtkjs-examples\\prompt-sample'
 
 def load_code(file_path):
-    """从相对路径读取文件内容."""
+    """Read file content from relative path."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -47,13 +47,13 @@ def load_code(file_path):
         return None
 
 def embed_text(text):
-    """将文本转换为向量（返回 FAISS 的二维 numpy 数组）。"""
+    """Convert text to vector (returns a 2D numpy array for FAISS)."""
     embedding = model.embed_query(text)
     return np.array(embedding).reshape(1, -1)
 
 def analyze_query(query: str):
     """
-    分析用户查询，提取潜在的 VTK.js 模块。
+    Analyze user query to extract potential VTK.js modules.
     """
     analyzed_data = {
         "modules": []
@@ -61,7 +61,7 @@ def analyze_query(query: str):
 
     lower_query = query.lower()
 
-    # 1. 提取 VTK.js 模块名称 (更精确的匹配)
+    # 1. Extract VTK.js module names (more precise matching)
     module_patterns = [
         r"vtk\.?[\w\.]*?vtk([A-Z]\w+)", # 匹配 vtk.Namespace.vtkClassName 或 vtkClassName
         r"vtk\.[a-z]+\.[a-z]+\.[a-zA-Z]+" # 匹配 vtk.Rendering.Core.vtkActor 这种完整路径
@@ -74,7 +74,7 @@ def analyze_query(query: str):
             else: 
                 pass 
     
-    # 简单提取常用模块，如果查询中直接提到了简写形式
+    # Simply extract common modules if shorthand forms are directly mentioned in the query
     common_modules_short = ["vtkXMLPolyDataReader", "vtkActor", "vtkMapper", "vtkRenderer", 
                             "vtkImageReslice", "vtkMatrix4x4", "vtkColorTransferFunction",
                             "vtkPiecewiseFunction", "vtkOrientationMarkerWidget", "vtkAxesActor",
@@ -84,7 +84,7 @@ def analyze_query(query: str):
         if mod.lower() in lower_query and mod not in analyzed_data['modules']:
             analyzed_data['modules'].append(mod)
             
-    # 移除重复项
+    # Remove duplicates
     analyzed_data['modules'] = list(set(analyzed_data['modules']))
 
     return analyzed_data
@@ -92,19 +92,19 @@ def analyze_query(query: str):
 
 def rerank_results(raw_results, analyzed_query):
     """
-    对初步召回的结果进行重排，结合元数据信息，并重排 vtkjs_modules 列表。
+    Rerank preliminary recall results, combine metadata information, and reorder vtkjs_modules list.
     Args:
-        raw_results (list): 包含 'faiss_similarity' 和 'meta_info' 的初步召回文档列表。
-        analyzed_query (dict): 通过 analyze_query 函数得到的查询分析结果。
+        raw_results (list): Preliminary recalled document list containing 'faiss_similarity' and 'meta_info'.
+        analyzed_query (dict): Query analysis results obtained through the analyze_query function.
     Returns:
-        list: 经过重排并按分数降序排列的文档列表。
+        list: Document list reranked and sorted by score in descending order.
     """
     reranked_results = []
     
-    # 定义不同匹配类型的权重
-    WEIGHT_BASE_SIMILARITY = 1.0 # 基础语义相似度权重
-    WEIGHT_EXACT_MODULE_MATCH_IN_DESCRIPTION = 0.8 # 描述中精确模块匹配的额外权重
-    WEIGHT_PARTIAL_MODULE_MATCH_IN_VTKJSM = 0.2 # vtkjs_modules 中部分模块或类名匹配的额外权重
+    # Define weights for different matching types
+    WEIGHT_BASE_SIMILARITY = 1.0 # Base semantic similarity weight
+    WEIGHT_EXACT_MODULE_MATCH_IN_DESCRIPTION = 0.8 # Additional weight for exact module matching in description
+    WEIGHT_PARTIAL_MODULE_MATCH_IN_VTKJSM = 0.2 # Additional weight for partial module or class name matching in vtkjs_modules
 
     for doc in raw_results:
         # 确保 meta_info 和 description 存在
@@ -122,12 +122,12 @@ def rerank_results(raw_results, analyzed_query):
         
         # --- 优先处理查询中明确提到的模块，并在文档 description 中进行精确匹配 ---
         for q_module in analyzed_query['modules']:
-            # 检查查询模块是否在文档的 description 中精确出现
+            # Check if query module appears exactly in document description
             # 这里我们查找完整的模块名（例如 vtkActor）或其完整路径的最后部分（例如 vtk.Rendering.Core.vtkActor 中的 vtkActor）
             # 确保不匹配像 "nvtkActor" 这样的词
             module_name_pattern = r'\b' + re.escape(q_module.lower()) + r'\b'
             
-            # 同时检查完整路径形式的类名匹配，例如：vtk.Rendering.Core.vtkActor
+            # Also check for full path class name matching, e.g.: vtk.Rendering.Core.vtkActor
             # 这里提取 vtkActor 的 "Actor" 部分，然后在 description 中查找 "vtkActor"
             if q_module.lower().startswith('vtk') and len(q_module) > 3:
                 class_name_only = q_module[3:] # 例如 "Actor"
@@ -141,7 +141,7 @@ def rerank_results(raw_results, analyzed_query):
                 score += WEIGHT_EXACT_MODULE_MATCH_IN_DESCRIPTION
                 found_in_description = True
                 
-            # --- 现在处理 vtkjs_modules 列表，仅进行部分匹配和排序 ---
+            # --- Now process vtkjs_modules list, only perform partial matching and sorting ---
             # 检查查询模块是否与 doc_modules_from_meta 中的模块有精确或部分匹配，并进行重新排序
             exact_match_found_in_vtkjs_meta = False
             for dm in doc_modules_from_meta:

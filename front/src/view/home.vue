@@ -1,13 +1,26 @@
 <template>
 
   <div class="home">
-    <!-- Dashboard 区域 -->
+    <!-- Loading Overlay -->
+    <v-overlay v-model="isGenerating" class="loading-overlay" persistent>
+      <div class="loading-content">
+        <v-progress-circular
+          indeterminate
+          size="64"
+          width="6"
+          color="#6ba4e6"
+        ></v-progress-circular>
+        <p class="loading-text">Generating Visualization Code...</p>
+      </div>
+    </v-overlay>
+
+    <!-- Dashboard Area -->
     <div class="dashboard" :class="{ collapsed: isDashboardCollapsed }">
       <div class="dashboard-header">
         <span class="dashboard-title">Rawsiv</span>
         <div class="header-actions">
           <div class="showVis">
-            <v-switch v-model="isShowVis" :title="isShowVis ? '显示预览' : '隐藏预览'" true-icon="mdi-eye" false-icon="mdi-eye-off"
+            <v-switch v-model="isShowVis" :title="isShowVis ? 'Show Preview' : 'Hide Preview'" true-icon="mdi-eye" false-icon="mdi-eye-off"
               color="primary" size="x-small" density="compact" hide-details inset class="mini-switch"
               @change="handleVisibilityChange"></v-switch>
           </div>
@@ -24,44 +37,58 @@
             <RetrievalResultsCard :results="currentCase.retrievalResults" />
           </v-col>
           <v-col cols="12" md="4">
-            <EvaluationScoreCard :score="currentCase.score" :evaluation="currentCase.evaluatorEvaluation"
-              :is-loading="isEvaluating" @trigger-evaluation="triggerEvaluation" />
+            <EvaluationScoreCard 
+              :score="currentCase.score" 
+              :evaluation="currentCase.evaluatorEvaluation"
+              :parsed-evaluation="currentCase.parsedEvaluation"
+              :automated-checks="automatedEvaluationChecks"
+              :manual-evaluation="currentCase.manualEvaluation"
+              :eval-id="currentCase.evalId"
+              :is-loading="isEvaluating" 
+              @trigger-evaluation="triggerEvaluation"
+              @submit-manual-evaluation="handleManualEvaluation" />
           </v-col>
         </v-row>
       </v-container>
     </div>
     <div class="container">
-
+      <!-- Right side: Configuration sidebar -->
+      <div class="right config-panel">
+        <config :case-list="caseList" @end="handleSeGenEnd" @getNewCase="setCurrentCase">
+        </config>
+      </div>
+      <!-- Left side: Code preview and output -->
       <div class="left">
-
         <div class="preview">
-          <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
-            @console-output="handleConsoleOutput" ref="generatedPreview">
-            <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
-              variant="text" @click="toggleFullScreen('generated')" class="fullscreen-btn"></v-btn>
-          </edit>
+          <preview class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
+            :title="'Generated Code'" ref="generatedPreview" @console-output="handleConsoleOutput">
+            <template #actions>
+              <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
+                variant="text" @click="toggleFullScreen('generated')" class="fullscreen-btn"></v-btn>
+            </template>
+          </preview>
           <preview class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.groundTruth"
-            ref="truthPreview">
+            ref="truthPreview" @console-output="handleConsoleOutput">
             <template #actions>
               <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
                 variant="text" @click="toggleFullScreen('truth')" class="fullscreen-btn"></v-btn>
             </template>
           </preview>
-
         </div>
-        <!-- 在输出组件部分添加导出按钮 -->
+        
         <div class="output">
           <div class="output-container">
-            <Output :console-output="currentCase.consoleOutput" :evaluator-output="currentCase.evaluatorEvaluation"
+            <Output 
+              :console-output="currentCase.consoleOutput" 
+              :evaluator-output="currentCase.evaluatorEvaluation"
+              :parsed-evaluation="currentCase.parsedEvaluation"
               @export-results="exportResults">
             </Output>
           </div>
         </div>
       </div>
-      <div class="right">
-        <config :case-list="caseList" @end="handleSeGenEnd" @getNewCase="setCurrentCase">
-        </config>
-      </div>
+      
+      
     </div>
 
     <v-snackbar v-model="info.snackbar" :timeout="info.timeout">
@@ -81,16 +108,16 @@
 
 <script>
 import preview from "@/components/preview/index.vue";
-import edit from "@/components/edit/index.vue";
 import config from "@/components/config/index.vue";
 import output from "@/components/output/index.vue"
 import QueryExpansionCard from "@/components/dashboard/QueryExpansionCard.vue";
 import RetrievalResultsCard from "@/components/dashboard/RetrievalResultsCard.vue";
 import EvaluationScoreCard from "@/components/dashboard/EvaluationScoreCard.vue";
 import axios from "axios";
-import { nextTick, onMounted, reactive, ref } from "vue";
+import { nextTick, onMounted, reactive, ref, computed } from "vue";
 import { getAllCase, getEvalResult, generateCode } from "@/api/api.js";
 import { appConfig } from "@/view/config.js";
+import { parseEvaluation } from "@/utils/scoreUtils.js";
 import html2canvas from 'html2canvas';  // 需要安装这个包
 import { ExportUtils } from '@/utils/export';
 import { useRouter } from 'vue-router'; // 导入useRouter
@@ -100,7 +127,6 @@ export default {
   components: {
     preview,
     config,
-    edit,
     Output: output,
     QueryExpansionCard,
     RetrievalResultsCard,
@@ -117,7 +143,8 @@ export default {
     let isShowVis = ref(false)
 
     const isEvaluating = ref(false); // For loading state of the new button
-    const isDashboardCollapsed = ref(false); // 仪表盘折叠状态
+    const isDashboardCollapsed = ref(false); // Dashboard collapse state
+    const isGenerating = ref(false); // Global loading state for code generation
 
     const isExporting = ref(false);
     const currentCase = reactive({
@@ -141,7 +168,10 @@ export default {
       manualEvaluation: [],
       options: '',
       queryExpansion: '',
-      retrievalResults: []
+      retrievalResults: [],
+      parsedEvaluation: null,  // New: Parsed evaluation data
+      automatedExecutable: null,  // New: Automated check for executability
+      automatedValidOutput: null  // New: Automated check for valid output
 
     })
     const resetCurrentCase = (obj) => {
@@ -152,21 +182,39 @@ export default {
       currentCase.manualEvaluation = obj['manual_evaluation']
       currentCase.options = obj['options']
       currentCase.evaluatorEvaluation = obj['evaluator_evaluation']
+      
+      // Parse evaluation data if available
+      if (obj['evaluator_evaluation']) {
+        currentCase.parsedEvaluation = parseEvaluation(obj['evaluator_evaluation']);
+      } else {
+        currentCase.parsedEvaluation = null;
+      }
+      
+      // Load automated checks if available
+      if (obj['automated_executable'] !== undefined) {
+        currentCase.automatedExecutable = obj['automated_executable'];
+      }
+      if (obj['automated_valid_output'] !== undefined) {
+        currentCase.automatedValidOutput = obj['automated_valid_output'];
+      }
     }
 
 
     const handleSeGenEnd = async (res) => {
       try {
+        // Hide loading overlay
+        isGenerating.value = false;
+        
         currentCase.consoleOutput = []
 
-        // 处理查询拓展数据
-        if (res.analysis) {
+        // Handle query expansion data
+        if (res.analysis && res.analysis.trim() !== '') {
           currentCase.queryExpansion = res.analysis;
         } else {
           currentCase.queryExpansion = '';
         }
 
-        // 处理检索结果数据
+        // Handle retrieval results data
         if (res.retrieval_results && Array.isArray(res.retrieval_results)) {
           currentCase.retrievalResults = res.retrieval_results;
         } else {
@@ -176,23 +224,38 @@ export default {
         resetCurrentCase(res)
         isShowVis.value = true;
 
-        // 等待预览组件渲染完成
+        // Wait for preview components to render
         await nextTick();
 
-        // 额外等待一段时间确保 VTK.js 初始化完成
+        // Additional wait for VTK.js initialization
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        //启动自动评估
-        setTimeout(() => {
-          triggerEvaluation();
-        }, 1000);
+        // Only trigger evaluation if we have valid generated code
+        if (currentCase.generatedCode && 
+            currentCase.generatedCode !== 'Generated Code:' && 
+            currentCase.generatedCode && 
+            currentCase.generatedCode.trim() !== '') {
+          // Start auto evaluation
+          setTimeout(() => {
+            triggerEvaluation();
+          }, 1000);
+        } else {
+          info.message = '生成代码失败或为空，请检查';
+          info.snackbar = true;
+        }
       } catch (error) {
-        console.error('处理生成结果时出错:', error);
-        info.message = '处理生成结果时出错';
+        console.error('Error handling generation results:', error);
+        info.message = 'Error processing generation results';
         info.snackbar = true;
+      } finally {
+        // Ensure loading is hidden even if there's an error
+        isGenerating.value = false;
       }
     }
     const setCurrentCase = (caseItem) => {
+      // Show loading overlay when generation starts
+      isGenerating.value = true;
+      
       currentCase.prompt = caseItem.prompt
       currentCase.groundTruth = caseItem.groundTruth
       currentCase.generator = caseItem.generator
@@ -205,15 +268,15 @@ export default {
 
 
     const handleConsoleOutput = (output) => {
-
       nextTick(() => {
-        // 在这里处理控制台输出
-        console.log('handleConsoleOutput', currentCase.consoleOutput)
-        currentCase.consoleOutput = output
-      })
-      // 在这里处理控制台输出
-      // console.log('handleConsoleOutput',currentCase.consoleOutput)
-      // currentCase.consoleOutput=output
+        // 累积日志而不是替换
+        if (Array.isArray(output)) {
+          currentCase.consoleOutput.push(...output);
+        } else if (output) {
+          currentCase.consoleOutput.push(output);
+        }
+        console.log('Current console logs:', currentCase.consoleOutput);
+      });
     };
     const init = () => {
       getAllCase().then(res => {
@@ -293,8 +356,9 @@ export default {
 
     const triggerEvaluation = async () => {
       if (!currentCase.generatedCode || currentCase.generatedCode === 'Generated Code:' || currentCase.generatedCode === null || currentCase.generatedCode.trim() === '') {
-        info.message = '没有可评估的生成代码';
+        info.message = '没有可评估的生成代码，请先生成代码';
         info.snackbar = true;
+        console.warn('Cannot evaluate: no generated code available');
         return;
       }
       isEvaluating.value = true;
@@ -305,6 +369,18 @@ export default {
         console.log('evaluation', evalRes.data);
         currentCase.score = evalRes.data['score'];
         currentCase.evaluatorEvaluation = evalRes.data['evaluator_evaluation'];
+        
+        // Parse the evaluation data
+        currentCase.parsedEvaluation = parseEvaluation(evalRes.data['evaluator_evaluation']);
+        
+        // Store automated checks if available
+        if (evalRes.data['automated_executable'] !== undefined) {
+          currentCase.automatedExecutable = evalRes.data['automated_executable'];
+        }
+        if (evalRes.data['automated_valid_output'] !== undefined) {
+          currentCase.automatedValidOutput = evalRes.data['automated_valid_output'];
+        }
+        
         info.message = '评估完成';
         info.snackbar = true;
       } catch (error) {
@@ -318,6 +394,39 @@ export default {
     };
 
 
+    // Computed property for automated evaluation checks
+    const automatedEvaluationChecks = computed(() => {
+      return {
+        executable: currentCase.automatedExecutable,
+        validOutput: currentCase.automatedValidOutput
+      };
+    });
+
+    // Handle manual evaluation submission
+    const handleManualEvaluation = async (manualData) => {
+      try {
+        console.log('Manual evaluation submitted:', manualData);
+        
+        // Update local state
+        currentCase.manualEvaluation = manualData;
+        
+        // Send to backend API
+        const response = await axios.post(`${appConfig.api_base_url}/update_manual_evaluation`, {
+          eval_id: currentCase.evalId,
+          manual_evaluation: manualData
+        });
+        
+        if (response.data.success) {
+          info.message = '人工评估已保存';
+          info.snackbar = true;
+        }
+      } catch (error) {
+        console.error('Failed to save manual evaluation:', error);
+        info.message = '保存人工评估失败: ' + (error.message || '未知错误');
+        info.snackbar = true;
+      }
+    };
+
     // 监听全屏变化
     onMounted(() => {
       document.addEventListener('fullscreenchange', () => {
@@ -325,7 +434,7 @@ export default {
       });
     });
 
-    // 在 return 中添加新的属性
+    // Return all reactive variables and methods
     return {
       title: 'Rawsiv',
       caseList,
@@ -336,7 +445,7 @@ export default {
       isShowVis,
       handleVisibilityChange,
       handleConsoleOutput,
-      // 添加全屏相关的属性
+      // Fullscreen related properties
       isFullScreen,
       generatedPreview,
       truthPreview,
@@ -345,7 +454,10 @@ export default {
       exportResults,
       triggerEvaluation,
       isEvaluating,
-      isDashboardCollapsed, // 添加仪表盘折叠状态
+      isDashboardCollapsed,
+      isGenerating, // Global loading state
+      automatedEvaluationChecks,  // New: Automated checks computed property
+      handleManualEvaluation,  // New: Manual evaluation handler
     };
   }
 }
@@ -379,14 +491,18 @@ export default {
   padding: 4px 16px;
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
-
-  transition: max-height 0.3s ease-in-out, overflow 0.3s ease-in-out;
+  transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
   position: relative;
+  overflow: hidden;
 }
 
 .dashboard.collapsed {
   max-height: 60px;
-  overflow: hidden;
+  padding-bottom: 4px;
+}
+
+.dashboard:not(.collapsed) {
+  max-height: 500px;
 }
 
 .dashboard-header {
@@ -402,8 +518,9 @@ export default {
 
 .dashboard-title {
   font-size: 16px;
-  font-weight: 500;
+  font-weight:bold;
   color: #333;
+  transform: scale(1.2) ;
   flex: 1;
   text-align: center;
   /* background-color: #6ba4e6; */
@@ -424,6 +541,12 @@ export default {
 
 .dashboard-content {
   transition: opacity 0.2s ease;
+  opacity: 1;
+}
+
+.dashboard.collapsed .dashboard-content {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .container {
@@ -439,16 +562,26 @@ export default {
 .left,
 .right {
   padding: 10px;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 .left {
-  flex: 16;
+  flex: 1;
+  min-width: 0;
 }
 
 .right {
-  flex: 1;
-  min-width: 200px;
+  width: 320px;
+  min-width: 280px;
+  max-width: 400px;
+  border-left: 1px solid #e0e0e0;
+  background-color: #fafafa;
+}
+
+.config-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .preview {
@@ -505,16 +638,47 @@ export default {
   height: 2em;
 }
 
-/* 深度选择器：调整 Switch 内部 Label 文字的大小和粗细 */
+/* Adjust the Switch's label text size and weight */
 .mini-switch :deep(.v-label) {
-  font-size: 14px; /* 根据缩放比例适当调大字体定义，防止缩放后太小看不清 */
-  white-space: nowrap; /* 防止文字换行 */
-  margin-inline-start: 8px; /* 调整文字和开关的间距 */
+  font-size: 14px; /* Increase font size to compensate for scaling */
+  white-space: nowrap; /* Prevent text wrapping */
+  margin-inline-start: 8px; /* Adjust spacing between text and switch */
 }
 
-/* 深度选择器：调整开关圆钮内部图标的大小 */
+/* Adjust the icon size inside the switch thumb */
 .mini-switch :deep(.v-switch__thumb .v-icon) {
-  font-size: 12px; /* 确保图标在缩小的圆钮中显示合适 */
-  color: #fff; /* 通常图标在圆钮内白色比较好看，可视情况调整 */
+  font-size: 12px; /* Ensure icon is visible in the scaled thumb */
+  color: #fff; /* Icon color, usually white looks good */
+}
+
+/* Loading Overlay Styles */
+.loading-overlay {
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 48px;
+  border-radius: 8px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+}
+
+.loading-text {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: 0.5px;
 }
 </style>

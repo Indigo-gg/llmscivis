@@ -1,0 +1,301 @@
+% VTKSearcherV2 检索算法 - LaTeX Algorithm2e 格式
+% 使用 \usepackage[ruled,vlined]{algorithm2e} 在文档中引入此代码
+% 或使用 \usepackage[lined]{algorithm2e} 版本
+
+\begin{algorithm}[ht]
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\SetKwInOut{Require}{Require}
+\SetKwFunction{AnalyzeQuery}{AnalyzeQuery}
+\SetKwFunction{FindDocsByModules}{FindDocsByModules}
+\SetKwFunction{BuildPrompt}{BuildPrompt}
+\SetKwFunction{CalculateScores}{CalculateScores}
+\SetKwFunction{GetRankedResults}{GetRankedResults}
+\label{alg:vtksercher_v2}
+\caption{VTKSearcherV2：加权关键词检索与重排序}
+
+\Input{
+  $query$: 原始用户完整请求字符串 \\
+  $queryList$: 分割后的子查询列表，每项包含 $description$ 和 $weight$
+}
+\Output{
+  $finalPrompt$: 包含Top-6示例的最终提示词字符串
+}
+\Require{
+  $MongoDB$ 连接已初始化且包含代码库 \\
+  每个文档包含 $meta\_info$ 字段和 $vtkjs\_modules$ 模块列表
+}
+
+\tcp{====== 阶段1: 广度召回 (Recall) ======}
+$candidateDocs \gets \{\}$ \tcp*[r]{用于去重的字典}
+$rawHistory \gets []$ \tcp*[r]{记录每个子查询的原始召回结果}
+
+\ForEach{$queryItem$ \textbf{in} $queryList$}{
+  \tcp{解析子查询文本}
+  $qText \gets queryItem.description$ \\
+  $qWeight \gets queryItem.weight$ \\
+  
+  \tcp{分析查询提取关键词模块}
+  $analyzedData \gets$ \AnalyzeQuery{$qText$} \\
+  $qModules \gets analyzedData.modules$ \label{alg:analyze_query} \\
+  
+  \tcp{数据库检索相关文档}
+  $docs \gets$ \FindDocsByModules{$qModules$} \label{alg:db_query} \\
+  
+  \tcp{记录原始召回结果}
+  $docsForHistory \gets []$ \\
+  \ForEach{$doc$ \textbf{in} $docs$}{
+    $docCopy \gets doc.copy()$ \\
+    $docCopy.queryDescription \gets qText$ \\
+    $docsForHistory.append(docCopy)$ \\
+    
+    \tcp{添加到去重候选池}
+    $docId \gets doc.faissId \textbf{ or } doc.filePath$ \\
+    \If{$docId \notin candidateDocs$}{
+      $candidateDocs[docId] \gets doc$ \\
+    }
+  }
+  $rawHistory.\text{append}(docsForHistory)$ \\
+}
+
+$candidateList \gets candidateDocs.values()$ \\
+print "Total unique candidates recalled: " $|candidateList|$ \\
+
+\tcp{====== 阶段2: 深度精排 (Rerank) ======}
+\tcp{第一步: 权重归一化}
+$totalWeight \gets 0$ \\
+$validQueries \gets []$ \\
+
+\ForEach{$q$ \textbf{in} $queryList$}{
+  $w \gets q.\text{weight}$ \textbf{ or } $5.0$ \\
+  $totalWeight \gets totalWeight + w$ \\
+  $q.\text{parsedWeight} \gets w$ \\
+  $validQueries.\text{append}(q)$ \\
+}
+
+\If{$totalWeight = 0$}{
+  $totalWeight \gets 1$ \tcp*[r]{防止除零}
+}
+
+\tcp{第二步: 遍历子查询计算文档得分}
+$docScores \gets \{\}$ \tcp*[r]{文档得分字典}
+$docDetails \gets \{\}$ \tcp*[r]{文档匹配详情}
+
+\ForEach{$queryItem$ \textbf{in} $validQueries$}{
+  $qText \gets queryItem.description$ \\
+  $qWeight \gets queryItem.\text{parsedWeight}$ \\
+  
+  \tcp{计算该子查询的归一化权重}
+  $normalizedWeight \gets \frac{qWeight}{totalWeight}$ \label{alg:weight_norm} \\
+  
+  \tcp{提取查询关键词}
+  $analyzedData \gets$ \AnalyzeQuery{$qText$} \\
+  $qModules \gets analyzedData.\text{modules}$ \\
+  
+  \If{$qModules = \emptyset$}{
+    \textbf{continue} \\
+  }
+  
+  \tcp{遍历每个候选文档进行打分}
+  \ForEach{$doc$ \textbf{in} $candidateList$}{
+    $docId \gets doc.faissId \textbf{ or } doc.filePath$ \\
+    
+    \tcp{计算文档对该查询的关键词命中数}
+    $(hits, matchedKeywords) \gets$ \texttt{CountHits}$(doc, qModules)$ \label{alg:count_hits} \\
+    
+    \If{$hits > 0$}{
+      \tcp{累加得分: 得分增量 = 命中数 × 归一化权重}
+      $scoreIncrement \gets hits \times normalizedWeight$ \label{alg:scoring_formula} \\
+      $docScores[docId] \gets docScores[docId] + scoreIncrement$ \\
+      
+      \tcp{记录匹配详情}
+      \If{$docId \notin docDetails$}{
+        $docDetails[docId] \gets \{\text{docObj}: doc, \text{matches}: [], \text{keywords}: \emptyset\}$ \\
+      }
+      $docDetails[docId].\text{matches}.\text{append}(\text{"Query: "} + qText)$ \\
+      $docDetails[docId].\text{keywords} \gets docDetails[docId].\text{keywords} \cup matchedKeywords$ \\
+    }
+  }
+}
+
+\tcp{第三步: 排序输出Top-K结果}
+$rankedList \gets []$ \\
+
+\ForEach{$(docId, score)$ \textbf{in} $docScores.items()$}{
+  $doc \gets docDetails[docId].\text{docObj}$ \\
+  $doc.\text{rerankScore} \gets score$ \\
+  $doc.\text{matchExplanation} \gets docDetails[docId].\text{matches}$ \\
+  $doc.\text{matchedKeywords} \gets docDetails[docId].\text{keywords}$ \\
+  $rankedList.\text{append}(doc)$ \\
+}
+
+\tcp{按得分降序排序}
+$rankedList.\text{sort}(\text{key}=\lambda x: x.\text{rerankScore}, \text{reverse}=\text{True})$ \label{alg:sort_by_score} \\
+
+$finalResults \gets rankedList[0:6]$ \label{alg:top_k} \\
+
+\Return{$finalResults$}
+
+\end{algorithm}
+
+
+% ============================================================
+% 算法说明文档
+% ============================================================
+
+\section*{算法说明与设计细节}
+
+\subsection*{总体架构}
+
+VTKSearcherV2采用\textbf{两阶段检索架构}：
+\begin{itemize}
+  \item \textbf{第一阶段 - 广度召回 (Recall)}：对每个子查询独立执行数据库查询，广泛召回所有可能相关的文档，然后进行去重
+  \item \textbf{第二阶段 - 深度精排 (Rerank)}：基于子查询权重，对所有候选文档进行加权打分，精准排序输出Top-6结果
+\end{itemize}
+
+\subsection*{权重归一化公式（第二阶段 - 第一步）}
+
+\textbf{目标}：确保每个子查询的权重被转换为相对重要性系数（0.0 ~ 1.0）
+
+\textbf{公式}：
+\begin{equation}
+\text{normalizedWeight}_i = \frac{w_i}{\sum_{j=1}^{n} w_j}
+\label{eq:weight_normalization}
+\end{equation}
+
+其中：
+\begin{itemize}
+  \item $w_i$ 为第 $i$ 个子查询的原始权重
+  \item $\sum_{j=1}^{n} w_j$ 为所有 $n$ 个子查询的权重总和
+  \item 若总和为0，默认设置为1（防止除零错误）
+\end{itemize}
+
+\subsection*{文档得分计算公式（第二阶段 - 第二步）}
+
+\textbf{目标}：根据文档对所有子查询的综合匹配程度进行打分
+
+\textbf{公式}：
+\begin{equation}
+\text{Score}(\text{doc}) = \sum_{i=1}^{n} (\text{hits}_i \times \text{normalizedWeight}_i)
+\label{eq:document_score}
+\end{equation}
+
+其中：
+\begin{itemize}
+  \item $\text{hits}_i$ 为文档与第 $i$ 个子查询的关键词命中数（整数值 $\geq 0$）
+  \item $\text{normalizedWeight}_i$ 为第 $i$ 个子查询的归一化权重
+  \item 最终得分为各子查询贡献的累加和
+\end{itemize}
+
+\textbf{设计理由}：
+\begin{itemize}
+  \item \textbf{累加机制}：文档能解决的子查询越多，总分越高，体现"综合相关性"
+  \item \textbf{权重控制}：重要性高的子查询权重大，其匹配贡献度大
+  \item \textbf{线性组合}：简单高效，避免过度复杂的非线性计算
+\end{itemize}
+
+\subsection*{数值示例}
+
+\textbf{假设场景}：
+\begin{itemize}
+  \item 子查询1: "render a cone" (权重=10)
+  \item 子查询2: "set background to blue" (权重=3)
+  \item 总权重 = 10 + 3 = 13
+\end{itemize}
+
+\textbf{权重归一化}：
+\begin{itemize}
+  \item 子查询1归一化权重 = $\frac{10}{13} \approx 0.769$
+  \item 子查询2归一化权重 = $\frac{3}{13} \approx 0.231$
+\end{itemize}
+
+\textbf{文档A的得分计算}：假设：
+\begin{itemize}
+  \item 匹配子查询1的关键词：2个 ($\text{hits}_1 = 2$)
+  \item 匹配子查询2的关键词：1个 ($\text{hits}_2 = 1$)
+\end{itemize}
+
+\textbf{最终得分}：
+\begin{equation}
+\text{Score}(docA) = 2 \times 0.769 + 1 \times 0.231 = 1.538 + 0.231 = 1.769
+\end{equation}
+
+\subsection*{关键词匹配策略（CountHits算法）}
+
+关键词匹配采用\textbf{双策略}设计：
+
+\textbf{策略A - 模块列表匹配}（优先级高）：
+\begin{itemize}
+  \item \textbf{精确匹配}：$qmLower = dm$（忽略大小写）
+  \item \textbf{后缀匹配}：$dm.\text{endsWith}(qmClean)$（解决命名空间问题）
+  \item 例如：查询词 "vtkActor" 可匹配 "vtk.Rendering.Core.vtkActor"
+\end{itemize}
+
+\textbf{策略B - 描述文本匹配}（降级补充）：
+\begin{itemize}
+  \item 如果模块列表未命中，检查文档描述文本中是否包含该关键词
+  \item 提高了非结构化匹配的召回率
+\end{itemize}
+
+\subsection*{数据库查询设计}
+
+\textbf{查询方式}：使用MongoDB的正则表达式后缀匹配
+\begin{itemize}
+  \item 模式：$\text{regex}(\text{module}\$$, \text{re.IGNORECASE})$
+  \item 作用：匹配字符串结尾是该模块名的情况（忽略大小写）
+  \item 优势：一次性批量查询所有包含任意一个查询模块的文档
+\end{itemize}
+
+\subsection*{去重与合并策略}
+
+在广度召回阶段：
+\begin{itemize}
+  \item 使用字典 $candidateDocs$ 按 $docId$（优先FAISS ID，其次文件路径）进行去重
+  \item 同一文档即使被多个子查询召回，也只保留一份
+  \item 避免重复处理相同文档的打分逻辑
+\end{itemize}
+
+\subsection*{算法复杂度分析}
+
+\textbf{输入规模}：
+\begin{itemize}
+  \item $n$：子查询数量
+  \item $m$：候选文档数量（去重后）
+  \item $k$：每个文档的模块数量（平均）
+  \item $d$：每个查询提取的关键词数量（平均）
+\end{itemize}
+
+\textbf{复杂度}：
+\begin{itemize}
+  \item 广度召回阶段：$O(n \times \text{DB\_query\_time})$
+  \item 权重归一化：$O(n)$
+  \item 深度精排阶段：$O(n \times m \times d \times k)$ 
+    \begin{itemize}
+      \item $n$ 个子查询遍历
+      \item $m$ 个候选文档
+      \item 每次CountHits操作复杂度为 $O(d \times k)$
+    \end{itemize}
+  \item 排序阶段：$O(m \log m)$
+  \item \textbf{总体}：$O(n \times m \times d \times k + m \log m)$，实际通常 $d, k$ 较小（10-20以内）
+\end{itemize}
+
+\subsection*{关键设计优势}
+
+\begin{enumerate}
+  \item \textbf{权重感知}：子查询权重直接控制其对最终排序的影响力
+  \item \textbf{综合评估}：文档被评估是否"整体上解决问题"，而非单一维度评分
+  \item \textbf{透明可解释}：每个文档的得分来源清晰记录（match\_explanation）
+  \item \textbf{灵活扩展}：可轻松调整权重或添加新的匹配策略
+  \item \textbf{高效实现}：避免向量计算，纯关键词匹配，响应快速
+\end{enumerate}
+
+\subsection*{与Embedding检索的对比}
+
+本算法采用\textbf{加权关键词检索}替代Embedding相似度检索的原因：
+\begin{itemize}
+  \item \textbf{速度快}：无需计算和存储Embedding向量
+  \item \textbf{权重控制精准}：显式权重调整比向量空间距离更直观
+  \item \textbf{可解释性强}：每次匹配都有明确的规则和记录
+  \item \textbf{VTK.js特化}：关键词匹配天然适合模块名这类离散符号
+  \item \textbf{成本低}：无需预计算Embedding，节省存储和计算资源
+\end{itemize}
