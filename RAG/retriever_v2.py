@@ -302,8 +302,9 @@ class VTKSearcherV2:
 
     def search(self, query:str, query_list: List) -> str:
         """
-        使用两阶段搜索执行检索，优量INFORMATION
-        呜时记录初筛和重排序的结果。
+        使用两阶段搜索执行检索，
+        支持提示词拓展后的新格式（包含 description、vtk_modules 等字段）。
+        同时记录初筛和重排序的结果。
         """
         # 检查FAISS索引是否已加载
         if index.ntotal == 0:
@@ -320,15 +321,30 @@ class VTKSearcherV2:
         for query_item in query_list:
             # 从每个查询项中提取描述文本
             query_text = query_item['description']
+            # 提取可能存在的 vtk_modules 信息（来自提示词拓展）
+            vtk_modules = query_item.get('vtk_modules', [])
+            phase = query_item.get('phase', '')
+            step_name = query_item.get('step_name', '')
+            
             # 调用两阶段搜索函数
-            print(f"Processing query: {query_text}")
+            print(f"[Processing] Phase: {phase}, Step: {step_name}")
+            print(f"[Processing] Query: {query_text}")
+            if vtk_modules:
+                print(f"[Processing] VTK Modules: {vtk_modules}")
+            
             raw_results, reranked_results = search_with_stages(query_text, k=4, similarity_threshold=0.1)
             
-            # 记录查询描述到两个结果集合中
+            # 记录查询描述和其他元信息到两个结果集合中
             for result in raw_results:
                 result['query_description'] = query_text
+                result['query_phase'] = phase
+                result['query_step_name'] = step_name
+                result['query_vtk_modules'] = vtk_modules
             for result in reranked_results:
                 result['query_description'] = query_text
+                result['query_phase'] = phase
+                result['query_step_name'] = step_name
+                result['query_vtk_modules'] = vtk_modules
             
             # 按查询分别保存结果（嵌套列表结构）
             query_raw_results_list.append(raw_results)

@@ -1,6 +1,5 @@
 import json
 import sys
-from pydantic_core.core_schema import model_ser_schema
 import requests
 from langchain_ollama import OllamaLLM
 from urllib3 import response

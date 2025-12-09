@@ -7,8 +7,19 @@
     </v-card-title>
 
     <v-card-text class="card-content">
+      <!-- Generation Loading State -->
+      <div v-if="isGenerating" class="generation-loading-state">
+        <v-progress-circular
+          indeterminate
+          size="48"
+          width="5"
+          color="primary"
+        ></v-progress-circular>
+        <p class="generation-loading-text">Generating Code...</p>
+      </div>
+
       <!-- Top Section: Overall Score + Automated Checks Badges -->
-      <div class="top-section">
+      <div v-else class="top-section">
         <div class="overall-score" :class="{ 'unscored': displayOverallScore === 0 }" :style="displayOverallScore === 0 ? { color: '#9e9e9e' } : { color: overallScoreColor }">
           {{ displayOverallScore || 'N/A' }}
         </div>
@@ -122,23 +133,34 @@
       </div>
     </v-card-text>
 
-    <!-- Action Button -->
+    <!-- Action Buttons -->
     <v-card-actions>
-      <!-- <v-btn
-        variant="tonal"
-        color="primary"
-        @click="$emit('trigger-evaluation')"
-        :loading="isLoading"
-        block
-      > -->
+      <!-- Save Human Evaluation Button -->
       <v-btn
         variant="tonal"
         color="primary"
-        :loading="isLoading"
+        :loading="isManualSubmitting"
         block
+        @click="submitManualEvaluation"
       >
-        <v-icon start>mdi-play-circle-outline</v-icon>
+        <v-icon start>mdi-account-check</v-icon>
         Save Human Evaluation
+      </v-btn>
+    </v-card-actions>
+
+    <!-- Export Section -->
+    <v-divider class="my-2"></v-divider>
+    <v-card-actions>
+      <!-- Export Results Button -->
+      <v-btn
+        variant="tonal"
+        color="success"
+        :loading="isExporting"
+        block
+        @click="handleExportResults"
+      >
+        <v-icon start>mdi-download</v-icon>
+        Export Complete Results
       </v-btn>
     </v-card-actions>
   </v-card>
@@ -184,9 +206,13 @@ export default {
     isLoading: {
       type: Boolean,
       default: false
+    },
+    isGenerating: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['trigger-evaluation', 'submit-manual-evaluation'],
+  emits: ['trigger-evaluation', 'submit-manual-evaluation', 'export-results'],
   setup(props, { emit }) {
 
     // Check status management
@@ -198,6 +224,7 @@ export default {
     const manualVisualQuality = ref(50);
     const manualCodeQuality = ref(50);
     const isManualSubmitting = ref(false);
+    const isExporting = ref(false);
 
     // Computed properties
     const hasScore = computed(() => {
@@ -254,6 +281,14 @@ export default {
       }, 500);
     };
 
+    const handleExportResults = () => {
+      isExporting.value = true;
+      emit('export-results');
+      setTimeout(() => {
+        isExporting.value = false;
+      }, 1000);
+    };
+
     // Watch for manual evaluation data and load it
     watch(() => props.manualEvaluation, (newVal) => {
       if (newVal) {
@@ -287,12 +322,14 @@ export default {
       manualVisualQuality,
       manualCodeQuality,
       isManualSubmitting,
+      isExporting,
       hasScore,
       hasParsedEvaluation,
       displayOverallScore,
       overallScoreColor,
       scoreLevel,
-      submitManualEvaluation
+      submitManualEvaluation,
+      handleExportResults
     };
   }
 }
@@ -313,7 +350,6 @@ export default {
 
 .card-content {
   padding: 12px;
-  max-height:300px;
   overflow-y: auto;
 }
 
@@ -412,5 +448,21 @@ export default {
 
 .mb-3 {
   margin-bottom: 12px;
+}
+
+.generation-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  min-height: 200px;
+}
+
+.generation-loading-text {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
 }
 </style>

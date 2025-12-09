@@ -29,6 +29,9 @@ try:
 except ImportError:
     app_config = AppConfig()
 
+# --- 导入必要的模块 ---
+from RAG.vtk_code_meta_extract import extract_vtkjs_meta, get_project_root
+
 # --- 数据库管理类 ---
 
 
@@ -168,9 +171,6 @@ class WeightedRanker:
             q_text = query_item.get('description', '')
             q_weight = query_item.get('parsed_weight')
 
-            # 归一化权重 (0.0 - 1.0) -> 这道题的“分值系数”
-            normalized_weight = q_weight / total_weight
-
             # 提取关键词
             analyzed = analyze_query(q_text)
             q_modules = analyzed.get('modules', [])
@@ -191,9 +191,9 @@ class WeightedRanker:
 
                 if hits > 0:
                     # --- 打分公式 ---
-                    # 得分 = 命中关键词数量 * 该查询的重要性系数
+                    # 得分 = 命中关键词数量 * 该查询的原始权重
                     # 这是一个累加过程：文档能解决的问题越多，总分越高
-                    score_increment = hits * normalized_weight
+                    score_increment = hits * q_weight
 
                     self.doc_scores[doc_id] = self.doc_scores.get(
                         doc_id, 0) + score_increment
@@ -267,18 +267,120 @@ class WeightedRanker:
 
         return ranked_list[:top_k]
 
+# --- 数据库初始化函数 ---
+
+
+def initialize_database(data_dir=None, force_reinit=False):
+    """
+    初始化 MongoDB 数据库，从指定目录加载 VTK.js 代码示例。
+    
+    Args:
+        data_dir (str): 数据目录路径。如果为 None，使用默认路径。
+        force_reinit (bool): 是否强制重新初始化数据库（清空现有数据）。
+    
+    Returns:
+        bool: 初始化是否成功。
+    """
+    import os
+    import hashlib
+    
+    if data_dir is None:
+        # 默认数据目录
+        project_root = get_project_root()
+        data_dir = os.path.join(project_root, 'data', 'vtkjs-examples', 'prompt-sample')
+    
+    print(f"\n--- 数据库初始化 ---")
+    print(f"检查数据库连接...")
+    
+    # 检查集合是否为空
+    if mongo_manager.collection is None:
+        print(f"✗ 无法连接到 MongoDB")
+        return False
+    
+    doc_count = mongo_manager.collection.count_documents({})
+    
+    if doc_count > 0 and not force_reinit:
+        print(f"✓ 数据库已初始化，包含 {doc_count} 个文档")
+        return True
+    
+    # 验证数据目录
+    if not os.path.isdir(data_dir):
+        print(f"✗ 数据目录不存在: {data_dir}")
+        return False
+    
+    print(f"开始从目录加载数据: {data_dir}")
+    
+    # 清空现有数据
+    if doc_count > 0:
+        print(f"清空现有 {doc_count} 个文档...")
+        mongo_manager.collection.delete_many({})
+    
+    # 遍历目录并加载数据
+    documents_to_insert = []
+    processed_count = 0
+    
+    for root, dirs, files in os.walk(data_dir):
+        for filename in files:
+            if filename == 'code.html':
+                file_path = os.path.join(root, filename)
+                
+                try:
+                    # 提取元信息
+                    meta_info = extract_vtkjs_meta(file_path)
+                    
+                    # 加载代码内容
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            code_content = f.read()
+                    except:
+                        continue
+                    
+                    # 生成 FAISS ID
+                    faiss_id = int(hashlib.sha1(file_path.encode("utf-8")).hexdigest(), 16) % (2**31 - 1)
+                    if faiss_id < 0:
+                        faiss_id *= -1
+                    
+                    # 构建文档
+                    mongo_document = {
+                        "faiss_id": faiss_id,
+                        "file_path": file_path,
+                        "code": code_content,
+                        "meta_info": meta_info
+                    }
+                    
+                    documents_to_insert.append(mongo_document)
+                    processed_count += 1
+                    
+                except Exception as e:
+                    print(f"  警告: 处理文件时出错 {file_path}: {e}")
+                    continue
+    
+    if not documents_to_insert:
+        print(f"✗ 未找到任何数据文件")
+        return False
+    
+    # 插入数据
+    try:
+        mongo_manager.collection.insert_many(documents_to_insert)
+        print(f"✓ 成功导入 {len(documents_to_insert)} 个文档")
+        return True
+    except Exception as e:
+        print(f"✗ 导入失败: {e}")
+        return False
+
+
 # --- 检索控制器类 ---
 
 
-class VTKSearcherV2:
+class VTKSearcherV3:
     def __init__(self):
         """
-        初始化 VTKSearcherV2。
+        初始化 VTKSearcherV3。
         纯关键词检索 + 基于子查询权重的重排序。
         """
         self.raw_results_history = []
         self.reranked_results_history = []
-        print("VTKSearcherV2 initialized (Weighted Keyword Logic).")
+        print("VTKSearcherV3 initialized (Weighted Keyword Logic).")
 
     def search(self, query: str, query_list: List[Dict]) -> str:
         """
@@ -447,7 +549,7 @@ def save_results_to_excel(searcher, input_file, output_file="retrieval_results_v
     将检索结果保存到Excel文件中
 
     Args:
-        searcher: VTKSearcherV2 实例，包含检索历史
+        searcher: VTKSearcherV3 实例，包含检索历史
         input_file: 原始输入Excel文件路径
         output_file: 输出Excel文件路径
     """
@@ -576,11 +678,172 @@ def process_nested_queries_and_log(searcher, splited_queries, output_txt="output
 # --- 主程序入口 ---
 
 
-if __name__ == '__main__':
-    # 1. 初始化搜索器
-    searcher = VTKSearcherV2()
+def process_benchmark_prompts_for_generation(input_file, output_file=None, sheet_name='第二期实验数据'):
+    """
+    读取 Excel 中的 Benchmark prompt 字段，执行提示词拓展和检索，将结果写回 Excel
+    
+    Args:
+        input_file (str): 输入 Excel 文件路径
+        output_file (str): 输出 Excel 文件路径，如果为 None 则覆盖原文件
+        sheet_name (str): Excel 工作表名称
+    
+    Returns:
+        dict: 包含处理结果的字典
+    """
+    from llm_agent.prompt_agent import analyze_query
+    from config.ollama_config import ollama_config
+    
+    if output_file is None:
+        output_file = input_file
+    
+    try:
+        # 读取 Excel 文件
+        df = pd.read_excel(input_file, sheet_name=sheet_name)
+        print(f"[Processing] 加载 {len(df)} 行数据")
+        
+        # 检查必要的列
+        if 'Benchmark prompt' not in df.columns:
+            print("[ERROR] Excel 文件缺少 'Benchmark prompt' 列")
+            return {'success': False, 'error': 'Missing Benchmark prompt column'}
+        
+        # 初始化输出列
+        if 'analysis_result' not in df.columns:
+            df['analysis_result'] = ''
+        if 'final_prompt' not in df.columns:
+            df['final_prompt'] = ''
+        if 'retrieval_time' not in df.columns:
+            df['retrieval_time'] = 0.0
+        if 'retrieval_results' not in df.columns:
+            df['retrieval_results'] = ''
+        
+        # 初始化搜索器
+        searcher = VTKSearcherV3()
+        total_rows = len(df)
+        processed_count = 0
+        error_count = 0
+        
+        # 处理每一行
+        for index, row in df.iterrows():
+            try:
+                benchmark_prompt = row.get('Benchmark prompt', '')
+                
+                if pd.isna(benchmark_prompt) or benchmark_prompt == '':
+                    print(f"[Row {index+1}] 跳过：空的 Benchmark prompt")
+                    continue
+                
+                print(f"\n[Row {index+1}/{total_rows}] 处理: {benchmark_prompt[:50]}...")
+                
+                # 第一步：提示词拓展
+                start_time = time.time()
+                try:
+                    analysis = analyze_query(benchmark_prompt, model_name=ollama_config.inquiry_expansion_model, system=None)
+                    # 确保 analysis 是列表格式
+                    if not isinstance(analysis, list):
+                        analysis = []
+                except Exception as e:
+                    print(f"[Row {index+1}] 分析失败: {e}")
+                    analysis = []
+                
+                # 第二步：执行检索
+                try:
+                    # 如果分析结果为空，创建默认查询列表
+                    if not analysis:
+                        query_list = [{'description': benchmark_prompt, 'weight': 5}]
+                    else:
+                        # 将分析结果转换为检索兼容的格式
+                        query_list = []
+                        for item in analysis:
+                            if isinstance(item, dict) and 'description' in item:
+                                query_item = {
+                                    'description': item.get('description', ''),
+                                    'phase': item.get('phase', ''),
+                                    'step_name': item.get('step_name', ''),
+                                    'vtk_modules': item.get('vtk_modules', []),
+                                    'weight': 5
+                                }
+                                query_list.append(query_item)
+                    
+                    # 执行检索
+                    final_prompt = searcher.search(benchmark_prompt, query_list)
+                    
+                    # 提取检索结果元数据
+                    retrieval_results = []
+                    if hasattr(searcher, 'reranked_results_history') and searcher.reranked_results_history:
+                        last_results = searcher.reranked_results_history[-1]
+                        for idx, result in enumerate(last_results[:10]):
+                            meta = result.get("meta_info", {})
+                            retrieval_results.append({
+                                "id": result.get("faiss_id") or result.get("file_path") or idx,
+                                "title": meta.get("title") or meta.get("file_path", f"Example {idx+1}"),
+                                "description": meta.get("description", "N/A")[:200],
+                                "relevance": result.get("rerank_score", 0.0),
+                                "matched_keywords": result.get("matched_keywords", [])
+                            })
+                    
+                    retrieval_time = time.time() - start_time
+                    
+                    # 保存到 DataFrame
+                    df.at[index, 'analysis_result'] = json.dumps(analysis, ensure_ascii=False, indent=2) if analysis else ''
+                    df.at[index, 'final_prompt'] = final_prompt
+                    df.at[index, 'retrieval_time'] = round(retrieval_time, 2)
+                    df.at[index, 'retrieval_results'] = json.dumps(retrieval_results, ensure_ascii=False, indent=2)
+                    
+                    processed_count += 1
+                    print(f"[Row {index+1}] 成功处理，耗时: {retrieval_time:.2f}s")
+                    
+                except Exception as e:
+                    print(f"[Row {index+1}] 检索失败: {e}")
+                    error_count += 1
+                    df.at[index, 'retrieval_results'] = f"Error: {str(e)}"
+                    
+            except Exception as e:
+                print(f"[Row {index+1}] 行处理失败: {e}")
+                error_count += 1
+        
+        # 保存结果到 Excel
+        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+        
+        print(f"\n[Completed] 处理完成")
+        print(f"  - 总行数: {total_rows}")
+        print(f"  - 成功处理: {processed_count}")
+        print(f"  - 失败: {error_count}")
+        print(f"  - 输出文件: {output_file}")
+        
+        return {
+            'success': True,
+            'total_rows': total_rows,
+            'processed': processed_count,
+            'errors': error_count,
+            'output_file': output_file
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] 处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': str(e)}
 
-    # 2. 文件路径data\recoreds\res2_embedding4.xlsx
+
+if __name__ == '__main__':
+    # 1. 初始化数据库（如果为空）
+    print("\n" + "="*60)
+    print("VTK.js 检索系统 (V3)")
+    print("="*60)
+    
+    # 检查数据库是否已初始化
+    if mongo_manager.collection.count_documents({}) == 0:
+        print("\n检测到数据库为空，正在初始化...")
+        if not initialize_database():
+            print("\n✗ 数据库初始化失败，无法继续")
+            exit(1)
+    
+    # 2. 初始化搜索器
+    print("\n初始化搜索器...")
+    searcher = VTKSearcherV3()
+    print("✓ 搜索器已准备就绪")
+
+    # 3. 文件路径data\recoreds\res2_embedding4.xlsx
     excel_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2_embedding4.xlsx"
 
     if os.path.exists(excel_path):

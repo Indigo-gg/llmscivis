@@ -14,51 +14,32 @@
       </div>
     </v-overlay>
 
-    <!-- Dashboard Area -->
-    <div class="dashboard" :class="{ collapsed: isDashboardCollapsed }">
-      <div class="dashboard-header">
-        <span class="dashboard-title">Rawsiv</span>
-        <div class="header-actions">
-          <div class="showVis">
-            <v-switch v-model="isShowVis" :title="isShowVis ? 'Show Preview' : 'Hide Preview'" true-icon="mdi-eye" false-icon="mdi-eye-off"
-              color="primary" size="x-small" density="compact" hide-details inset class="mini-switch"
-              @change="handleVisibilityChange"></v-switch>
-          </div>
-          <v-btn :icon="isDashboardCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'" size="x-small" density="compact"
-            variant="text" @click="isDashboardCollapsed = !isDashboardCollapsed" class="collapse-btn"></v-btn>
+    <!-- Main Header -->
+    <div class="app-header">
+      <span class="app-title">Rawsiv</span>
+      <div class="header-actions">
+        <div class="showVis">
+          <v-switch v-model="isShowVis" :title="isShowVis ? 'Show Preview' : 'Hide Preview'" true-icon="mdi-eye" false-icon="mdi-eye-off"
+            color="primary" size="x-small" density="compact" hide-details inset class="mini-switch"
+            @change="handleVisibilityChange"></v-switch>
         </div>
       </div>
-      <v-container fluid v-show="!isDashboardCollapsed" class="dashboard-content">
-        <v-row>
-          <v-col cols="12" md="4">
-            <QueryExpansionCard :content="currentCase.queryExpansion" />
-          </v-col>
-          <v-col cols="12" md="4">
-            <RetrievalResultsCard :results="currentCase.retrievalResults" />
-          </v-col>
-          <v-col cols="12" md="4">
-            <EvaluationScoreCard 
-              :score="currentCase.score" 
-              :evaluation="currentCase.evaluatorEvaluation"
-              :parsed-evaluation="currentCase.parsedEvaluation"
-              :automated-checks="automatedEvaluationChecks"
-              :manual-evaluation="currentCase.manualEvaluation"
-              :eval-id="currentCase.evalId"
-              :is-loading="isEvaluating" 
-              @trigger-evaluation="triggerEvaluation"
-              @submit-manual-evaluation="handleManualEvaluation" />
-          </v-col>
-        </v-row>
-      </v-container>
     </div>
-    <div class="container">
-      <!-- Right side: Configuration sidebar -->
-      <div class="right config-panel">
-        <config :case-list="caseList" @end="handleSeGenEnd" @getNewCase="setCurrentCase">
-        </config>
+
+    <div class="container-main">
+      <!-- Left Sidebar -->
+      <div class="sidebar-left">
+        <LeftSidebar 
+          :query-expansion="currentCase.queryExpansion"
+          :retrieval-results="currentCase.retrievalResults"
+          @end="handleSeGenEnd"
+          @getNewCase="setCurrentCase"
+          @retrieval-complete="handleRetrievalComplete"
+        />
       </div>
-      <!-- Left side: Code preview and output -->
-      <div class="left">
+
+      <!-- Center: Code preview and output -->
+      <div class="center">
         <div class="preview">
           <preview class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
             :title="'Generated Code'" ref="generatedPreview" @console-output="handleConsoleOutput">
@@ -87,8 +68,23 @@
           </div>
         </div>
       </div>
-      
-      
+
+      <!-- Right Sidebar -->
+      <div class="sidebar-right">
+        <RightSidebar 
+          :score="currentCase.score" 
+          :evaluation="currentCase.evaluatorEvaluation"
+          :parsed-evaluation="currentCase.parsedEvaluation"
+          :automated-checks="automatedEvaluationChecks"
+          :manual-evaluation="currentCase.manualEvaluation"
+          :eval-id="currentCase.evalId"
+          :is-loading="isEvaluating"
+          :is-generating="isGenerating"
+          @trigger-evaluation="triggerEvaluation"
+          @submit-manual-evaluation="handleManualEvaluation"
+          @export-results="exportResults"
+        />
+      </div>
     </div>
 
     <v-snackbar v-model="info.snackbar" :timeout="info.timeout">
@@ -110,9 +106,8 @@
 import preview from "@/components/preview/index.vue";
 import config from "@/components/config/index.vue";
 import output from "@/components/output/index.vue"
-import QueryExpansionCard from "@/components/dashboard/QueryExpansionCard.vue";
-import RetrievalResultsCard from "@/components/dashboard/RetrievalResultsCard.vue";
-import EvaluationScoreCard from "@/components/dashboard/EvaluationScoreCard.vue";
+import LeftSidebar from "@/components/sidebar/LeftSidebar.vue";
+import RightSidebar from "@/components/sidebar/RightSidebar.vue";
 import axios from "axios";
 import { nextTick, onMounted, reactive, ref, computed } from "vue";
 import { getAllCase, getEvalResult, generateCode } from "@/api/api.js";
@@ -128,13 +123,11 @@ export default {
     preview,
     config,
     Output: output,
-    QueryExpansionCard,
-    RetrievalResultsCard,
-    EvaluationScoreCard
+    LeftSidebar,
+    RightSidebar
   },
   setup() {
     const router = useRouter(); // 使用router
-    const caseList = ref([])
     const info = reactive({
       message: '',
       timeout: 3000,
@@ -143,7 +136,6 @@ export default {
     let isShowVis = ref(false)
 
     const isEvaluating = ref(false); // For loading state of the new button
-    const isDashboardCollapsed = ref(false); // Dashboard collapse state
     const isGenerating = ref(false); // Global loading state for code generation
 
     const isExporting = ref(false);
@@ -207,11 +199,22 @@ export default {
         
         currentCase.consoleOutput = []
 
-        // Handle query expansion data
-        if (res.analysis && res.analysis.trim() !== '') {
-          currentCase.queryExpansion = res.analysis;
+        // Handle query expansion data - now it's structured data (array)
+        if (res.analysis) {
+          if (Array.isArray(res.analysis)) {
+            currentCase.queryExpansion = res.analysis;
+          } else if (typeof res.analysis === 'string' && res.analysis.trim() !== '') {
+            // 如果是字符串，尝试解析
+            try {
+              currentCase.queryExpansion = JSON.parse(res.analysis);
+            } catch (e) {
+              currentCase.queryExpansion = [];
+            }
+          } else {
+            currentCase.queryExpansion = [];
+          }
         } else {
-          currentCase.queryExpansion = '';
+          currentCase.queryExpansion = [];
         }
 
         // Handle retrieval results data
@@ -266,6 +269,23 @@ export default {
       // currentCase.currentGeneratedCode=currentGeneratedCode.value
     }
 
+    // 处理检索完成事件
+    const handleRetrievalComplete = (data) => {
+      console.log('Retrieval completed with data:', data);
+      
+      // data 可能是数组或对象
+      if (Array.isArray(data)) {
+        // 简单数组格式
+        currentCase.retrievalResults = data;
+      } else if (data && typeof data === 'object') {
+        // 对象格式，包含 retrieval_results 和 final_prompt
+        currentCase.retrievalResults = data.retrieval_results || [];
+        if (data.final_prompt) {
+          currentCase.final_prompt = data.final_prompt;
+        }
+      }
+    }
+
 
     const handleConsoleOutput = (output) => {
       nextTick(() => {
@@ -278,20 +298,11 @@ export default {
         console.log('Current console logs:', currentCase.consoleOutput);
       });
     };
-    const init = () => {
-      getAllCase().then(res => {
-        // console.log('caseList',res)
-        caseList.value.push(...res.data)
-      })
-    }
     const handleVisibilityChange = (value) => {
       console.log("Visibility changed:", value.target.checked);
       isShowVis.value = value.target.checked
       // 在这里可以添加其他逻辑，例如更新组件显示状态
     };
-    onMounted(() => {
-      init()
-    })
     const isFullScreen = ref(false);
     const generatedPreview = ref(null);
     const truthPreview = ref(null);
@@ -437,9 +448,9 @@ export default {
     // Return all reactive variables and methods
     return {
       title: 'Rawsiv',
-      caseList,
       handleSeGenEnd,
       setCurrentCase,
+      handleRetrievalComplete,
       currentCase,
       info,
       isShowVis,
@@ -454,7 +465,6 @@ export default {
       exportResults,
       triggerEvaluation,
       isEvaluating,
-      isDashboardCollapsed,
       isGenerating, // Global loading state
       automatedEvaluationChecks,  // New: Automated checks computed property
       handleManualEvaluation,  // New: Manual evaluation handler
@@ -469,136 +479,99 @@ export default {
   width: 100vw;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  /*align-items: center;*/
+  justify-content: flex-start;
 }
 
-.head {
-  height: 3vh;
-  width: 100vw;
-  display: flex;
-  justify-content: space-between;
-  /* 确保两端对齐 */
-  align-items: center;
-  /* 垂直居中 */
-  padding: 10px;
-  color: #333;
-  font-weight: bold;
+/* App Header */
+.app-header {
+  height: 50px;
+  padding: 0 16px;
   background-color: #6ba4e6;
-}
-
-.dashboard {
-  padding: 4px 16px;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
-  transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
-  position: relative;
-  overflow: hidden;
-}
-
-.dashboard.collapsed {
-  max-height: 60px;
-  padding-bottom: 4px;
-}
-
-.dashboard:not(.collapsed) {
-  max-height: 500px;
-}
-
-.dashboard-header {
+  border-bottom: 1px solid #5a94d4;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  height: 3.5vh;
-  padding: 10px;
-  color: #333;
-  font-weight: bold;
-  position: relative;
+  flex-shrink: 0;
 }
 
-.dashboard-title {
-  font-size: 16px;
-  font-weight:bold;
-  color: #333;
-  transform: scale(1.2) ;
-  flex: 1;
-  text-align: center;
-  /* background-color: #6ba4e6; */
+.app-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffffff;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
   align-items: center;
-  position: absolute;
-  right: 10px;
 }
 
-.collapse-btn {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-radius: 4px;
+.showVis {
+  height: 2em;
 }
 
-.dashboard-content {
-  transition: opacity 0.2s ease;
-  opacity: 1;
+.mini-switch {
+  transform: scale(0.85);
+  transform-origin: right center;
+  margin-right: -8px;
 }
 
-.dashboard.collapsed .dashboard-content {
-  opacity: 0;
-  pointer-events: none;
+.mini-switch :deep(.v-label) {
+  font-size: 14px;
+  white-space: nowrap;
+  margin-inline-start: 8px;
 }
 
-.container {
+.mini-switch :deep(.v-switch__thumb .v-icon) {
+  font-size: 12px;
+  color: #fff;
+}
+
+/* Main Container */
+.container-main {
   flex: 1;
   display: flex;
-  /*justify-content: space-around;*/
-  /*flex: 10 2 auto;*/
-  padding: 10px;
   overflow: hidden;
+  gap: 0;
+  padding: 0;
 }
 
-
-.left,
-.right {
-  padding: 10px;
-  overflow-y: auto;
+/* Sidebar Left */
+.sidebar-left {
+  width: 300px;
+  min-width: 280px;
+  max-width: 350px;
+  background-color: #fafafa;
+  border-right: 1px solid #e0e0e0;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.left {
+/* Center Area */
+.center {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   min-width: 0;
 }
 
-.right {
-  width: 320px;
-  min-width: 280px;
-  max-width: 400px;
-  border-left: 1px solid #e0e0e0;
-  background-color: #fafafa;
-}
-
-.config-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
 .preview {
+  flex: 1;
   display: flex;
   flex-direction: row;
   justify-content: space-around;
   position: relative;
-  /* 添加相对定位 */
+  overflow: hidden;
 }
 
 .scrollable {
+  flex: 1;
   overflow-y: auto;
-  max-height: 80vh;
   border: 1px solid #ccc;
   padding: 10px;
   position: relative;
-  /* 添加相对定位 */
+  min-width: 0;
 }
 
 .fullscreen-btn {
@@ -610,45 +583,28 @@ export default {
   backdrop-filter: blur(4px);
 }
 
-.title {
-  flex: 1;
-  text-align: center;
-}
-
-
-
 .output {
-  width: 100%;
-  margin-top: 10px;
+  flex-shrink: 0;
+  border-top: 1px solid #e0e0e0;
+  overflow-y: auto;
+  max-height: 30vh;
 }
 
 .output-container {
   position: relative;
   width: 100%;
-}
-.mini-switch {
-  /* 核心：整体缩小组件到 0.75 倍 */
-  transform: scale(0.75);
-  /* 设定缩放原点为左侧居中，防止缩放后位置跑偏 */
-  transform-origin: left center;
-  /* 消除多余的边距，使布局更紧凑 */
-  margin-left: -4px; 
-}
-.showVis{
-  height: 2em;
+  padding: 10px;
 }
 
-/* Adjust the Switch's label text size and weight */
-.mini-switch :deep(.v-label) {
-  font-size: 14px; /* Increase font size to compensate for scaling */
-  white-space: nowrap; /* Prevent text wrapping */
-  margin-inline-start: 8px; /* Adjust spacing between text and switch */
-}
-
-/* Adjust the icon size inside the switch thumb */
-.mini-switch :deep(.v-switch__thumb .v-icon) {
-  font-size: 12px; /* Ensure icon is visible in the scaled thumb */
-  color: #fff; /* Icon color, usually white looks good */
+/* Sidebar Right */
+.sidebar-right {
+  width: 300px;
+  min-width: 280px;
+  max-width: 350px;
+  background-color: #fafafa;
+  border-left: 1px solid #e0e0e0;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* Loading Overlay Styles */

@@ -92,22 +92,29 @@ def generation():
     #     }
     final_prompt=obj['prompt']
     analysis=''
-    analysis_text = ''
+    analysis_data = []  # 存储结构化的分析数据
     retrieval_results = []
     
     if obj['workflow']['inquiryExpansion']:
         analysis=analyze_query(obj['prompt'],model_name=ollama_config.inquiry_expansion_model,system=None)
-        # Convert analysis result to text for display
+        print('prompt analysis (result):\n', analysis, '\n')
+        
+        # 保存结构化的分析数据供前端使用
+        # analysis 现在返回 list[dict]，每个 dict 包含: phase, step_name, vtk_modules, description
         if isinstance(analysis, list):
-            analysis_text = '\n'.join([item.get('description', '') for item in analysis if isinstance(item, dict)])
+            analysis_data = analysis  # 直接保存结构化数据
         else:
-            analysis_text = str(analysis) if analysis else ''
-        final_prompt=analysis
-        print('after_analysis\n',final_prompt)
+            analysis_data = []  # 如果不是列表，返回空数组
+        print('analysis_data for frontend:\n', analysis_data, '\n')
 
     if obj['workflow']['rag']:
-        rag_agent = RAGAgent()
-        final_prompt = rag_agent.search(analysis,obj['prompt'])
+        # 如果没有启用提示词拓展，但启用了RAG，使用原始prompt
+        search_analysis = analysis if analysis else obj['prompt']
+        
+        rag_agent = RAGAgent(use_v3=True)  # 使用 retriever_v3
+        # 传递分析结果列表给 RAG agent
+        # RAG agent 会提取 description 和其他元信息用于检索
+        final_prompt = rag_agent.search(search_analysis, obj['prompt'])
         print('rag prompt\n',final_prompt)
         
         # Extract retrieval results for frontend display
@@ -117,11 +124,86 @@ def generation():
 
     data_dict['generated_code']=response
     data_dict['final_prompt']=final_prompt
-    data_dict['analysis']=analysis_text
+    data_dict['analysis']=analysis_data  # 返回结构化数据而不是文本
     data_dict['retrieval_results']=retrieval_results
     add_data(data_dict)
 
     return Response(json.dumps(data_dict), content_type='application/json')
+
+@app.route('/retrieval', methods=["POST"])
+def handle_retrieval():
+    """
+    单独的检索端点，接收用户编辑后的拓展数据，执行RAG检索
+    """
+    try:
+        obj = request.json
+        analysis = obj.get('analysis', [])
+        prompt = obj.get('prompt', '')
+        
+        print('[Retrieval API] Received analysis:', analysis)
+        print('[Retrieval API] Received prompt:', prompt)
+        
+        # 初始化 RAG Agent
+        rag_agent = RAGAgent(use_v3=True)
+        
+        # 执行检索
+        final_prompt = rag_agent.search(analysis, prompt)
+        print('[Retrieval API] Generated prompt:', final_prompt[:200], '...')
+        
+        # 获取检索结果元数据
+        retrieval_results = rag_agent.get_retrieval_metadata()
+        print(f'[Retrieval API] Found {len(retrieval_results)} retrieval results')
+        
+        return jsonify({
+            'success': True,
+            'final_prompt': final_prompt,
+            'retrieval_results': retrieval_results,
+            'analysis': analysis
+        })
+        
+    except Exception as e:
+        print(f'[Retrieval API] Error: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/expand', methods=["POST"])
+def handle_expand():
+    """
+    单独的提示词拓展端点，只执行 analyze_query
+    """
+    try:
+        obj = request.json
+        prompt = obj.get('prompt', '')
+        
+        print('[Expand API] Received prompt:', prompt)
+        
+        # 执行提示词拓展
+        analysis = analyze_query(prompt, model_name=ollama_config.inquiry_expansion_model, system=None)
+        print('[Expand API] Analysis result:', analysis)
+        
+        # 确保返回结构化数据
+        if isinstance(analysis, list):
+            analysis_data = analysis
+        else:
+            analysis_data = []
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis_data
+        })
+        
+    except Exception as e:
+        print(f'[Expand API] Error: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/error_analysis', methods=["POST"])
 def handle_error_analysis():

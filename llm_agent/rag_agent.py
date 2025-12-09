@@ -4,7 +4,9 @@ from RAG.retriever import VTKSearcher
 from llm_agent.ollma_chat import get_qwen_response,get_llm_response
 from RAG.retriever_v2 import get_data_from_excel
 import json
-from RAG.retriever_v2 import VTKSearcherV2
+# from RAG.retriever_v2 import VTKSearcherV2
+# 引入 retriever_v3 的搜索器
+from RAG.retriever_v3 import VTKSearcherV3
 from config.ollama_config import ollama_config 
 import json
 from llm_agent.ollma_chat import get_llm_response
@@ -17,21 +19,79 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class RAGAgent:
-    def __init__(self):
-        self.searcher = VTKSearcherV2()
+    def __init__(self, use_v3=True):
+        """
+        初始化 RAG Agent
+        :param use_v3: 是否使用 retriever_v3（纯关键词检索），默认为 True
+        """
+        self.use_v3 = use_v3
+        if use_v3:
+            self.searcher = VTKSearcherV3()
+            print("[RAGAgent] 使用 VTKSearcherV3 (关键词检索)")
         self.last_retrieval_results = []
 
     def search(self, analysis: list, prompt: str) -> str:
         """
         检索数据,支持元数据过滤。
-        :param analysis: 查询分析结果
+        :param analysis: 查询分析结果，格式为 list[dict]，每个 dict 包含: phase, step_name, vtk_modules, description
         :param prompt: 原始用户查询
         :return: 结合了上下文信息的最终提示
         """
-        result = self.searcher.search(prompt,analysis)
-        # Capture retrieval metadata from searcher
-        self.last_retrieval_results = self.searcher.last_retrieval_metadata
+        # 如果 analysis 为空或为 None，使用原始 prompt 创建默认的查询列表
+        if not analysis:
+            query_list = [{'description': prompt, 'weight': 5}]
+        else:
+            # 将新格式的分析结果转换为检索兼容的格式
+            # 从每个分析步骤中提取 description，并添加权重
+            query_list = []
+            for item in analysis:
+                if isinstance(item, dict) and 'description' in item:
+                    # 保留所有原始字段，但重点使用 description 进行检索
+                    query_item = {
+                        'description': item.get('description', ''),
+                        'phase': item.get('phase', ''),
+                        'step_name': item.get('step_name', ''),
+                        'vtk_modules': item.get('vtk_modules', []),
+                        'weight': 5  # 默认权重
+                    }
+                    query_list.append(query_item)
+        
+        print(f'[RAGAgent] 转换后的查询列表：{query_list}')
+        
+        # 执行检索
+        result = self.searcher.search(prompt, query_list)
+        
+        # 根据不同的检索器提取元数据
+        if self.use_v3:
+            # retriever_v3 没有 last_retrieval_metadata 属性，需要从 reranked_results_history 中提取
+            self._extract_metadata_from_v3()
+        else:
+            # retriever_v2 有 last_retrieval_metadata 属性
+            self.last_retrieval_results = getattr(self.searcher, 'last_retrieval_metadata', [])
+        
         return result
+    
+    def _extract_metadata_from_v3(self):
+        """
+        从 retriever_v3 的检索结果中提取元数据用于前端展示
+        """
+        self.last_retrieval_results = []
+        
+        # 从最后一次检索的 reranked_results_history 中提取
+        if hasattr(self.searcher, 'reranked_results_history') and self.searcher.reranked_results_history:
+            last_results = self.searcher.reranked_results_history[-1]
+            
+            for idx, result in enumerate(last_results[:10]):  # Top 10 results
+                meta = result.get("meta_info", {})
+                self.last_retrieval_results.append({
+                    "id": result.get("faiss_id") or result.get("file_path") or idx,
+                    "title": meta.get("title") or meta.get("file_path", f"Example {idx+1}"),
+                    "description": meta.get("description", "N/A")[:200],
+                    "relevance": result.get("rerank_score", 0.0),
+                    "matched_keywords": result.get("matched_keywords", [])
+                })
+        
+        print(f"[RAGAgent] 提取了 {len(self.last_retrieval_results)} 条检索元数据")
     
     def get_retrieval_metadata(self) -> list:
         """
@@ -45,7 +105,7 @@ def retrieval_step(searcher, excel_path):
     负责从Excel读取查询并执行检索过程，将检索结果保存到列表中。
 
     Args:
-        searcher (VTKSearcherV2): 搜索器实例。
+        searcher (VTKSearcherV3): 搜索器实例。
         excel_path (str): 包含查询的Excel文件路径。
 
     Returns:
@@ -145,7 +205,7 @@ def main():
     主函数，调用拆分后的检索和生成步骤。
     """
     # 初始化搜索器
-    searcher = VTKSearcherV2()
+    searcher = VTKSearcherV3()
     excel_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//res2.xlsx"
     output_file = "retrieval_results.json"
     

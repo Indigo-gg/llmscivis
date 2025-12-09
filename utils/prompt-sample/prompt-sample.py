@@ -63,7 +63,7 @@ Create 2D image data with dimensions of (100, 100, 1), where the field values ar
 """
 
 def get_llm_response(prompt,system):
-    response = ollma_chat.get_qwen_response(prompt, model_name='qwen-turbo-latest', system=system)
+    response = ollma_chat.get_qwen_response(prompt, model_name='qwen-turbo-2025-07-15', system=system)
     print(response)
 
     return response

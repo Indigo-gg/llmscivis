@@ -13,7 +13,7 @@ class OllamaConfig:
             "llama3.2-1b": 'llama3.2:1b',
         }
         self.models_qwen={
-            "qwen3-turbo":"qwen-turbo-2025-04-28",
+            "qwen3-turbo":"qwen-turbo-2025-07-15",
             "qwen3-plus":"qwen-plus-2025-09-11",
             "qwen-max":"qwen3-max-2025-09-23",
             "qwen3-32b":"qwen3-32b",
@@ -31,7 +31,8 @@ class OllamaConfig:
             "gpt-5":"gpt-5",
             "claude-opus-4-1":"claude-opus-4-1-20250805"
         }
-        self.inquiry_expansion_model="qwen-turbo-latest"
+        # self.inquiry_expansion_model="qwen-turbo-latest"
+        self.inquiry_expansion_model="qwen-turbo-2025-07-15"
         self.base = app_config.ollama_url + '/api'
         self.generate = self.base + '/generate'
         self.code_sytstem="""

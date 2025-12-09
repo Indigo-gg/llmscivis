@@ -2,120 +2,120 @@
 
 === Group 1 ===
 User Query: Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js; Data Loading — Load the VTK dataset from http://127.0.0.1:5000/dataset/rotor.vti using vtkXMLImageDataReader; Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice; Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper; Add UI Element — Integrate an XYZ axes orientation marker in the bottom-right corner using vtkOrientationMarkerWidget and vtkAxesActor; Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;
-Time: 0.0094s
+Time: 0.0297s
 Top Results (6):
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageLabelOutline\code.html
-    Score: 1.1026
+    Score: 43.0000
     Explanation: ["Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys", "Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys", "Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-ItkWasmVolume\code.html
-    Score: 0.7692
+    Score: 30.0000
     Explanation: ["Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys", "Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-VolumeMapper\code.html
-    Score: 0.6923
+    Score: 27.0000
     Explanation: ["Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageSlice\code.html
-    Score: 0.5641
+    Score: 22.0000
     Explanation: ["Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys", "Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-MultiImageSlice\code.html
-    Score: 0.5641
+    Score: 22.0000
     Explanation: ["Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys", "Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-Image2D\code.html
-    Score: 0.5641
+    Score: 22.0000
     Explanation: ["Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys", "Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
 ============================================================
 
 === Group 2 ===
 User Query: Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js; Data Loading — Load the VTI dataset from http://127.0.0.1:5000/dataset/deepwater.vti using vtkXMLImageDataReader; Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field; Isosurface Generation — Generate an isosurface at the mid-value of the scalar range using vtkImageMarchingCubes; Color Mapping — Apply a blue→white→red color map spanning the scalar range (min to max) using vtkColorTransferFunction; Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty; Add UI Element — Integrate an XYZ orientation marker in the bottom-right corner using vtkOrientationMarkerWidget and vtkAxesActor; Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;
-Time: 0.0087s
+Time: 0.0106s
 Top Results (6):
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageLabelOutline\code.html
-    Score: 0.5577
+    Score: 29.0000
     Explanation: ["Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys", "Query: 'Color Mapping — Apply a blue→white→red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageMarchingCubes\code.html
-    Score: 0.4231
+    Score: 22.0000
     Explanation: ["Query: 'Isosurface Generation — Generate an isosurface at the mid-value of the scalar range using vtkImageMarchingCubes;' (w=10.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-Calculator\code.html
-    Score: 0.4038
+    Score: 21.0000
     Explanation: ["Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\IO-StickMapper\code.html
-    Score: 0.4038
+    Score: 21.0000
     Explanation: ["Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-GlyphMapper\code.html
-    Score: 0.4038
+    Score: 21.0000
     Explanation: ["Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-StickMapper\code.html
-    Score: 0.4038
+    Score: 21.0000
     Explanation: ["Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys", "Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
 ============================================================
 
 === Group 3 ===
 User Query: Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js; Data Loading — Load the Isabel dataset from http://127.0.0.1:5000/dataset/isabel.vti using vtkXMLImageDataReader; Data Preparation — Extract the 'Velocity' array as the vector field for streamline computation; Seed Point Generation — Create seed points at the center of the dataset with sufficient density to cover the domain using vtkPointSource or vtkProgrammableSource; Streamline Computation — Compute streamlines following the velocity field using vtkStreamTracer; Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor; Outline Generation — Extract the outline of the dataset using vtkOutlineFilter; Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor; Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;
-Time: 0.0108s
+Time: 0.0094s
 Top Results (6):
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageStreamline\code.html
-    Score: 0.3529
+    Score: 18.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Generation — Extract the outline of the dataset using vtkOutlineFilter;' (w=6.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-ManyRenderers\code.html
-    Score: 0.3529
+    Score: 18.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 3 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-Calculator\code.html
-    Score: 0.2941
+    Score: 15.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ContourTriangulator\code.html
-    Score: 0.2941
+    Score: 15.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageLabelOutline\code.html
-    Score: 0.2941
+    Score: 15.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageMarchingCubes\code.html
-    Score: 0.2941
+    Score: 15.0000
     Explanation: ["Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys", "Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
 ============================================================
 
 === Group 4 ===
 User Query: Introduce necessary VTK.js modules via the CDN link: https://unpkg.com/vtk.js; Data Loading — Load the Redsea dataset from http://127.0.0.1:5000/dataset/redsea.vti using vtkXMLImageDataReader; Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator; Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction; Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction; Visualization Setup — Configure shading, ambient, diffuse, and specular properties for a realistic volume appearance using vtkVolumeProperty; Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor; Camera Setup — Adjust the camera to look along the +Z axis and center on the dataset using vtkCamera; Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;
-Time: 0.0082s
+Time: 0.0083s
 Top Results (6):
   - File: data\vtkjs-examples\prompt-sample\Rendering-VolumeMapper\code.html
-    Score: 0.6441
+    Score: 38.0000
     Explanation: ["Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys", "Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys", "Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-ImageLabelOutline\code.html
-    Score: 0.5424
+    Score: 32.0000
     Explanation: ["Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys", "Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys", "Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Rendering-ItkWasmVolume\code.html
-    Score: 0.5254
+    Score: 31.0000
     Explanation: ["Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys", "Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys", "Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 1 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-VolumeClip\code.html
-    Score: 0.5085
+    Score: 30.0000
     Explanation: ["Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys", "Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\Filter-Calculator\code.html
-    Score: 0.2373
+    Score: 14.0000
     Explanation: ["Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
   - File: data\vtkjs-examples\prompt-sample\IO-StickMapper\code.html
-    Score: 0.2373
+    Score: 14.0000
     Explanation: ["Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys", "Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys"]
 ----------------------------------------
 ============================================================

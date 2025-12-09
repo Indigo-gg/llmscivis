@@ -23,7 +23,7 @@ VTKJS_COMMON_APIS = app_config.VTKJS_COMMON_APIS
 
 
 def analyze_query(query: str, model_name, system=None) -> list[dict]:
-    """分析用户查询，返回结构化的提示词拓展
+    """分析用户查询，返回结构化的提示词拓展，用于构建可视化管道流程图
 
     Args:
         query: 用户输入的查询
@@ -31,78 +31,75 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
         system: 可选的系统提示词，若不提供则使用默认提示词
 
     Returns:
-        dict: 包含分割后的查询结果，格式为数组
+        list[dict]: 包含分割后的查询结果，支持流程图渲染
     """
 
-    # 默认系统提示词，结构化输出格式，
+    # 默认系统提示词，结构化输出格式
+    # 关键修改点：定义了更丰富的JSON结构，增加了 phase, step_name, vtk_modules
     default_system = f"""
-    You are a professional VTK.js visualization requirement analysis assistant. Based on the user's question, you need to analyze and expand it into structured visualization requirements.
-
-    # Output Format Requirements (Must Be Strictly Followed)
-    1. Your response must contain only one valid JSON object, with the following structure:
-
+    You are a professional VTK.js visualization pipeline architect. Your goal is to break down the user's request into a structured visualization pipeline.
+    
+    # Output Format Requirements (Strict JSON)
+    1. Your response must contain only one valid JSON object, which is a list of steps.
+    2. Each step object must strictly follow this schema:
+    
     [
-    {{"description": "......"}},
-    {{"description": "......"}}
+        {{
+            "phase": "Data Loading",       // Choose one: "Data Loading", "Data Processing", "Visualization Setup", "UI Configuration", "Rendering & Interaction"
+            "step_name": "Short Title",    // Max 5 words, for the flowchart node title (e.g., "Load VTI Dataset")
+            "vtk_modules": ["vtkClass"],   // List of key VTK.js classes used in this step (e.g., ["vtkXMLImageDataReader"])
+            "description": "Full prompt..." // Detailed instruction for the code generation model
+        }},
         ...
     ]
-    2. Only the above JSON object is allowed in the output; no extra content is permitted, including but not limited to: explanations, comments, markdown code blocks, code markers, HTML, additional text, tags, blank lines, etc.
-    3. The output content must be strictly pure JSON, without any markdown formatting, code block markers, <Output> tags, or other enclosing content.
-    4. Fields must be complete and the format must be correct. All keys and values must be enclosed in English double quotes, and symbols such as commas and parentheses must comply with JSON syntax.
-    5.Perform the core thinking process silently and do not output it. Only output the final JSON.
+
+    3. No markdown, no code blocks, no explanations. Just the raw JSON list.
+    4. Ensure the logical flow allows the output of one step to be the input of the next.
+    5. Perform the core thinking process silently and do not output it. Only output the final JSON.
     """
 
-     # # Core Thinking Process
-    # For each step, you must verify:
-    # 1. Data Connectivity: Does the output of the previous step match the input of this step? (e.g., ImageData vs PolyData)
-    # 2. Parameter Accuracy: Have all user-specified values (colors, positions, thresholds) been extracted?
-    # 3. Module Validity: Are the chosen modules actual VTK.js classes (not Python VTK classes)?
-    # # Strict Constraints (Anti-Patterns)
-    # - NEVER use Python-style constructors (e.g., vtkSphereSource()). Use .newInstance() style in your thoughts.
-    # - NEVER invent modules that don't exist in VTK.js.
-    # - If the user asks for volume rendering, ensure you use vtkVolume, not vtkActor.
+    # Construct the analysis prompt
+    analysis_prompt = f"""Please analyze the following user query and construct a VTK.js visualization pipeline:
 
-    # Construct the analysis prompt, including the user's query
-    analysis_prompt = f"""Please analyze and expand the following user query, and provide structured visualization requirements:
-   
     # Available API Knowledge Base
     {VTKJS_COMMON_APIS}
-    
-    {query}
-    
-    Example:
-    Input:
-    Generate HTML with vtk.js to visualize sliced rotor data
 
-    Load data:
-    - Load from http://127.0.0.1:5000/dataset/rotor.vti
-    Processing:
-    - Slice: Set as active scalar "Pressure"
-    - Applies a Y-axis slice at 80% /depth.
-    Visualization:
-    - Maps pressure values to colors (blue→white→red gradient) and opacity (full opacity).
-    - UI: Adds an orientation marker (XYZ axes) for spatial reference.
-    6. No GUI controls required"""+"""Output:
+    # User Query
+    {query}
+
+    # Example 
+    Input: "Generate HTML with vtk.js to visualize sliced rotor data, map pressure to blue-red color, and add a slice at 80%."
+
+    Output:
     [
-    {
-        "description": "Data Loading — Load the dataset from 'http://127.0.0.1:5000/dataset/rotor.vti' using vtkXMLImageDataReader."
-    },
-    {
-        "description": "Data Processing — Set the active scalar to 'Pressure' and apply a slice along the Y-axis at 80% /depth using vtkImageSlice."
-    },
-    {
-        "description": "Visualization Setup — Configure the color map to a Blue-Red gradient for the 'Pressure' field using vtkColorTransferFunction and vtkMapper."
-    },
-    {
-        "description": "UI Components — Add an orientation marker (XYZ axes) to the scene for spatial reference."
-    },
-    {
-        "description": "Rendering — Specify the render window and interactors."
-    }
+        {{
+            "phase": "Data Loading",
+            "step_name": "Load Dataset",
+            "vtk_modules": ["vtkXMLImageDataReader", "vtkHttpDataSetReader"],
+            "description": "Load the rotor dataset from 'http://127.0.0.1:5000/dataset/rotor.vti' using vtkXMLImageDataReader."
+        }},
+        {{
+            "phase": "Data Processing",
+            "step_name": "Slice Data",
+            "vtk_modules": ["vtkImageSlice", "vtkPlane"],
+            "description": "Set 'Pressure' as the active scalar. Apply a slice along the Y-axis at 80% depth using vtkImageSlice logic."
+        }},
+        {{
+            "phase": "Visualization Setup",
+            "step_name": "Color Mapping",
+            "vtk_modules": ["vtkColorTransferFunction", "vtkImageMapper"],
+            "description": "Map the 'Pressure' scalar values to a Blue-White-Red color gradient using vtkColorTransferFunction."
+        }},
+        {{
+            "phase": "Rendering & Interaction",
+            "step_name": "Render Scene",
+            "vtk_modules": ["vtkRenderWindow", "vtkRenderer", "vtkRenderWindowInteractor"],
+            "description": "Initialize the render window, renderer, and interactor to display the visualization."
+        }}
     ]
-    Warning: You must output the result in the specified JSON format strictly. Do not output any other content. Your response will be directly parsed as JSON; any additional text, explanations, or code will cause parsing failure.
-    
-    Output only one valid JSON object. Do not use markdown formatting, do not add code block markers, and do not add any explanations or comments."""
+
+    Warning: You must output the result in the specified JSON format strictly. Do not output any other content.
+    Output only one valid JSON object.""" 
 
     # 从LLM获取回答
     try:
