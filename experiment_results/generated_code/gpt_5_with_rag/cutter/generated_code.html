@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VTK.js Rotor Pressure Y-Slice (95%)</title>
+  <style>
+    /* Ensure the renderer uses the full window with a neutral dark background */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #1e1e1e;
+    }
+  </style>
+</head>
+<body>
+  <!-- No GUI controls as requested. Rendering will be full-screen. -->
+
+  <!-- Use the specified VTK.js version from CDN -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // Import needed VTK.js classes from the global vtk object
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+    const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+
+    // ----------------------------------------------------------------------------
+    // Create the rendering scene
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+      background: [0.1, 0.1, 0.1], // neutral background for good contrast
+    });
+    const renderer = fullScreenRenderWindow.getRenderer();
+    const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Create an orientation marker (XYZ axes) in the bottom-right corner
+    // Requirement: "Add an orientation marker with XYZ axes in the bottom-right corner."
+    // ----------------------------------------------------------------------------
+    const axes = vtkAxesActor.newInstance();
+    const omw = vtkOrientationMarkerWidget.newInstance({
+      actor: axes,
+      interactor: renderWindow.getInteractor(),
+    });
+    omw.setEnabled(true);
+    omw.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+    omw.setViewportSize(0.2);
+    omw.setMinPixelSize(80);
+    omw.setMaxPixelSize(200);
+
+    // ----------------------------------------------------------------------------
+    // Create actor and mapper for a single slice visualization
+    // ----------------------------------------------------------------------------
+    const imageActor = vtkImageSlice.newInstance();
+    const imageMapper = vtkImageMapper.newInstance();
+    imageActor.setMapper(imageMapper);
+
+    // Add actor now; we'll configure it after data loads
+    renderer.addActor(imageActor);
+
+    // ----------------------------------------------------------------------------
+    // Load the VTI dataset with vtkXMLImageDataReader (not HttpDatasetReader)
+    // Requirement: "The data format ... is vti ... use vtkXMLImageDataReader"
+    // Requirement: "Load the dataset from: http://127.0.0.1:5000/dataset/rotor.vti"
+    // ----------------------------------------------------------------------------
+    const dataUrl = 'http://127.0.0.1:5000/dataset/rotor.vti';
+    const reader = vtkXMLImageDataReader.newInstance();
+
+    // Fetch the VTI file as an ArrayBuffer and parse it with the XML reader
+    fetch(dataUrl)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch VTI file: ${res.status} ${res.statusText}`);
+        }
+        return res.arrayBuffer();
+      })
+      .then((arrayBuffer) => {
+        reader.parseAsArrayBuffer(arrayBuffer);
+
+        // Retrieve the loaded vtkImageData
+        const imageData = reader.getOutputData(0);
+
+        // ----------------------------------------------------------------------------
+        // Set the active scalar array to "Pressure"
+        // Requirement: "Set the active scalar array to 'Pressure'."
+        // ----------------------------------------------------------------------------
+        const pd = imageData.getPointData();
+        const pressureArray = pd.getArrayByName('Pressure');
+        if (pressureArray) {
+          pd.setActiveScalars('Pressure');
+        } else {
+          // If 'Pressure' is not found, fall back to current active scalars
+          console.warn("Pressure array not found in point data. Using current active scalars.");
+        }
+
+        // ----------------------------------------------------------------------------
+        // Apply a slice along the Y axis (J-slice) at 95% depth
+        // Requirement: "Apply a slice along the Y axis at 95% depth of the dataset (convert percentage to slice index)."
+        // ----------------------------------------------------------------------------
+        const extent = imageData.getExtent(); // [xmin, xmax, ymin, ymax, zmin, zmax]
+        const yMin = extent[2];
+        const yMax = extent[3];
+        const ySliceIndex = Math.round(yMin + 0.95 * (yMax - yMin)); // 95% position converted to slice index
+        imageMapper.setInputData(imageData);
+        imageMapper.setJSlice(ySliceIndex); // Slice along Y axis
+
+        // ----------------------------------------------------------------------------
+        // Configure color mapping: blue -> white -> red across the pressure range
+        // Requirement: "Use a blue → white → red color map for pressure values,
+        // spanning from the minimum to maximum scalar range."
+        // ----------------------------------------------------------------------------
+        // Compute scalar range for 'Pressure' (fallback to active scalars if needed)
+        const scalarArray = pressureArray || pd.getScalars();
+        const [minS, maxS] = scalarArray ? scalarArray.getRange() : [0, 1];
+        const midS = 0.5 * (minS + maxS);
+
+        const ctf = vtkColorTransferFunction.newInstance();
+        ctf.setMappingRange(minS, maxS);
+        // Blue at minimum
+        ctf.addRGBPoint(minS, 0.0, 0.0, 1.0);
+        // White at midpoint
+        ctf.addRGBPoint(midS, 1.0, 1.0, 1.0);
+        // Red at maximum
+        ctf.addRGBPoint(maxS, 1.0, 0.0, 0.0);
+
+        // ----------------------------------------------------------------------------
+        // Set opacity to fully opaque (no transparency variation)
+        // Requirement: "Set opacity to fully opaque (no transparency variation)."
+        // ----------------------------------------------------------------------------
+        const ofun = vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(minS, 1.0);
+        ofun.addPoint(maxS, 1.0);
+
+        const prop = imageActor.getProperty();
+        prop.setRGBTransferFunction(0, ctf);
+        prop.setScalarOpacity(0, ofun);
+        prop.setUseLookupTableScalarRange(true); // Ensures we use full [min,max] range from CTF
+        prop.setOpacity(1.0); // Overall fully opaque
+
+        // ----------------------------------------------------------------------------
+        // Adjust camera to view the Y-slice head-on (so the slice is visible immediately)
+        // The Y-slice (J-slice) lies in the XZ plane; we look along +Y direction.
+        // ----------------------------------------------------------------------------
+        renderer.resetCamera();
+        const camera = renderer.getActiveCamera();
+        const center = imageData.getCenter(); // World-space center of the data
+        const dist = camera.getDistance(); // Use current distance for a good framing
+        camera.setFocalPoint(center[0], center[1], center[2]);
+        camera.setPosition(center[0], center[1] + dist, center[2]); // Look along +Y towards the center
+        camera.setViewUp(0, 0, 1);
+
+        // Render the scene
+        renderer.resetCameraClippingRange();
+        renderWindow.render();
+      })
+      .catch((err) => {
+        console.error('Error loading or rendering the dataset:', err);
+      });
+
+    // No interactive GUI controls are added, as per the requirement.
+  </script>
+</body>
+</html>

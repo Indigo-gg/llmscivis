@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isabel Dataset Streamline Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // VTK.js modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkHttpDataAccessHelper = vtk.IO.Core.DataAccessHelper.get('http');
+
+        // Initialize full screen render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0.1, 0.1, 0.1],
+            container: document.getElementById('container')
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // REQUIREMENT: Load the Isabel dataset from specified URL using vtkXMLImageDataReader
+        const reader = vtkXMLImageDataReader.newInstance();
+        
+        // Download and load the Isabel dataset
+        vtkHttpDataAccessHelper.fetchBinary('http://127.0.0.1:5000/dataset/isabel.vti').then((binary) => {
+            reader.parseAsArrayBuffer(binary);
+            
+            const imageData = reader.getOutputData();
+            
+            // REQUIREMENT: Use "Velocity" array as the vector field for streamlines
+            const velocityArray = imageData.getPointData().getArrayByName('Velocity');
+            if (velocityArray) {
+                imageData.getPointData().setVectors(velocityArray);
+            }
+
+            // Get dataset bounds for seed point generation
+            const bounds = imageData.getBounds();
+            const center = [
+                (bounds[0] + bounds[1]) / 2,
+                (bounds[2] + bounds[3]) / 2,
+                (bounds[4] + bounds[5]) / 2
+            ];
+            const extent = [
+                bounds[1] - bounds[0],
+                bounds[3] - bounds[2],
+                bounds[5] - bounds[4]
+            ];
+
+            // REQUIREMENT: Generate seed points at the center of the dataset with sufficient density
+            const seedPlane = vtkPlaneSource.newInstance();
+            // Position the plane at the center of the dataset
+            const seedSize = Math.min(extent[0], extent[1], extent[2]) * 0.8; // 80% of smallest dimension
+            const halfSeed = seedSize / 2;
+            
+            seedPlane.setOrigin(
+                center[0] - halfSeed,
+                center[1] - halfSeed, 
+                center[2]
+            );
+            seedPlane.setPoint1(
+                center[0] + halfSeed,
+                center[1] - halfSeed,
+                center[2]
+            );
+            seedPlane.setPoint2(
+                center[0] - halfSeed,
+                center[1] + halfSeed,
+                center[2]
+            );
+            // Set sufficient density to cover the domain
+            seedPlane.setXResolution(20);
+            seedPlane.setYResolution(20);
+
+            // REQUIREMENT: Compute streamlines following the velocity field
+            const streamline = vtkImageStreamline.newInstance();
+            streamline.setInputData(imageData);
+            streamline.setInputConnection(seedPlane.getOutputPort(), 1);
+            streamline.setIntegrationStep(0.01);
+            streamline.setMaximumNumberOfSteps(1000);
+            streamline.setTerminalSpeed(1e-12);
+
+            // Create mapper and actor for streamlines
+            const streamlineMapper = vtkMapper.newInstance();
+            streamlineMapper.setInputConnection(streamline.getOutputPort());
+            
+            const streamlineActor = vtkActor.newInstance();
+            streamlineActor.setMapper(streamlineMapper);
+            
+            // REQUIREMENT: Render streamlines in cyan ([0, 1, 1]) with specified line width
+            streamlineActor.getProperty().setColor(0, 1, 1); // Cyan color
+            streamlineActor.getProperty().setLineWidth(2); // Specified line width
+
+            // REQUIREMENT: Render dataset outline in red ([1, 0, 0]) with specified line width
+            const outlineFilter = vtkOutlineFilter.newInstance();
+            outlineFilter.setInputData(imageData);
+            
+            const outlineMapper = vtkMapper.newInstance();
+            outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+            
+            const outlineActor = vtkActor.newInstance();
+            outlineActor.setMapper(outlineMapper);
+            outlineActor.getProperty().setColor(1, 0, 0); // Red color
+            outlineActor.getProperty().setLineWidth(3); // Specified line width
+
+            // Add actors to renderer
+            renderer.addActor(streamlineActor);
+            renderer.addActor(outlineActor);
+
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+
+            console.log('Isabel dataset visualization complete');
+            console.log('- Dataset loaded from: http://127.0.0.1:5000/dataset/isabel.vti');
+            console.log('- Using Velocity array for streamlines');
+            console.log('- Seed points generated at dataset center with 20x20 resolution');
+            console.log('- Streamlines rendered in cyan');
+            console.log('- Dataset outline rendered in red');
+
+        }).catch((error) => {
+            console.error('Error loading dataset:', error);
+        });
+
+    </script>
+</body>
+</html>

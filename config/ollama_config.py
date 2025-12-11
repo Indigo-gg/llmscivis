@@ -16,6 +16,7 @@ class OllamaConfig:
             "qwen3-turbo":"qwen-turbo-2025-07-15",
             "qwen3-plus":"qwen-plus-2025-09-11",
             "qwen-max":"qwen3-max-2025-09-23",
+            "qwen3-max":"qwen3-max",
             "qwen3-32b":"qwen3-32b",
             "qwen3-325b":"qwen3-235b-a22b",
             "qwen2.5-14b":"qwen2.5-14b-instruct-1m"
@@ -31,8 +32,8 @@ class OllamaConfig:
             "gpt-5":"gpt-5",
             "claude-opus-4-1":"claude-opus-4-1-20250805"
         }
-        # self.inquiry_expansion_model="qwen-turbo-latest"
-        self.inquiry_expansion_model="qwen-turbo-2025-07-15"
+        self.inquiry_expansion_model="qwen3-max"
+        # self.inquiry_expansion_model="qwen-turbo-2025-07-15"
         self.base = app_config.ollama_url + '/api'
         self.generate = self.base + '/generate'
         self.code_sytstem="""

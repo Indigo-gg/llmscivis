@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Deepwater Isosurface - vtk.js</title>
+  <style>
+    /* Fill the entire window with the renderer (no extra UI controls as requested) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #101012;
+    }
+    #container {
+      position: absolute;
+      inset: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+
+  <!-- Use vtk.js from CDN as required -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // ----------------------------------------------------------------------------
+    // Import vtk.js classes from the vtk global (CDN build)
+    // ----------------------------------------------------------------------------
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkDataArray = vtk.Common.Core.vtkDataArray;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader; // Requirement: vti format -> use vtkXMLImageDataReader (not HttpDatasetReader)
+    const vtkContourFilter = vtk.Filters.General.vtkContourFilter;   // To extract isosurface and keep interpolated scalars
+    const vtkPolyDataNormals = vtk.Filters.Core.vtkPolyDataNormals;  // For smooth shading on the isosurface
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;            // Orientation marker axes
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+
+    // ----------------------------------------------------------------------------
+    // Standard renderer setup (no control UI as requested)
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0.08, 0.08, 0.1], // Dark background for contrast
+      rootContainer: document.body,
+      containerStyle: { position: 'absolute', inset: '0' }
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // USER REQUIREMENT: Load the Deepwater dataset (VTI) from the given URL
+    // - Use vtkXMLImageDataReader because data is .vti (and HttpDatasetReader is not supported here)
+    // ----------------------------------------------------------------------------
+    const url = 'http://127.0.0.1:5000/dataset/deepwater.vti';
+    const reader = vtkXMLImageDataReader.newInstance();
+
+    // Helper: Compute velocity magnitude from two 1+ component arrays
+    function computeMagnitudeArray(imageData, arrA, arrB, outName = 'vel_mag') {
+      const pd = imageData.getPointData();
+      const nPts = imageData.getNumberOfPoints();
+      const aData = arrA.getData();
+      const bData = arrB.getData();
+      const aComp = arrA.getNumberOfComponents();
+      const bComp = arrB.getNumberOfComponents();
+
+      const values = new Float32Array(nPts);
+      for (let i = 0; i < nPts; i++) {
+        // Use component 0 for each source array (requirement specifies arrays v02, v03 as sources)
+        const a = aData[i * aComp];
+        const b = bData[i * bComp];
+        values[i] = Math.hypot(a, b); // sqrt(a^2 + b^2)
+      }
+
+      const magArray = vtkDataArray.newInstance({
+        name: outName,
+        numberOfComponents: 1,
+        values
+      });
+      pd.setScalars(magArray);  // Make it the active scalar array for downstream filters
+      imageData.modified();
+      return magArray;
+    }
+
+    // Build the visualization pipeline after the dataset is loaded
+    reader.setUrl(url, { loadData: true }).then(() => {
+      // ----------------------------------------------------------------------------
+      // Access the loaded vtkImageData
+      // ----------------------------------------------------------------------------
+      const imageData = reader.getOutputData();
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Compute velocity magnitude from arrays v02 and v03;
+      // If not available, use 'prs' as the scalar.
+      // ----------------------------------------------------------------------------
+      const pd = imageData.getPointData();
+      const v02 = pd.getArrayByName('v02');
+      const v03 = pd.getArrayByName('v03');
+      let scalarArray = null;
+      let scalarName = null;
+
+      if (v02 && v03) {
+        // Requirement addressed: compute velocity magnitude from v02 and v03
+        scalarArray = computeMagnitudeArray(imageData, v02, v03, 'vel_mag');
+        scalarName = 'vel_mag';
+      } else {
+        // Fallback per requirement: use prs
+        const prs = pd.getArrayByName('prs');
+        if (prs) {
+          pd.setScalars(prs);
+          imageData.modified();
+          scalarArray = prs;
+          scalarName = prs.getName() || 'prs';
+        } else {
+          // If none available (very defensive), try to use any existing scalars
+          scalarArray = pd.getScalars();
+          scalarName = scalarArray ? (scalarArray.getName() || 'scalars') : null;
+          if (!scalarArray) {
+            console.error('No suitable scalar array found (v02/v03 or prs). Aborting.');
+            return;
+          }
+        }
+      }
+
+      // Determine scalar range for isovalue selection and color range
+      const range = scalarArray.getRange(); // [min, max]
+      const minV = range[0];
+      const maxV = range[1];
+      const midV = 0.5 * (minV + maxV);
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Generate an isosurface at the mid-value of the scalar range
+      // - Use vtkContourFilter so interpolated scalars are present on the surface
+      // ----------------------------------------------------------------------------
+      const contour = vtkContourFilter.newInstance();
+      contour.setInputData(imageData);
+      contour.setNumberOfContours(1);
+      contour.setValue(0, midV); // isosurface at mid-value
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Set smooth shading on the isosurface
+      // - Compute normals via vtkPolyDataNormals and set Phong interpolation
+      // ----------------------------------------------------------------------------
+      const normals = vtkPolyDataNormals.newInstance({
+        splitting: false,            // Avoid hard edges unless needed
+        computePointNormals: true,   // Smooth shading requires point normals
+        featureAngle: 60.0
+      });
+      normals.setInputConnection(contour.getOutputPort());
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Apply a blue → white → red color map spanning the scalar range
+      // ----------------------------------------------------------------------------
+      const lut = vtkColorTransferFunction.newInstance();
+      // Map min -> blue, mid -> white, max -> red
+      lut.addRGBPoint(minV, 0.0, 0.0, 1.0);
+      lut.addRGBPoint(midV, 1.0, 1.0, 1.0);
+      lut.addRGBPoint(maxV, 1.0, 0.0, 0.0);
+
+      // Create mapper and actor for the isosurface
+      const mapper = vtkMapper.newInstance();
+      mapper.setInputConnection(normals.getOutputPort());
+      mapper.setScalarVisibility(true);
+      mapper.setLookupTable(lut);
+      mapper.setScalarRange(minV, maxV);
+      // Ensure we color by the computed/selected scalar array on the surface
+      mapper.setScalarModeToUsePointFieldData();
+      mapper.setColorByArrayName(scalarName);
+
+      const actor = vtkActor.newInstance();
+      actor.setMapper(mapper);
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Set the isosurface to fully opaque with smooth shading
+      // ----------------------------------------------------------------------------
+      actor.getProperty().setOpacity(1.0);            // Fully opaque
+      actor.getProperty().setInterpolationToPhong();  // Smooth shading
+
+      // Add to scene and render
+      renderer.addActor(actor);
+      renderer.resetCamera();
+
+      // ----------------------------------------------------------------------------
+      // USER REQUIREMENT: Add an XYZ orientation marker in the bottom-right corner
+      // ----------------------------------------------------------------------------
+      const axes = vtkAxesActor.newInstance();
+      const orientationMarker = vtkOrientationMarkerWidget.newInstance({
+        actor: axes,
+        interactor: renderWindow.getInteractor(),
+      });
+      orientationMarker.setEnabled(true);
+      orientationMarker.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+      orientationMarker.setViewportSize(0.15); // 15% of window size
+      orientationMarker.setMinPixelSize(100);
+      orientationMarker.setMaxPixelSize(300);
+      orientationMarker.setInteractive(false); // No UI interaction, as requested
+
+      renderWindow.render();
+
+      // Developer console helpers (optional)
+      window.vtk = vtk;
+      window.imageData = imageData;
+      window.actor = actor;
+      window.mapper = mapper;
+      window.lut = lut;
+      window.contour = contour;
+      window.normals = normals;
+      window.renderer = renderer;
+      window.renderWindow = renderWindow;
+    }).catch((err) => {
+      console.error('Failed to load VTI dataset:', err);
+    });
+
+    // ----------------------------------------------------------------------------
+    // Summary of how each user requirement is satisfied (in code comments):
+    // - Load dataset from URL using vtkXMLImageDataReader (vti format) -> reader.setUrl(...)
+    // - Compute velocity magnitude from v02 and v03 if present -> computeMagnitudeArray(...)
+    //   Otherwise, use 'prs' as scalar -> fallback logic
+    // - Generate isosurface at mid scalar value -> vtkContourFilter.setValue(0, midV)
+    // - Blue → white → red colormap across [min, max] -> vtkColorTransferFunction with 3 RGB points
+    // - Fully opaque, smooth shading -> actor.getProperty().setOpacity(1.0) and vtkPolyDataNormals + Phong interpolation
+    // - XYZ orientation marker bottom-right -> vtkOrientationMarkerWidget with axes actor, setViewportCorner(BOTTOM_RIGHT)
+    // - No UI controls are added; only the rendering window is present
+    // ----------------------------------------------------------------------------
+  </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>_x000d_
+<html lang="en">_x000d_
+_x000d_
+<head>_x000d_
+<meta charset="UTF-8">_x000d_
+<meta name="viewport" content="width=device-width, initial-scale=1.0">_x000d_
+<title>redsea Example</title>_x000d_
+<script src="https://unpkg.com/vtk.js"></script>_x000d_
+</head>_x000d_
+_x000d_
+<body>_x000d_
+<div id="renderer"></div>_x000d_
+<!-- <script src="https://unpkg.com/vtk.js"></script> -->_x000d_
+<script>_x000d_
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;_x000d_
+const vtkVolume = vtk.Rendering.Core.vtkVolume;_x000d_
+const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;_x000d_
+_x000d_
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;_x000d_
+const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;_x000d_
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;_x000d_
+_x000d_
+//init the render window_x000d_
+const fullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({_x000d_
+background: [1,1,1],_x000d_
+});_x000d_
+const renderWindow = fullScreenRenderWindow.getRenderWindow();_x000d_
+const renderer = fullScreenRenderWindow.getRenderer();_x000d_
+_x000d_
+_x000d_
+// Load dataset_x000d_
+const reader = vtkXMLImageDataReader.newInstance();_x000d_
+_x000d_
+_x000d_
+// set url and load the data_x000d_
+reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {_x000d_
+reader.loadData().then(() => {_x000d_
+//prepare dataset_x000d_
+const imageData = reader.getOutputData(0);_x000d_
+//set active scalar_x000d_
+const velocityArray = imageData.getPointData().getArrayByName('velocity');_x000d_
+const numPoints = imageData.getNumberOfPoints();_x000d_
+const magnitudeData = new Float64Array(numPoints);_x000d_
+for (let i = 0; i < numPoints; i++) {_x000d_
+const vx = velocityArray.getData()[3 * i + 0];_x000d_
+const vy = velocityArray.getData()[3 * i + 1];_x000d_
+const vz = velocityArray.getData()[3 * i + 2];_x000d_
+magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);_x000d_
+}_x000d_
+_x000d_
+const vtkDataArray = vtk.Common.Core.vtkDataArray;_x000d_
+const magnitudeVtkArray = vtkDataArray.newInstance({_x000d_
+numberOfComponents: 1,_x000d_
+values: magnitudeData,_x000d_
+name: 'velocityMagnitude',_x000d_
+});_x000d_
+imageData.getPointData().addArray(magnitudeVtkArray);_x000d_
+console.log(imageData.toJSON())_x000d_
+_x000d_
+_x000d_
+imageData.getPointData().setActiveScalars('velocityMagnitude');_x000d_
+imageData.setSpacing(0.05, 0.05, 0.1);_x000d_
+_x000d_
+console.log('New bounds:', imageData.getBounds());_x000d_
+console.log('Dimensions:', imageData.getDimensions());_x000d_
+console.log('Spacing:', imageData.getSpacing());_x000d_
+_x000d_
+const newRange = magnitudeVtkArray.getRange();_x000d_
+console.log('velocityMagnitude range:', newRange);_x000d_
+const [minV, maxV] = newRange;_x000d_
+_x000d_
+_x000d_
+console.log(imageData.getPointData().getScalars().getName());_x000d_
+_x000d_
+_x000d_
+//create the mapper and set its property_x000d_
+const mapper = vtkVolumeMapper.newInstance();_x000d_
+//console.log(data.toJSON())_x000d_
+mapper.setMaximumSamplesPerRay(4000); // or even higher, up to your hardware limits_x000d_
+mapper.setInputData(imageData);_x000d_
+mapper.setSampleDistance(0.1);_x000d_
+_x000d_
+//create actor and set its properties, including gradient opacity, scalar opacity, shade, ambient, diffuse, specular etc._x000d_
+const actor = vtkVolume.newInstance();_x000d_
+_x000d_
+// Move LocalAmbientOcclusion properties to actor's property_x000d_
+actor.getProperty().setLocalAmbientOcclusion(0);_x000d_
+actor.getProperty().setLAOKernelSize(10);_x000d_
+actor.getProperty().setLAOKernelRadius(5);_x000d_
+// Move ComputeNormalFromOpacity to actor's property_x000d_
+actor.getProperty().setComputeNormalFromOpacity(true);_x000d_
+_x000d_
+const cfun = vtkColorTransferFunction.newInstance();_x000d_
+cfun.addRGBPoint(minV, 0.0, 0.0, 1.0);_x000d_
+cfun.addRGBPoint((minV + maxV) * 0.5, 1.0, 1.0, 1.0);_x000d_
+cfun.addRGBPoint(maxV, 1.0, 0.0, 0.0);_x000d_
+actor.getProperty().setRGBTransferFunction(0, cfun);_x000d_
+_x000d_
+const ofun = vtkPiecewiseFunction.newInstance();_x000d_
+_x000d_
+ofun.addPoint(minV, 0.0);_x000d_
+ofun.addPoint(minV + 0.1 * (maxV - minV), 0.05);_x000d_
+ofun.addPoint(minV + 0.5 * (maxV - minV), 0.2);_x000d_
+ofun.addPoint(maxV, 1.0);_x000d_
+_x000d_
+actor.getProperty().setScalarOpacity(0, ofun);_x000d_
+actor.getProperty().setInterpolationTypeToLinear();_x000d_
+// this variable makes results lighter_x000d_
+actor.getProperty().setScalarOpacityUnitDistance(0, 0.1);_x000d_
+actor.getProperty().setShade(false);_x000d_
+actor.getProperty().setAmbient(0.3);_x000d_
+actor.getProperty().setDiffuse(1);_x000d_
+actor.getProperty().setSpecular(1);_x000d_
+_x000d_
+//assign mapper to actor and assign mapper to render_x000d_
+actor.setMapper(mapper);_x000d_
+renderer.addVolume(actor);_x000d_
+_x000d_
+const bounds = imageData.getBounds();_x000d_
+const center = [_x000d_
+(bounds[0] + bounds[1]) / 2,_x000d_
+(bounds[2] + bounds[3]) / 2,_x000d_
+(bounds[4] + bounds[5]) / 2,_x000d_
+];_x000d_
+_x000d_
+const camera = renderer.getActiveCamera();_x000d_
+camera.setFocalPoint(...center);_x000d_
+camera.setPosition(center[0], center[1], center[2] + 10); // Look along +Z_x000d_
+camera.setViewUp(0, 1, 0);_x000d_
+renderer.resetCameraClippingRange();_x000d_
+renderWindow.render();_x000d_
+renderer.resetCamera();_x000d_
+renderWindow.render();_x000d_
+});_x000d_
+});_x000d_
+_x000d_
+</script>_x000d_
+</body>_x000d_
+_x000d_
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isabel Dataset Streamlines</title>
+</head>
+<body>
+    <div id="renderer"></div>
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // Import necessary VTK.js modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+
+        // Create renderer and render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+            containerStyle: {
+                height: '100vh',
+                width: '100vw',
+            }
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Load Isabel dataset from local server
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+            const imageData = reader.getOutputData(0);
+            const bounds = imageData.getBounds();
+            
+            // Calculate center of the dataset
+            const centerX = (bounds[0] + bounds[1]) / 2;
+            const centerY = (bounds[2] + bounds[3]) / 2;
+            const centerZ = (bounds[4] + bounds[5]) / 2;
+            
+            // Create seed plane at the center with sufficient density
+            // Using a plane that covers the entire cross-section at the center Z
+            const planeSource = vtkPlaneSource.newInstance();
+            planeSource.setOrigin(bounds[0], bounds[2], centerZ);
+            planeSource.setPoint1(bounds[1], bounds[2], centerZ);
+            planeSource.setPoint2(bounds[0], bounds[3], centerZ);
+            // Set high resolution for dense seed points (20x20 grid)
+            planeSource.setXResolution(20);
+            planeSource.setYResolution(20);
+
+            // Create streamline filter using Velocity vector field
+            const streamlines = vtkImageStreamline.newInstance();
+            streamlines.setInputData(imageData);
+            // Set the Velocity array as the active vectors for the streamline filter
+            const pointData = imageData.getPointData();
+            const velocityArray = pointData.getArrayByName('Velocity');
+            if (velocityArray) {
+                pointData.setActiveVectors('Velocity');
+            }
+            streamlines.setInputConnection(planeSource.getOutputPort(), 1);
+            streamlines.set({
+                integrationStep: 0.1,
+                maximumNumberOfSteps: 1000 
+            });// maximumIntegrationTime is not a valid parameter for vtkImageStreamline
+
+            // Create outline filter for dataset bounds
+            const outlineFilter = vtkOutlineFilter.newInstance();
+            outlineFilter.setInputData(imageData);
+
+            // Create streamline actor with cyan color and line width 2
+            const streamlineMapper = vtkMapper.newInstance();
+            streamlineMapper.setInputConnection(streamlines.getOutputPort());
+            const streamlineActor = vtkActor.newInstance();
+            streamlineActor.setMapper(streamlineMapper);
+            streamlineActor.getProperty().setColor(0, 1, 1); // Cyan [0, 1, 1]
+            streamlineActor.getProperty().setLineWidth(2);
+            renderer.addActor(streamlineActor);
+
+            // Create outline actor with red color and line width 3
+            const outlineMapper = vtkMapper.newInstance();
+            outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+            const outlineActor = vtkActor.newInstance();
+            outlineActor.setMapper(outlineMapper);
+            outlineActor.getProperty().setColor(1, 0, 0); // Red [1, 0, 0]
+            outlineActor.getProperty().setLineWidth(3);
+            renderer.addActor(outlineActor);
+
+            // Reset camera to fit the dataset
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>

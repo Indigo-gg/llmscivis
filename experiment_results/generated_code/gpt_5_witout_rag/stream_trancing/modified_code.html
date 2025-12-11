@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VTK.js Isabel Streamlines</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- VTK.js library from CDN (Requirement 2) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    /* Ensure the visualization fills the window (Requirement 5) */
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+    #container { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    // Import required VTK.js modules using the global vtk namespace
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkXMLImageDataReader   = vtk.IO.XML.vtkXMLImageDataReader; // Correct IO module for VTI (Requirement 7)
+    const vtkOutlineFilter        = vtk.Filters.General.vtkOutlineFilter;
+    const vtkMapper               = vtk.Rendering.Core.vtkMapper;
+    const vtkActor                = vtk.Rendering.Core.vtkActor;
+    const vtkPolyData             = vtk.Common.DataModel.vtkPolyData;
+    const vtkPoints               = vtk.Common.Core.vtkPoints;
+    const vtkCellArray            = vtk.Common.Core.vtkCellArray;
+
+    // Create full screen renderer with no extra UI controls (Requirement 5)
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.body,
+      containerStyle: { width: '100%', height: '100%', position: 'absolute' },
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+    renderer.setBackground(0, 0, 0); // black background for contrast
+
+    // Create a reader for VTI data (Requirement 7) and load the Isabel dataset (Requirement 1 and 2)
+    const reader = vtkXMLImageDataReader.newInstance();
+
+    // Load dataset from the specified URL (Requirement: "Load the dataset from: http://127.0.0.1:5000/dataset/isabel.vti")
+    const dataURL = 'http://127.0.0.1:5000/dataset/isabel.vti';
+    reader.setUrl(dataURL, { loadData: true }).then(() => {
+      const imageData = reader.getOutputData();
+
+      // Retrieve vector field "Velocity" (Requirement: "Use the 'Velocity' array as the vector field for streamlines")
+      const pointData = imageData.getPointData();
+      const velocityArray = pointData.getArrayByName('Velocity');
+
+      if (!velocityArray || velocityArray.getNumberOfComponents() !== 3) {
+        console.error('Velocity array not found or not a 3-component vector.');
+        return;
+      }
+
+      // Compute dataset parameters: origin, spacing, dimensions, and world extents
+      const origin = imageData.getOrigin();
+      const spacing = imageData.getSpacing();
+      const dims = imageData.getDimensions();
+
+      // World-space bounds of the imageData
+      const bounds = [
+        origin[0], origin[0] + spacing[0] * (dims[0] - 1),
+        origin[1], origin[1] + spacing[1] * (dims[1] - 1),
+        origin[2], origin[2] + spacing[2] * (dims[2] - 1),
+      ];
+
+      // Dataset center in world coordinates (Requirement: "Generate seed points at the center of the dataset")
+      const center = [
+        (bounds[0] + bounds[1]) * 0.5,
+        (bounds[2] + bounds[3]) * 0.5,
+        (bounds[4] + bounds[5]) * 0.5,
+      ];
+
+      // Helper: Sample the velocity field at a given world position with trilinear interpolation
+      // This implements streamline computation based on the "Velocity" vector field (Requirement: "Compute streamlines following the velocity field")
+      const velData = velocityArray.getData();
+      const nx = dims[0], ny = dims[1], nz = dims[2];
+      const tupleSize = velocityArray.getNumberOfComponents(); // should be 3
+
+      function inBoundsWorld(p) {
+        return (
+          p[0] >= bounds[0] && p[0] <= bounds[1] &&
+          p[1] >= bounds[2] && p[1] <= bounds[3] &&
+          p[2] >= bounds[4] && p[2] <= bounds[5]
+        );
+      }
+
+      // Convert (i,j,k) index to flat pointId
+      function idx(i, j, k) {
+        return i + j * nx + k * nx * ny;
+      }
+
+      // Trilinear interpolation of velocity at a world position
+      function sampleVelocity(worldPos) {
+        // Convert world to image indices
+        const fx = (worldPos[0] - origin[0]) / spacing[0];
+        const fy = (worldPos[1] - origin[1]) / spacing[1];
+        const fz = (worldPos[2] - origin[2]) / spacing[2];
+
+        // Check bounds in index-space
+        if (fx < 0 || fy < 0 || fz < 0 || fx > nx - 1 || fy > ny - 1 || fz > nz - 1) {
+          return null;
+        }
+
+        const i0 = Math.floor(fx), j0 = Math.floor(fy), k0 = Math.floor(fz);
+        const i1 = Math.min(i0 + 1, nx - 1);
+        const j1 = Math.min(j0 + 1, ny - 1);
+        const k1 = Math.min(k0 + 1, nz - 1);
+
+        const tx = fx - i0;
+        const ty = fy - j0;
+        const tz = fz - k0;
+
+        // Fetch vectors at the 8 corners of the cell
+        function vAt(ii, jj, kk) {
+          const pId = idx(ii, jj, kk) * tupleSize;
+          return [velData[pId], velData[pId + 1], velData[pId + 2]];
+        }
+
+        const v000 = vAt(i0, j0, k0);
+        const v100 = vAt(i1, j0, k0);
+        const v010 = vAt(i0, j1, k0);
+        const v110 = vAt(i1, j1, k0);
+        const v001 = vAt(i0, j0, k1);
+        const v101 = vAt(i1, j0, k1);
+        const v011 = vAt(i0, j1, k1);
+        const v111 = vAt(i1, j1, k1);
+
+        // Trilinear interpolate
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function lerpVec(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
+
+        const v00 = lerpVec(v000, v100, tx);
+        const v10 = lerpVec(v010, v110, tx);
+        const v01 = lerpVec(v001, v101, tx);
+        const v11 = lerpVec(v011, v111, tx);
+
+        const v0 = lerpVec(v00, v10, ty);
+        const v1 = lerpVec(v01, v11, ty);
+
+        const v = lerpVec(v0, v1, tz);
+        return v;
+      }
+
+      // RK4 integration step using normalized velocity (for stable, uniform step size)
+      function rk4Step(pos, h, dir) {
+        const v1 = sampleVelocity(pos);
+        if (!v1) return null;
+        // Normalize and apply direction (+/-) for forward/backward integration
+        const m1 = Math.hypot(v1[0], v1[1], v1[2]);
+        if (m1 < 1e-8) return null;
+        const k1 = [dir * h * v1[0] / m1, dir * h * v1[1] / m1, dir * h * v1[2] / m1];
+
+        const p2 = [pos[0] + 0.5 * k1[0], pos[1] + 0.5 * k1[1], pos[2] + 0.5 * k1[2]];
+        const v2 = sampleVelocity(p2); if (!v2) return null;
+        const m2 = Math.hypot(v2[0], v2[1], v2[2]); if (m2 < 1e-8) return null;
+        const k2 = [dir * h * v2[0] / m2, dir * h * v2[1] / m2, dir * h * v2[2] / m2];
+
+        const p3 = [pos[0] + 0.5 * k2[0], pos[1] + 0.5 * k2[1], pos[2] + 0.5 * k2[2]];
+        const v3 = sampleVelocity(p3); if (!v3) return null;
+        const m3 = Math.hypot(v3[0], v3[1], v3[2]); if (m3 < 1e-8) return null;
+        const k3 = [dir * h * v3[0] / m3, dir * h * v3[1] / m3, dir * h * v3[2] / m3];
+
+        const p4 = [pos[0] + k3[0], pos[1] + k3[1], pos[2] + k3[2]];
+        const v4 = sampleVelocity(p4); if (!v4) return null;
+        const m4 = Math.hypot(v4[0], v4[1], v4[2]); if (m4 < 1e-8) return null;
+        const k4 = [dir * h * v4[0] / m4, dir * h * v4[1] / m4, dir * h * v4[2] / m4];
+
+        // RK4 weighted sum
+        const newPos = [
+          pos[0] + (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]) / 6,
+          pos[1] + (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]) / 6,
+          pos[2] + (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]) / 6,
+        ];
+        return newPos;
+      }
+
+      // Generate seed points across a plane at dataset center with sufficient density (Requirement: "Generate seed points at the center ... with sufficient density to cover the domain")
+      // We choose an XY plane at center Z and create a grid covering the full XY extent
+      const seedGridX = 30; // density in X
+      const seedGridY = 30; // density in Y
+      const seeds = [];
+      for (let j = 0; j < seedGridY; j++) {
+        const ty = (j + 0.5) / seedGridY;
+        const y = bounds[2] + ty * (bounds[3] - bounds[2]);
+        for (let i = 0; i < seedGridX; i++) {
+          const tx = (i + 0.5) / seedGridX;
+          const x = bounds[0] + tx * (bounds[1] - bounds[0]);
+          const z = center[2]; // plane through center
+          seeds.push([x, y, z]);
+        }
+      }
+
+      // Parameters for streamline integration (Requirement: "Compute streamlines following the velocity field")
+      const stepSize = Math.min(spacing[0], spacing[1], spacing[2]) * 0.75; // world units per step
+      const maxSteps = 600; // total steps for forward and backward
+      const epsilonBounds = 1e-6;
+
+      // Build polydata for streamlines
+      const streamlinePolyData = vtkPolyData.newInstance();
+      const points = vtkPoints.newInstance();
+      const lines = vtkCellArray.newInstance();
+
+      const pts = [];
+      const lineConn = [];
+
+      let globalPointId = 0;
+
+      // For each seed, integrate forward and backward and create a polyline
+      seeds.forEach((s) => {
+        const pathForward = [];
+        const pathBackward = [];
+
+        // Start from seed (ensure inside bounds)
+        if (!inBoundsWorld(s)) return;
+
+        // Integrate forward
+        let p = s.slice();
+        pathForward.push(p.slice());
+        for (let n = 0; n < Math.floor(maxSteps / 2); n++) {
+          const next = rk4Step(p, stepSize, +1);
+          if (!next || !inBoundsWorld(next)) break;
+          p = next;
+          pathForward.push(p.slice());
+        }
+
+        // Integrate backward
+        p = s.slice();
+        for (let n = 0; n < Math.floor(maxSteps / 2); n++) {
+          const next = rk4Step(p, stepSize, -1);
+          if (!next || !inBoundsWorld(next)) break;
+          p = next;
+          pathBackward.push(p.slice());
+        }
+
+        // Merge backward (reversed) + seed + forward into a single path
+        const finalPath = [];
+        for (let i = pathBackward.length - 1; i >= 0; i--) finalPath.push(pathBackward[i]);
+        finalPath.push(s.slice());
+        for (let i = 0; i < pathForward.length; i++) finalPath.push(pathForward[i]);
+
+        // Only add polylines with enough points
+        if (finalPath.length >= 2) {
+          const startId = globalPointId;
+          // Append points to global array
+          for (let i = 0; i < finalPath.length; i++) {
+            pts.push(finalPath[i][0], finalPath[i][1], finalPath[i][2]);
+          }
+          // Create line connectivity: [npts, id0, id1, ..., idN]
+          const npts = finalPath.length;
+          lineConn.push(npts);
+          for (let i = 0; i < npts; i++) {
+            lineConn.push(startId + i);
+          }
+          globalPointId += npts;
+        }
+      });
+
+      // Transfer data to vtk structures
+      points.setData(Float32Array.from(pts));
+      lines.setData(Uint32Array.from(lineConn));
+      streamlinePolyData.setPoints(points);
+      streamlinePolyData.setLines(lines);
+
+      // Create mapper and actor for streamlines
+      const streamlineMapper = vtkMapper.newInstance();
+      streamlineMapper.setInputData(streamlinePolyData);
+      const streamlineActor = vtkActor.newInstance();
+      streamlineActor.setMapper(streamlineMapper);
+
+      // Render streamlines in cyan with specified line width (Requirement: "Render streamlines in cyan ([0, 1, 1]) with a specified line width")
+      streamlineActor.getProperty().setColor(0, 1, 1);
+      streamlineActor.getProperty().setLineWidth(2.5); // line width specified
+
+      // Create and render dataset outline (Requirement: "Render a dataset outline in red ([1, 0, 0]) with a specified line width")
+      const outlineFilter = vtkOutlineFilter.newInstance();
+      outlineFilter.setInputData(imageData);
+      const outlineMapper = vtkMapper.newInstance();
+      outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+      const outlineActor = vtkActor.newInstance();
+      outlineActor.setMapper(outlineMapper);
+      outlineActor.getProperty().setColor(1, 0, 0);
+      outlineActor.getProperty().setLineWidth(2.5); // outline line width specified
+
+      // Add actors to the renderer
+      renderer.addActor(streamlineActor);
+      renderer.addActor(outlineActor);
+
+      // Adjust camera to show everything
+      renderer.resetCamera();
+      renderWindow.render();
+
+      // Comments mapping to requirements:
+      // - Requirement 1: This HTML page is a complete, standalone visualization using VTK.js.
+      // - Requirement 2: VTK.js loaded from the specified CDN (unpkg with version 34.10.0).
+      // - Requirement 3: Dataset loaded from the given URL using vtkXMLImageDataReader (correct for VTI, not HttpDatasetReader).
+      // - Requirement 4: The "Velocity" array is fetched from pointData and used as the vector field for streamline integration.
+      // - Requirement 5: Seeds are generated on a plane through the dataset center, with a dense grid covering the XY domain at center Z.
+      // - Requirement 6: Streamlines are computed via a custom RK4 integrator following the velocity field (with trilinear interpolation on the VTI).
+      // - Requirement 7: Streamlines are rendered in cyan with a specified line width (setLineWidth).
+      // - Requirement 8: Dataset outline is rendered in red with a specified line width using vtkOutlineFilter.
+      // - Requirement 9: No UI controls are included; only the visualization is displayed.
+    }).catch((err) => {
+      console.error('Failed to load dataset:', err);
+    });
+  </script>
+</body>
+</html>

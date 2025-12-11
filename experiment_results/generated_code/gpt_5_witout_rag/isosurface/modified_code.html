@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Deepwater Isosurface - vtk.js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Requirement: Use vtk.js library from CDN (version 34.10.0) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    /* Simple full-window container without any UI controls (Requirement #5) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #0e0e10;
+    }
+    #container {
+      position: absolute;
+      inset: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Render container -->
+  <div id="container"></div>
+
+  <script>
+    // Access vtk.js API from the UMD global
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;              // Requirement #7: Correct IO module for VTI
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkContourFilter = vtk.Filters.General.vtkContourFilter;                // For isosurface extraction
+    const vtkPolyDataNormals = vtk.Filters.Core.vtkPolyDataNormals;               // For smooth shading
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkDataArray = vtk.Common.Core.vtkDataArray;
+    const vtkColorTransferFunction = vtk.Common.Core.vtkColorTransferFunction;    // For blue → white → red colormap
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;                         // XYZ orientation marker actor
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+
+    // Create a renderer + renderWindow bound to our container
+    const container = document.getElementById('container');
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: container,
+      container,
+      background: [0.08, 0.08, 0.09],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+    const interactor = fullScreenRenderer.getInteractor();
+
+    // Requirement: Add an XYZ orientation marker in the bottom-right corner
+    // - Using vtkAxesActor + vtkOrientationMarkerWidget
+    const axes = vtkAxesActor.newInstance();
+    const orientationMarker = vtkOrientationMarkerWidget.newInstance({
+      actor: axes,
+      interactor,
+    });
+    orientationMarker.setEnabled(true);
+    orientationMarker.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+    orientationMarker.setViewportSize(0.18);
+    orientationMarker.setMinPixelSize(80);
+    orientationMarker.setMaxPixelSize(300);
+    orientationMarker.setInteractive(false); // No UI interaction required (Requirement #5)
+
+    // Build pipeline components
+    const contourFilter = vtkContourFilter.newInstance();     // Requirement: Generate isosurface
+    const normalsFilter = vtkPolyDataNormals.newInstance({
+      splitting: false,                                       // Smooth shading
+      featureAngle: 50,
+    });
+
+    const mapper = vtkMapper.newInstance();
+    const actor = vtkActor.newInstance();
+
+    // Connect filters
+    normalsFilter.setInputConnection(contourFilter.getOutputPort());
+    mapper.setInputConnection(normalsFilter.getOutputPort());
+    actor.setMapper(mapper);
+
+    // Requirement: Set the isosurface to fully opaque with smooth shading
+    actor.getProperty().setOpacity(1.0);                      // Fully opaque
+    actor.getProperty().setInterpolationToPhong();            // Smooth shading via Phong
+    actor.getProperty().setLighting(true);
+
+    // Requirement: Use a blue → white → red color map spanning the scalar range
+    const lut = vtkColorTransferFunction.newInstance();
+    // We'll add the RGB points after determining the scalar range (min, mid, max)
+    mapper.setLookupTable(lut);
+    mapper.setUseLookupTableScalarRange(true);
+    mapper.setScalarModeToUsePointFieldData(); // We'll color by a point-data array we attach to the isosurface
+
+    renderer.addActor(actor);
+
+    // Requirement: Load the dataset from the specified URL using vtkXMLImageDataReader
+    // Important: The system does not support HttpDatasetReader; we fetch the file and parse with XMLImageDataReader (Requirement #7).
+    const DATA_URL = 'http://127.0.0.1:5000/dataset/deepwater.vti';
+
+    async function loadDataAndRender() {
+      try {
+        const response = await fetch(DATA_URL);
+        if (!response.ok) {
+          throw new Error('Failed to load dataset: ' + response.statusText);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+
+        // Parse VTI data
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.parseAsArrayBuffer(arrayBuffer);
+        const imageData = reader.getOutputData();
+
+        // Access point data arrays
+        const pointData = imageData.getPointData();
+        const v02 = pointData.getArrayByName('v02');
+        const v03 = pointData.getArrayByName('v03');
+        let scalarArray = null;
+        let scalarName = null;
+
+        // Requirement: Compute velocity magnitude from arrays v02 and v03; if not available, use prs as the scalar.
+        if (v02 && v03) {
+          const v02Data = v02.getData();
+          const v03Data = v03.getData();
+          const n = Math.min(v02Data.length, v03Data.length);
+          const mag = new Float32Array(n);
+          for (let i = 0; i < n; i++) {
+            mag[i] = Math.hypot(v02Data[i], v03Data[i]); // sqrt(v02^2 + v03^2)
+          }
+          scalarArray = vtkDataArray.newInstance({
+            name: 'velocity_mag',                        // Computed velocity magnitude from v02 and v03 (Requirement)
+            numberOfComponents: 1,
+            values: mag,
+          });
+          scalarName = 'velocity_mag';
+          pointData.addArray(scalarArray);
+          pointData.setScalars(scalarArray);             // Make it the active scalar for isosurface extraction
+        } else {
+          // Fallback to 'prs' if velocity arrays are not available (Requirement)
+          const prs = pointData.getArrayByName('prs');
+          if (prs) {
+            scalarArray = prs;
+            scalarName = prs.getName ? prs.getName() : 'prs';
+            pointData.setScalars(prs);
+          } else {
+            // If 'prs' is also unavailable, fall back to current active scalars if any
+            scalarArray = pointData.getScalars();
+            scalarName = scalarArray && scalarArray.getName ? scalarArray.getName() : 'scalars';
+            if (!scalarArray) {
+              throw new Error('No suitable scalar arrays found (v02/v03 or prs).');
+            }
+          }
+        }
+
+        // Requirement: Generate an isosurface at the mid-value of the scalar range
+        const [minVal, maxVal] = scalarArray.getRange();
+        const midVal = 0.5 * (minVal + maxVal);
+        contourFilter.setInputData(imageData);
+        contourFilter.setValue(0, midVal);               // Isosurface at mid range (Requirement)
+
+        // Ensure smooth shading via normals
+        normalsFilter.setComputePointNormals(true);
+        normalsFilter.setComputeCellNormals(false);
+
+        // Requirement: Use a blue → white → red color map spanning the scalar range (min to max)
+        lut.removeAllPoints();
+        lut.addRGBPoint(minVal, 0.0, 0.0, 1.0);          // Blue at min
+        lut.addRGBPoint(midVal, 1.0, 1.0, 1.0);          // White at mid
+        lut.addRGBPoint(maxVal, 1.0, 0.0, 0.0);          // Red at max
+
+        // Important: Isosurface points typically have scalar equal to the iso-value; to ensure coloring works,
+        // attach a point-data array on the isosurface polydata with the iso-value so mapper can use the LUT properly.
+        // This guarantees the surface will be colored according to the LUT at mid-value (white).
+        const polyData = normalsFilter.getOutputData();
+        const nPts = polyData.getPoints().getNumberOfPoints();
+        const isoVals = new Float32Array(nPts);
+        isoVals.fill(midVal);
+        const isoScalarArray = vtkDataArray.newInstance({
+          name: 'isoScalar',                              // Explicit scalar array for coloring the isosurface
+          numberOfComponents: 1,
+          values: isoVals,
+        });
+        polyData.getPointData().addArray(isoScalarArray);
+        polyData.getPointData().setScalars(isoScalarArray);
+        mapper.setColorByArrayName('isoScalar');          // Color by the explicit point-data scalars
+
+        // Add to scene and render
+        renderer.resetCamera();
+        renderWindow.render();
+      } catch (err) {
+        // No on-page UI/logs per requirements; if an error occurs, it will be silent in the UI.
+        // You can inspect console for debugging purposes.
+        console.error(err);
+      }
+    }
+
+    // Kick off the loading/rendering
+    loadDataAndRender();
+  </script>
+</body>
+</html>
