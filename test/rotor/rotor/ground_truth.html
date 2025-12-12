@@ -1,99 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rotor Dataset Cutting Rendering</title>
+    <title>VTK Color Preset Switcher</title>
     <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        #renderer { width: 100%; height: 100%; }
+        #controls {
+            position: absolute; top: 10px; left: 10px; z-index: 100;
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 8px;
+            width: 340px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-
-        #renderer {
-            width: 100%;
-            height: 100%;
-        }
+        .control-group { margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px; }
+        label { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-top: 5px;}
+        input[type=range] { width: 100%; margin: 5px 0; cursor: pointer; }
+        select { width: 100%; padding: 5px; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        button { width: 100%; padding: 8px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px;}
+        button:hover { background: #74b9ff; }
+        .val { color: #d63031; font-family: monospace; }
+        .tip { font-size: 11px; color: #666; margin-top: 5px; line-height: 1.4; }
     </style>
 </head>
-
 <body>
+    <div id="controls">
+        <h3>🎨 颜色与范围控制</h3>
+        
+        <!-- 1. 预设选择 -->
+        <div class="control-group">
+            <label>颜色预设 (Color Preset):</label>
+            <select id="select-preset">
+                <option value="Jet">🌈 Jet (经典彩虹)</option>
+                <option value="Viridis">🍃 Viridis (科学推荐)</option>
+                <option value="CoolWarm">❄️🔥 Cool to Warm (冷暖)</option>
+                <option value="Gray">⚫⚪ Grayscale (黑白)</option>
+            </select>
+        </div>
+
+        <!-- 2. 自动范围按钮 -->
+        <div class="control-group">
+            <button id="btn-autoscale">⚡ 自动匹配数据范围 (修复纯色)</button>
+            <div class="tip">点此按钮可自动将滑块对齐到全局最大最小值。</div>
+        </div>
+
+        <!-- 3. 手动微调 -->
+        <label>切片位置 (Slice X): <span id="txt-slice" class="val">0</span></label>
+        <input type="range" id="slider-slice" step="1">
+
+        <label>颜色最小值 (Low): <span id="txt-min" class="val">0</span></label>
+        <input type="range" id="slider-min" step="10">
+
+        <label>颜色最大值 (High): <span id="txt-max" class="val">0</span></label>
+        <input type="range" id="slider-max" step="10">
+    </div>
+
     <div id="renderer"></div>
+
     <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
     <script>
         const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-        const vtkActor = vtk.Rendering.Core.vtkActor;
-        const vtkMapper = vtk.Rendering.Core.vtkMapper;
         const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
-        const vtkPlane = vtk.Common.DataModel.vtkPlane;
         const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
 
-        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
-            background: [1, 1, 1],
-        });
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
         const renderWindow = fullScreenRenderWindow.getRenderWindow();
         const renderer = fullScreenRenderWindow.getRenderer();
 
         const reader = vtkXMLImageDataReader.newInstance();
-        reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {
+        // 请确保此地址有效，如果无效请替换为你的本地文件或 mock 数据
+        reader.setUrl('http://127.0.0.1:5000/dataset/rotor-37-test.vti').then(() => {
             reader.loadData().then(() => {
                 const imageData = reader.getOutputData(0);
                 imageData.getPointData().setActiveScalars('Pressure');
+                
+                const dims = imageData.getDimensions();
+                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
+                const [globalMin, globalMax] = pressureArray.getRange();
 
-                const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
-                const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+                console.log(`Global Range: ${globalMin} - ${globalMax}`);
 
+                // --- UI ---
+                const sSlice = document.getElementById('slider-slice');
+                const sMin = document.getElementById('slider-min');
+                const sMax = document.getElementById('slider-max');
+                const tSlice = document.getElementById('txt-slice');
+                const tMin = document.getElementById('txt-min');
+                const tMax = document.getElementById('txt-max');
+                const selPreset = document.getElementById('select-preset');
+                const btnAuto = document.getElementById('btn-autoscale');
+
+                // 初始化滑块范围
+                sSlice.max = dims[0] - 1; 
+                sSlice.value = Math.floor(dims[0] / 2);
+
+                // 允许滑块拖动的极限范围
+                sMin.min = globalMin - 1000; sMin.max = globalMax + 1000;
+                sMax.min = globalMin - 1000; sMax.max = globalMax + 1000;
+
+                // 初始显示范围 (设为全局范围，保证一开始有渐变)
+                sMin.value = globalMin;
+                sMax.value = globalMax;
+
+                // --- Actor & Mapper ---
                 const imageMapper = vtkImageMapper.newInstance();
                 imageMapper.setInputData(imageData);
-                const dims = imageData.getDimensions();
-                imageMapper.setSlice(dims[1] * 0.95);
-                imageMapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)
-
-                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
-                const [pMin, pMax] = pressureArray.getRange();
-                const colorTransferFunction = vtkColorTransferFunction.newInstance();
-                colorTransferFunction.addRGBPoint(pMin, 0.0, 0.0, 0.8);
-                colorTransferFunction.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);
-                colorTransferFunction.addRGBPoint(pMax, 0.8, 0.0, 0.0);
-
-                // Add opacity transfer function
-                const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
-                const opacityFunction = vtkPiecewiseFunction.newInstance();
-                opacityFunction.addPoint(pMin, 0.0001);
-                opacityFunction.addPoint((pMin + pMax) / 2, 0.8);
-                opacityFunction.addPoint(pMax, 1.0);
+                imageMapper.setSlicingMode(0); // X Axis
+                imageMapper.setSlice(parseInt(sSlice.value));
 
                 const imageSlice = vtkImageSlice.newInstance();
                 imageSlice.setMapper(imageMapper);
-                imageSlice.getProperty().setRGBTransferFunction(0, colorTransferFunction);
-                imageSlice.getProperty().setPiecewiseFunction(0, opacityFunction);  // Set opacity function
-                imageSlice.getProperty().setScalarOpacity(0, opacityFunction);      // Set scalar opacity
-                imageSlice.getProperty().setUseLookupTableScalarRange(true);
+
+                // --- 核心：预设颜色生成器 ---
+                // vtk.js 没有内置所有 JSON 预设，这里手动定义几种常用数学逻辑
+                function applyPreset(ctf, presetName, min, max) {
+                    ctf.removeAllPoints(); // 清除旧点
+                    
+                    // 确保范围正确
+                    ctf.setMappingRange(min, max);
+                    const diff = max - min;
+
+                    if (presetName === 'Jet') {
+                        // 经典彩虹: 蓝-青-绿-黄-红
+                        ctf.addRGBPoint(min, 0.0, 0.0, 1.0); 
+                        ctf.addRGBPoint(min + diff * 0.25, 0.0, 1.0, 1.0);
+                        ctf.addRGBPoint(min + diff * 0.50, 0.0, 1.0, 0.0);
+                        ctf.addRGBPoint(min + diff * 0.75, 1.0, 1.0, 0.0);
+                        ctf.addRGBPoint(max, 1.0, 0.0, 0.0);
+                    } 
+                    else if (presetName === 'Viridis') {
+                        // 现代科学常用 (色盲友好): 深紫 -> 绿 -> 黄
+                        ctf.addRGBPoint(min, 0.267, 0.005, 0.329);
+                        ctf.addRGBPoint(min + diff * 0.25, 0.229, 0.322, 0.545);
+                        ctf.addRGBPoint(min + diff * 0.50, 0.127, 0.567, 0.550);
+                        ctf.addRGBPoint(min + diff * 0.75, 0.369, 0.787, 0.383);
+                        ctf.addRGBPoint(max, 0.993, 0.906, 0.144);
+                    }
+                    else if (presetName === 'CoolWarm') {
+                        // 冷暖色: 蓝 -> 白 -> 红 (适合看正负偏差)
+                        ctf.addRGBPoint(min, 0.23, 0.299, 0.754);
+                        ctf.addRGBPoint(min + diff * 0.50, 0.865, 0.865, 0.865); 
+                        ctf.addRGBPoint(max, 0.706, 0.016, 0.150);
+                    }
+                    else if (presetName === 'Gray') {
+                        // 黑白灰度
+                        ctf.addRGBPoint(min, 0.0, 0.0, 0.0);
+                        ctf.addRGBPoint(max, 1.0, 1.0, 1.0);
+                    }
+                }
+
+                function updateRender() {
+                    const sliceVal = parseInt(sSlice.value);
+                    const minVal = parseFloat(sMin.value);
+                    const maxVal = parseFloat(sMax.value);
+                    const presetName = selPreset.value;
+
+                    // UI文字更新
+                    tSlice.innerText = sliceVal;
+                    tMin.innerText = minVal.toFixed(0);
+                    tMax.innerText = maxVal.toFixed(0);
+
+                    // 1. 设置切片
+                    imageMapper.setSlice(sliceVal);
+
+                    // 2. 设置颜色表 (CTF)
+                    const ctf = vtkColorTransferFunction.newInstance();
+                    // 调用我们自定义的预设函数
+                    applyPreset(ctf, presetName, minVal, maxVal);
+
+                    // 3. 设置透明度 (OPF) - 过滤掉 0 值背景
+                    const opf = vtkPiecewiseFunction.newInstance();
+                    opf.addPoint(0, 0.0);
+                    opf.addPoint(10, 0.0); // 假设10以下是噪音
+                    opf.addPoint(10.1, 1.0);
+                    opf.addPoint(globalMax * 1.5, 1.0);
+
+                    imageSlice.getProperty().setRGBTransferFunction(0, ctf);
+                    imageSlice.getProperty().setPiecewiseFunction(0, opf);
+                    
+                    renderWindow.render();
+                }
+
+                // --- 事件绑定 ---
+                sSlice.addEventListener('input', updateRender);
+                sMin.addEventListener('input', updateRender);
+                sMax.addEventListener('input', updateRender);
+                selPreset.addEventListener('change', updateRender); // 切换下拉框触发
+
+                // 自动范围按钮逻辑
+                btnAuto.addEventListener('click', () => {
+                    // 强制设为全局范围
+                    sMin.value = globalMin;
+                    sMax.value = globalMax;
+                    updateRender();
+                });
 
                 renderer.addActor(imageSlice);
-
-                const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();
-                const widget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
-                    actor: axes,
-                    interactor: renderWindow.getInteractor(),
-                });
-                widget.setEnabled(true);
-                widget.setViewportCorner(
-                    vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
-                );
-                widget.setViewportSize(0.15);
-
                 renderer.resetCamera();
-                renderer.resetCameraClippingRange();
-                renderWindow.render();
+                renderer.getActiveCamera().azimuth(90); // 侧视图
+                
+                updateRender();
             });
         });
     </script>
 </body>
-
 </html>

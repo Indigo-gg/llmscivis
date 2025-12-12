@@ -35,7 +35,7 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
     """
 
     # 默认系统提示词，结构化输出格式
-    # 关键修改点：定义了更丰富的JSON结构，增加了 phase, step_name, vtk_modules
+    # 关键修改点：定义了更丰富的JSON结构，增加了 phase, step_name, vtk_modules, weight
     default_system = f"""
     You are a professional VTK.js visualization pipeline architect. Your goal is to break down the user's request into a structured visualization pipeline.
     
@@ -48,6 +48,7 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
             "phase": "Data Loading",       // Choose one: "Data Loading", "Data Processing", "Visualization Setup", "UI Configuration", "Rendering & Interaction"
             "step_name": "Short Title",    // Max 5 words, for the flowchart node title (e.g., "Load VTI Dataset")
             "vtk_modules": ["vtkClass"],   // List of key VTK.js classes used in this step (e.g., ["vtkXMLImageDataReader"])
+            "weight": 5,                   // Importance weight (1-10): higher = more critical to user request
             "description": "Full prompt..." // Detailed instruction for the code generation model
         }},
         ...
@@ -76,24 +77,28 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
             "phase": "Data Loading",
             "step_name": "Load Dataset",
             "vtk_modules": ["vtkXMLImageDataReader", "vtkHttpDataSetReader"],
+            "weight":3,
             "description": "Load the rotor dataset from 'http://127.0.0.1:5000/dataset/rotor.vti' using vtkXMLImageDataReader."
         }},
         {{
             "phase": "Data Processing",
             "step_name": "Slice Data",
             "vtk_modules": ["vtkImageSlice", "vtkPlane"],
+            "weight": 10,
             "description": "Set 'Pressure' as the active scalar. Apply a slice along the Y-axis at 80% depth using vtkImageSlice logic."
         }},
         {{
             "phase": "Visualization Setup",
             "step_name": "Color Mapping",
             "vtk_modules": ["vtkColorTransferFunction", "vtkImageMapper"],
+            "weight": 6,
             "description": "Map the 'Pressure' scalar values to a Blue-White-Red color gradient using vtkColorTransferFunction."
         }},
         {{
             "phase": "Rendering & Interaction",
             "step_name": "Render Scene",
             "vtk_modules": ["vtkRenderWindow", "vtkRenderer", "vtkRenderWindowInteractor"],
+            "weight": 2,
             "description": "Initialize the render window, renderer, and interactor to display the visualization."
         }}
     ]
@@ -101,6 +106,64 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
     Warning: You must output the result in the specified JSON format strictly. Do not output any other content.
     Output only one valid JSON object.""" 
 
+
+
+
+
+    default_system_v1 = f"""
+You are a professional VTK.js visualization pipeline architect. Your goal is to break down the user's request into a structured visualization pipeline.
+
+# Output Format Requirements (Strict JSON)
+1. Your response must contain only one valid JSON object, which is a list of steps.
+2. Each step object must strictly follow this schema:
+
+[
+    {{
+        "weight": 5,                   // Importance weight (1-10): higher = more critical to user request
+        "description": "Full prompt..." // Detailed instruction for the code generation model
+    }},
+    ...
+]
+
+3. No markdown, no code blocks, no explanations. Just the raw JSON list.
+4. Ensure the logical flow allows the output of one step to be the input of the next.
+5. Perform the core thinking process silently and do not output it. Only output the final JSON.
+"""
+
+# Construct the analysis prompt
+    analysis_prompt_v1 = f"""Please analyze the following user query and construct a VTK.js visualization pipeline:
+
+# Available API Knowledge Base
+{VTKJS_COMMON_APIS}
+
+# User Query
+{query}
+
+# Example 
+Input: "Generate HTML with vtk.js to visualize sliced rotor data, map pressure to blue-red color, and add a slice at 80%."
+
+Output:
+[
+    {{
+        "weight": 8,
+        "description": "Load the rotor dataset from 'http://127.0.0.1:5000/dataset/rotor.vti' using vtkXMLImageDataReader."
+    }},
+    {{
+        "weight": 9,
+        "description": "Set 'Pressure' as the active scalar. Apply a slice along the Y-axis at 80% depth using vtkImageSlice logic."
+    }},
+    {{
+        "weight": 9,
+        "description": "Map the 'Pressure' scalar values to a Blue-White-Red color gradient using vtkColorTransferFunction."
+    }},
+    {{
+        "weight": 6,
+        "description": "Initialize the render window, renderer, and interactor to display the visualization."
+    }}
+]
+
+Warning: You must output the result in the specified JSON format strictly. Do not output any other content.
+Output only one valid JSON object."""
     # 从LLM获取回答
     try:
         result = ''
@@ -144,6 +207,10 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
                 # 验证结果是否为数组且每个元素都有description字段
                 if isinstance(result, list) and all(isinstance(item, dict) and 'description' in item for item in result):
                     print('验证JSON格式正确：数组且每个元素都包含description字段')
+                    # 为下一个处理步骤：对于不包含weight的项，使用默认值
+                    for item in result:
+                        if 'weight' not in item:
+                            item['weight'] = 5  # 默认权重值
                 else:
                     print('JSON格式不符合要求：不是数组或元素缺少description字段')
                     return None
@@ -158,6 +225,10 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
                     # 验证结果是否为数组且每个元素都有description字段
                     if isinstance(result, list) and all(isinstance(item, dict) and 'description' in item for item in result):
                         print('验证JSON格式正确：数组且每个元素都包含description字段')
+                        # 为下一个处理步骤：对于不包含weight的项，使用默认值
+                        for item in result:
+                            if 'weight' not in item:
+                                item['weight'] = 5  # 默认权重值
                     else:
                         print('JSON格式不符合要求：不是数组或元素缺少description字段')
                         return None

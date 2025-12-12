@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<title>Deepwater Dataset Isosurface Visualization</title>
+<style>
+body {
+margin: 0;
+padding: 0;
+overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+<script>
+// Import necessary VTK.js modules
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+const vtkDataArray = vtk.Common.Core.vtkDataArray;
+const vtkMapper = vtk.Rendering.Core.vtkMapper;
+const vtkActor = vtk.Rendering.Core.vtkActor;
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+
+// Create full screen render window
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+// Load dataset from the given URL
+const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
+reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+reader.loadData().then(() => {
+const dataset = reader.getOutputData();
+
+// Compute velocity magnitude from v02 and v03 if available
+let scalarName = 'prs'; // default scalar
+const v02 = dataset.getPointData().getArrayByName('v02');
+const v03 = dataset.getPointData().getArrayByName('v03');
+if (v02 && v03) {
+const numPoints = dataset.getNumberOfPoints();
+const vMagData = new Float32Array(numPoints);
+for (let i = 0; i < numPoints; i++) {
+const v2 = v02.getTuple(i);
+const v3 = v03.getTuple(i);
+vMagData[i] = Math.sqrt(v2[0] * v2[0] + v3[0] * v3[0]);
+}
+const vMagArray = vtkDataArray.newInstance({
+name: 'VelocityMagnitude',
+values: vMagData,
+numberOfComponents: 1,
+});
+dataset.getPointData().addArray(vMagArray);
+scalarName = 'VelocityMagnitude';
+}
+
+// Get scalar range
+const scalarRange = dataset.getPointData().getArrayByName(scalarName).getRange();
+const isoValue = (scalarRange[0] + scalarRange[1]) / 2;
+
+// Create isosurface filter
+const contour = vtk.Filters.General.vtkContourFilter.newInstance();
+contour.setInputData(dataset);
+contour.setNumberOfContours(1);
+contour.setValue(0, isoValue);
+
+// Create mapper and actor
+const mapper = vtkMapper.newInstance();
+mapper.setInputConnection(contour.getOutputPort());
+mapper.setScalarModeToUsePointData();
+mapper.selectColorArray(scalarName);
+mapper.setScalarVisibility(true);
+mapper.useLookupTableScalarRangeOn();
+mapper.setLookupTable(vtkColorTransferFunction.newInstance());
+mapper.update();
+
+const actor = vtkActor.newInstance();
+actor.setMapper(mapper);
+actor.getProperty().setOpacity(1.0); // Fully opaque
+actor.getProperty().setInterpolationToPhong(); // Smooth shading
+
+// Set up color map: blue → white → red
+const ctf = mapper.getLookupTable();
+ctf.setMappingRange(scalarRange[0], scalarRange[1]);
+ctf.addRGBPoint(scalarRange[0], 0, 0, 1); // blue
+ctf.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // white
+ctf.addRGBPoint(scalarRange[1], 1, 0, 0); // red
+ctf.build();
+
+// Add actor to renderer
+renderer.addActor(actor);
+renderer.resetCamera();
+renderWindow.render();
+
+// Add orientation marker
+const cubeActor = vtkAnnotatedCubeActor.newInstance();
+const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+actor: cubeActor,
+interactor: fullScreenRenderer.getInteractor(),
+});
+orientationWidget.setInteractor(fullScreenRenderer.getInteractor());
+orientationWidget.setEnabled(true);
+orientationWidget.setOrigin(0.8, 0.05); // Bottom-right corner
+});
+});
+</script>
+</body>
+
+</html>

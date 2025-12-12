@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VTK.js - Isabel Streamline Visualization</title>
+  <script type="module">
+    import 'https://unpkg.com/vtk.js@34.10.0/vtk.js';
+
+    // Import necessary VTK modules
+    import vtkFullScreenRenderWindow from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Misc/FullScreenRenderWindow.js';
+    import vtkXMLImageDataReader from 'https://unpkg.com/vtk.js@34.10.0/Sources/IO/XML/XMLImageDataReader.js';
+    import vtkHttpDataSetReader from 'https://unpkg.com/vtk.js@34.10.0/Sources/IO/Core/HttpDataSetReader.js';
+    import vtkStreamTracer from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/Flow/StreamTracer.js';
+    import vtkLineSource from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/Sources/LineSource.js';
+    import vtkTubeFilter from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/TubeFilter.js';
+    import vtkMapper from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Mapper.js';
+    import vtkActor from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Actor.js';
+    import vtkOutlineFilter from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/OutlineFilter.js';
+
+    // ----------------------------------------------------------------------------
+    // Setup rendering environment
+    // ----------------------------------------------------------------------------
+
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Load VTI Isabel Dataset
+    // ----------------------------------------------------------------------------
+
+    const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: false });
+
+    // Load the dataset from the specified URL
+    // ✅ User requirement: Load from http://127.0.0.1:5000/dataset/isabel.vti
+    reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData();
+
+        // Get dataset bounds
+        const bounds = imageData.getBounds();
+        const center = [
+          (bounds[0] + bounds[1]) / 2,
+          (bounds[2] + bounds[3]) / 2,
+          (bounds[4] + bounds[5]) / 2,
+        ];
+
+        // ----------------------------------------------------------------------------
+        // Generate seed points for streamlines
+        // ----------------------------------------------------------------------------
+
+        // ✅ User requirement: Seed at center with sufficient density
+        const seedLine = vtkLineSource.newInstance({
+          point1: [center[0] - 10, center[1], center[2]],
+          point2: [center[0] + 10, center[1], center[2]],
+          resolution: 50, // More resolution = more seed points
+        });
+
+        // ----------------------------------------------------------------------------
+        // Setup Stream Tracer
+        // ----------------------------------------------------------------------------
+
+        // ✅ User requirement: Use "Velocity" array
+        const streamTracer = vtkStreamTracer.newInstance({
+          inputConnection: imageData.getOutputPort(),
+          seedConnection: seedLine.getOutputPort(),
+          integratorType: 'RungeKutta4',
+          maximumPropagation: 200,
+          initialIntegrationStep: 0.5,
+          integrationDirection: 2, // FORWARD and BACKWARD
+        });
+        streamTracer.setInputArrayToProcess(0, 'Velocity', 'pointData', 'vectors');
+
+        // ----------------------------------------------------------------------------
+        // Tube Filter to visualize streamlines as tubes
+        // ----------------------------------------------------------------------------
+
+        // ✅ User requirement: Render streamlines in cyan with line width
+        const tubeFilter = vtkTubeFilter.newInstance();
+        tubeFilter.setInputConnection(streamTracer.getOutputPort());
+        tubeFilter.setRadius(0.3);
+        tubeFilter.setNumberOfSides(12);
+
+        const streamlineMapper = vtkMapper.newInstance();
+        streamlineMapper.setInputConnection(tubeFilter.getOutputPort());
+
+        const streamlineActor = vtkActor.newInstance();
+        streamlineActor.setMapper(streamlineMapper);
+        streamlineActor.getProperty().setColor(0, 1, 1); // Cyan
+        streamlineActor.getProperty().setLineWidth(2);    // Line width
+
+        renderer.addActor(streamlineActor);
+
+        // ----------------------------------------------------------------------------
+        // Add dataset outline in red
+        // ----------------------------------------------------------------------------
+
+        // ✅ User requirement: Outline in red with specified line width
+        const outline = vtkOutlineFilter.newInstance();
+        outline.setInputData(imageData);
+
+        const outlineMapper = vtkMapper.newInstance();
+        outlineMapper.setInputConnection(outline.getOutputPort());
+
+        const outlineActor = vtkActor.newInstance();
+        outlineActor.setMapper(outlineMapper);
+        outlineActor.getProperty().setColor(1, 0, 0); // Red
+        outlineActor.getProperty().setLineWidth(2);   // Line width
+
+        renderer.addActor(outlineActor);
+
+        // ----------------------------------------------------------------------------
+        // Final render
+        // ----------------------------------------------------------------------------
+
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+    });
+  </script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+</body>
+</html>

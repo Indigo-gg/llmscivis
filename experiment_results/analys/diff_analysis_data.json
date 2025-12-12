@@ -1,0 +1,106 @@
+{
+  "claude_sonnet_4": {
+    "cutter": {
+      "added": 4,
+      "deleted": 5,
+      "total": 9,
+      "changed": 1
+    },
+    "isosurface": {
+      "added": 6,
+      "deleted": 6,
+      "total": 12,
+      "changed": 6
+    },
+    "stream_trancing": {
+      "added": 5,
+      "deleted": 3,
+      "total": 8,
+      "changed": 3
+    },
+    "volume": {
+      "added": 21,
+      "deleted": 39,
+      "total": 60,
+      "changed": 16
+    }
+  },
+  "deepseek-v3": {
+    "cutter": {
+      "added": 6,
+      "deleted": 5,
+      "total": 11,
+      "changed": 5
+    },
+    "isosurface": {
+      "added": 95,
+      "deleted": 104,
+      "total": 199,
+      "changed": 61
+    },
+    "stream_trancing": {
+      "added": 9,
+      "deleted": 6,
+      "total": 15,
+      "changed": 6
+    },
+    "volume": {
+      "added": 35,
+      "deleted": 38,
+      "total": 73,
+      "changed": 14
+    }
+  },
+  "gpt_5_with_rag": {
+    "cutter": {
+      "added": 0,
+      "deleted": 0,
+      "total": 0,
+      "changed": 0
+    },
+    "isosurface": {
+      "added": 9,
+      "deleted": 7,
+      "total": 16,
+      "changed": 4
+    },
+    "stream_trancing": {
+      "added": 0,
+      "deleted": 0,
+      "total": 0,
+      "changed": 0
+    },
+    "volume": {
+      "added": 1,
+      "deleted": 1,
+      "total": 2,
+      "changed": 0
+    }
+  },
+  "qwen3_max_with_rag": {
+    "cutter": {
+      "added": 9,
+      "deleted": 7,
+      "total": 16,
+      "changed": 4
+    },
+    "isosurface": {
+      "added": 58,
+      "deleted": 90,
+      "total": 148,
+      "changed": 25
+    },
+    "stream_trancing": {
+      "added": 9,
+      "deleted": 11,
+      "total": 20,
+      "changed": 5
+    },
+    "volume": {
+      "added": 28,
+      "deleted": 17,
+      "total": 45,
+      "changed": 15
+    }
+  }
+}

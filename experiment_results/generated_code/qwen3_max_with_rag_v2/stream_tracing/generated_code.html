@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isabel Dataset Streamlines</title>
+</head>
+<body>
+    <div id="renderer"></div>
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // Import required VTK modules
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkSampleFunction = vtk.Imaging.Hybrid.vtkSampleFunction;
+        const vtkRTAnalyticSource = vtk.Filters.Sources.vtkRTAnalyticSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkRenderWindow = vtk.Rendering.Core.vtkRenderWindow;
+        const vtkRenderer = vtk.Rendering.Core.vtkRenderer;
+        const vtkRenderWindowInteractor = vtk.Rendering.Core.vtkRenderWindowInteractor;
+
+        // Create renderer, render window, and interactor
+        const renderer = vtkRenderer.newInstance({ background: [0, 0, 0] });
+        const renderWindow = vtkRenderWindow.newInstance();
+        renderWindow.addRenderer(renderer);
+        const interactor = vtkRenderWindowInteractor.newInstance();
+        interactor.setRenderWindow(renderWindow);
+
+        // Get container div
+        const container = document.getElementById('renderer');
+        renderWindow.addView(container);
+
+        // Load Isabel dataset from local server
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+            const imageData = reader.getOutputData(0);
+            const bounds = imageData.getBounds();
+
+            // Generate dense seed points centered in the dataset domain
+            // Using RTAnalyticSource to create a structured grid of seed points
+            const seedSource = vtkRTAnalyticSource.newInstance();
+            seedSource.setWholeExtent(
+                Math.floor(bounds[0]), Math.floor(bounds[1]),
+                Math.floor(bounds[2]), Math.floor(bounds[3]),
+                Math.floor(bounds[4]), Math.floor(bounds[5])
+            );
+            seedSource.setCenter(
+                (bounds[0] + bounds[1]) / 2,
+                (bounds[2] + bounds[3]) / 2,
+                (bounds[4] + bounds[5]) / 2
+            );
+            // Adjust scale to ensure sufficient coverage
+            seedSource.setMaximum(100);
+            seedSource.update();
+
+            // Compute streamlines using vtkImageStreamline
+            const streamline = vtkImageStreamline.newInstance();
+            streamline.setInputConnection(reader.getOutputPort());
+            streamline.setInputConnection(seedSource.getOutputPort(), 1);
+            streamline.setIntegrationStep(0.1);
+            streamline.setMaximumIntegrationTime(100);
+            streamline.update();
+
+            // Style streamlines as cyan lines with specified line width
+            const streamlineMapper = vtkMapper.newInstance();
+            streamlineMapper.setInputConnection(streamline.getOutputPort());
+            const streamlineActor = vtkActor.newInstance();
+            streamlineActor.setMapper(streamlineMapper);
+            streamlineActor.getProperty().setColor(0, 1, 1); // Cyan color [0, 1, 1]
+            streamlineActor.getProperty().setLineWidth(2);
+            renderer.addActor(streamlineActor);
+
+            // Apply outline filter to dataset and render in red
+            const outlineFilter = vtkOutlineFilter.newInstance();
+            outlineFilter.setInputConnection(reader.getOutputPort());
+            const outlineMapper = vtkMapper.newInstance();
+            outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+            const outlineActor = vtkActor.newInstance();
+            outlineActor.setMapper(outlineMapper);
+            outlineActor.getProperty().setColor(1, 0, 0); // Red color [1, 0, 0]
+            outlineActor.getProperty().setLineWidth(3);
+            renderer.addActor(outlineActor);
+
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+
+        // Initialize interactor
+        interactor.initialize();
+        interactor.bindEvents(container);
+    </script>
+</body>
+</html>

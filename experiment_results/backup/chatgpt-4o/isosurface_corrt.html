@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Deepwater Isosurface Visualization</title>
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="container"></div>
+  <script>
+    // ----------------------------------------------------------------------------
+    // Import required VTK.js modules
+    // ----------------------------------------------------------------------------
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+    const vtkContourFilter = vtk.Filters.General.vtkContourFilter;
+    const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+    const vtkCalculator = vtk.Filters.General.vtkCalculator;
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    // ----------------------------------------------------------------------------
+    // Create renderer and render window
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0.1, 0.1, 0.1],
+      rootContainer: document.getElementById('container')
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Load the dataset
+    // ----------------------------------------------------------------------------
+    const reader = vtkXMLImageDataReader.newInstance();
+    reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData();
+        const pointData = imageData.getPointData();
+
+        // ----------------------------------------------------------------------------
+        // Compute velocity magnitude if v02 and v03 exist, otherwise use 'prs'
+        // ----------------------------------------------------------------------------
+        const arrayNames = pointData.getArrays().map(arr => arr.getName());
+        let scalarName = 'prs';
+
+        if (arrayNames.includes('v02') && arrayNames.includes('v03')) {
+        const v02Array = pointData.getArrayByName('v02');
+        const v03Array = pointData.getArrayByName('v03');
+        if (v02Array && v03Array) {
+            const numPoints = imageData.getNumberOfPoints();
+            const magnitudeData = new Float64Array(numPoints);
+            const v02 = v02Array.getData();
+            const v03 = v03Array.getData();
+            for (let i = 0; i < numPoints; i++) {
+                magnitudeData[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+            }
+            const vtkDataArray = vtk.Common.Core.vtkDataArray;
+            const magnitudeVtkArray = vtkDataArray.newInstance({
+                numberOfComponents: 1,
+                values: magnitudeData,
+                name: 'velocityMag',
+            });
+            pointData.addArray(magnitudeVtkArray);
+            pointData.setActiveScalars('velocityMag');
+        }
+          scalarName = 'velocityMag';
+        }
+
+        // ----------------------------------------------------------------------------
+        // Create contour filter (isosurface) at mid-value of scalar range
+        // ----------------------------------------------------------------------------        
+        setTimeout(() => {
+          const scalars = pointData.getArrayByName(scalarName);
+          const range = scalars.getRange();
+          const midValue = (range[0] + range[1]) / 2;
+           const marchingCubes = vtkImageMarchingCubes.newInstance({
+            contourValue: midValue,
+            computeNormals: true,
+            mergePoints: true,
+        });
+        marchingCubes.setInputData(imageData);
+        renderWindow.render(); // Ensure pipeline updates
+          // ----------------------------------------------------------------------------
+          // Create mapper and actor
+          // ----------------------------------------------------------------------------
+          const mapper = vtkMapper.newInstance();
+          mapper.setInputConnection(marchingCubes.getOutputPort());
+
+          // Set color mapping: blue → white → red
+          const lookupTable = vtkColorTransferFunction.newInstance();
+          lookupTable.addRGBPoint(range[0], 0, 0, 1);     // Blue
+          lookupTable.addRGBPoint(midValue, 1, 1, 1);     // White
+          lookupTable.addRGBPoint(range[1], 1, 0, 0);     // Red
+
+          mapper.setLookupTable(lookupTable);
+          mapper.setUseLookupTableScalarRange(true);
+
+          const actor = vtkActor.newInstance();
+          actor.setMapper(mapper);
+
+          // Fully opaque and smooth shading
+          actor.getProperty().setOpacity(1.0);
+          actor.getProperty().setInterpolationToPhong(); // smooth shading
+
+          // ----------------------------------------------------------------------------
+          // Add actor and render
+          // ----------------------------------------------------------------------------
+          renderer.addActor(actor);
+          renderer.resetCamera();
+          renderWindow.render();
+        }, 500); // delay to allow scalar data to load
+
+        // ----------------------------------------------------------------------------
+        // Add orientation marker in bottom-right corner
+        // ----------------------------------------------------------------------------
+        const axes = vtkAxesActor.newInstance();
+        const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+          actor: axes,
+          interactor: renderWindow.getInteractor(),
+        });
+        orientationWidget.setEnabled(true);
+        orientationWidget.setViewportCorner(
+          vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+        );
+        orientationWidget.setViewportSize(0.15);
+        orientationWidget.setMinPixelSize(100);
+        orientationWidget.setMaxPixelSize(300);
+      });
+    });
+
+  </script>
+</body>
+
+</html>

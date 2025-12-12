@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotor Dataset Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #renderer {
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // VTK.js module references
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+        const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;
+
+        // Create full screen render window
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0.1, 0.1, 0.1],
+        });
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+        const renderer = fullScreenRenderWindow.getRenderer();
+        
+        // Function to fetch the VTI data using XMLHttpRequest
+        async function loadVTIData(url) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.responseType = 'arraybuffer';
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        resolve(xhr.response);
+                    } else {
+                        reject(new Error(`Failed to load data: ${xhr.status}`));
+                    }
+                };
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.open('GET', url);
+                xhr.send();
+            });
+        }
+
+        // Main function to load and visualize the rotor dataset
+        async function visualizeRotorDataset() {
+            try {
+                // Load the dataset from the specified URL
+                const data = await loadVTIData('http://127.0.0.1:5000/dataset/rotor.vti');
+                
+                // Create VTK XML Image Data Reader to parse the VTI file
+                const reader = vtkXMLImageDataReader.newInstance();
+                reader.parseAsArrayBuffer(data);
+                
+                const imageData = reader.getOutputData();
+                
+                // REQUIREMENT: Set the active scalar array to "Pressure"
+                const pressureArray = imageData.getPointData().getArrayByName('Pressure');
+                if (pressureArray) {
+                    imageData.getPointData().setActiveScalars('Pressure');
+                    console.log('Set active scalar array to "Pressure"');
+                } else {
+                    console.error('Pressure array not found in dataset');
+                    return;
+                }
+                
+                // Get dataset dimensions and calculate slice position
+                const dimensions = imageData.getDimensions();
+                const extent = imageData.getExtent();
+                
+                // REQUIREMENT: Apply a slice along the Y axis at 95% depth
+                // Convert percentage to slice index (95% depth means 95% through the Y dimension)
+                const yRange = extent[3] - extent[2]; // Max Y - Min Y
+                const sliceIndex = extent[2] + Math.floor(yRange * 0.95);
+                console.log(`Y-axis slice at 95% depth: index ${sliceIndex} of range [${extent[2]}, ${extent[3]}]`);
+                
+                // Create image mapper and set the Y-axis slice (J-slice)
+                const imageMapper = vtkImageMapper.newInstance();
+                imageMapper.setInputData(imageData);
+                imageMapper.setJSlice(sliceIndex); // J-slice corresponds to Y-axis
+                
+                // Create image slice actor
+                const imageActor = vtkImageSlice.newInstance();
+                imageActor.setMapper(imageMapper);
+                
+                // REQUIREMENT: Get pressure scalar range for color mapping
+                const scalarRange = pressureArray.getRange();
+                console.log(`Pressure scalar range: [${scalarRange[0]}, ${scalarRange[1]}]`);
+                
+                // REQUIREMENT: Create blue → white → red color map
+                const colorTransferFunction = vtkColorTransferFunction.newInstance();
+                const minValue = scalarRange[0];
+                const maxValue = scalarRange[1];
+                const midValue = (minValue + maxValue) / 2;
+                
+                // Blue at minimum value
+                colorTransferFunction.addRGBPoint(minValue, 0.0, 0.0, 1.0);
+                // White at middle value
+                colorTransferFunction.addRGBPoint(midValue, 1.0, 1.0, 1.0);
+                // Red at maximum value
+                colorTransferFunction.addRGBPoint(maxValue, 1.0, 0.0, 0.0);
+                
+                // Apply color transfer function to the actor
+                imageActor.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+                
+                // REQUIREMENT: Set opacity to fully opaque (no transparency variation)
+                imageActor.getProperty().setOpacity(1.0);
+                console.log('Set opacity to fully opaque (1.0)');
+                
+                // Add the image actor to the renderer
+                renderer.addActor(imageActor);
+                
+                // REQUIREMENT: Add orientation marker with XYZ axes in bottom-right corner
+                const axes = vtkAxesActor.newInstance();
+                axes.setShaftTypeToCylinder();
+                axes.setXAxisLabelText('X');
+                axes.setYAxisLabelText('Y');
+                axes.setZAxisLabelText('Z');
+                
+                const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                    actor: axes,
+                    interactor: renderWindow.getInteractor(),
+                });
+                
+                // Position the orientation marker in the bottom-right corner
+                orientationWidget.setEnabled(true);
+                orientationWidget.setViewport([0.8, 0.0, 1.0, 0.2]); // Bottom-right corner
+                console.log('Added XYZ orientation marker in bottom-right corner');
+                
+                // Reset camera and render
+                renderer.resetCamera();
+                renderer.resetCameraClippingRange();
+                renderWindow.render();
+                
+                console.log('Rotor dataset visualization complete');
+                
+            } catch (error) {
+                console.error('Error loading or visualizing dataset:', error);
+            }
+        }
+        
+        // Initialize the visualization
+        visualizeRotorDataset();
+        
+    </script>
+</body>
+</html>

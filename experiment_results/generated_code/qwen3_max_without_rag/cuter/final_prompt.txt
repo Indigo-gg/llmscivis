@@ -1,0 +1,16 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the rotor dataset._x000d__x000d_
+_x000d__x000d_
+- Load the dataset from: http://127.0.0.1:5000/dataset/rotor.vti_x000d__x000d_
+- Set the active scalar array to "Pressure"._x000d__x000d_
+- Apply a slice along the Y axis at 95% depth of the dataset (convert percentage to slice index)._x000d__x000d_
+- Use a blue → white → red color map for pressure values, spanning from the minimum to maximum scalar range._x000d__x000d_
+- Set opacity to fully opaque (no transparency variation)._x000d__x000d_
+- Add an orientation marker with XYZ axes in the bottom-right corner._x000d__x000d_
+- No interactive GUI controls are required._x000d__x000d_
+
+
+Relevant VTK.js Examples:
+No examples provided (direct generation mode).

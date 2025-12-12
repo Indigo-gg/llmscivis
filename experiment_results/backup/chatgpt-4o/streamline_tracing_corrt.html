@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Isabel Streamline Visualization</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #vtk-container { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="vtk-container"></div>
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // ----------------------------------------------------------------------------
+    // Load necessary VTK.js modules
+    // ----------------------------------------------------------------------------
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+    const vtkStreamTracer = vtk.Filters.General.vtkStreamTracer;
+    const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+    const vtkPointSource = vtk.Filters.Sources.vtkPointSource;
+    const vtkTubeFilter = vtk.Filters.General.vtkTubeFilter;
+
+    const vtkXMLImageDataReader=vtk.IO.XML.vtkXMLImageDataReader;
+    // ----------------------------------------------------------------------------
+    // Create renderer, render window, and interactor
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0.1, 0.1, 0.1],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Load the Isabel dataset from the given URL
+    // ----------------------------------------------------------------------------
+    const reader=vtkXMLImageDataReader.newInstance()
+    reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData();
+
+        // Requirement: Use "Velocity" vector field for streamlines
+        const vectorField = 'Velocity';
+
+        // ----------------------------------------------------------------------------
+        // Generate seed points at the center of the dataset
+        // ----------------------------------------------------------------------------
+        const bounds = imageData.getBounds();
+        const center = [
+          (bounds[0] + bounds[1]) / 2,
+          (bounds[2] + bounds[3]) / 2,
+          (bounds[4] + bounds[5]) / 2,
+        ];
+
+        const pointSource = vtkPointSource.newInstance({
+          center,
+          numberOfPoints: 500, // Requirement: sufficient density to cover the domain
+          radius: Math.max(
+            bounds[1] - bounds[0],
+            bounds[3] - bounds[2],
+            bounds[5] - bounds[4]
+          ) * 0.4,
+          distribution: 1, // Uniform distribution
+        });
+        
+        // ----------------------------------------------------------------------------
+        // Compute streamlines using vtkStreamTracer
+        // ----------------------------------------------------------------------------
+        const streamline = vtkImageStreamline.newInstance();
+            streamline.setInputData(imageData);
+            streamline.setInputConnection(pointSource.getOutputPort(), 1); // 种子点数据
+            streamline.set({maximumNumberOfSteps: 1000,integrationStep: 0.5});
+        // ----------------------------------------------------------------------------
+        // Enhance streamline appearance with vtkTubeFilter
+        // ----------------------------------------------------------------------------
+        const tubeFilter = vtkTubeFilter.newInstance({
+          numberOfSides: 12,
+          radius: 0.5,
+          varyRadius: 'VARY_RADIUS_OFF',
+        });
+        tubeFilter.setInputConnection(streamline.getOutputPort());
+
+        const streamlineMapper = vtkMapper.newInstance();
+        streamlineMapper.setInputConnection(tubeFilter.getOutputPort());
+
+        const streamlineActor = vtkActor.newInstance();
+        streamlineActor.setMapper(streamlineMapper);
+        streamlineActor.getProperty().setColor(0, 1, 1); // Requirement: cyan [0,1,1]
+        streamlineActor.getProperty().setLineWidth(2);    // Requirement: specified line width
+
+        renderer.addActor(streamlineActor);
+
+        // ----------------------------------------------------------------------------
+        // Add dataset outline in red using vtkOutlineFilter
+        // ----------------------------------------------------------------------------
+        const outline = vtkOutlineFilter.newInstance();
+        outline.setInputData(imageData);
+
+        const outlineMapper = vtkMapper.newInstance();
+        outlineMapper.setInputConnection(outline.getOutputPort());
+
+        const outlineActor = vtkActor.newInstance();
+        outlineActor.setMapper(outlineMapper);
+        outlineActor.getProperty().setColor(1, 0, 0); // Requirement: red [1,0,0]
+        outlineActor.getProperty().setLineWidth(2);   // Requirement: specified line width
+
+        renderer.addActor(outlineActor);
+
+        // ----------------------------------------------------------------------------
+        // Final rendering
+        // ----------------------------------------------------------------------------
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+    });
+  </script>
+</body>
+</html>

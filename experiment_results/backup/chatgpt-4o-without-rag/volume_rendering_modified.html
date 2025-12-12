@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redsea Volume Rendering</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+      }
+      #vtk-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+      }
+    </style>
+    <!-- VTK.js from CDN -->
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  </head>
+  <body>
+    <div id="vtk-container"></div>
+    <script>
+      // ----------------------------------------------------------------------------
+      // VTK.js modules import
+      // ----------------------------------------------------------------------------
+      const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+      const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+      const vtkVolume = vtk.Rendering.Core.vtkVolume;
+      const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+      const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+      const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+      const vtkDataArray = vtk.Common.Core.vtkDataArray;
+      
+      const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+      // ----------------------------------------------------------------------------
+      // Create render window, renderer, etc.
+      // ----------------------------------------------------------------------------
+      const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+        background: [0, 0, 0],
+        rootContainer: document.getElementById('vtk-container'),
+        containerStyle: { height: '100%' },
+      });
+      const renderer = fullScreenRenderer.getRenderer();
+      const renderWindow = fullScreenRenderer.getRenderWindow();
+
+      // ----------------------------------------------------------------------------
+      // Load VTI dataset from provided URL
+      // ----------------------------------------------------------------------------
+      const reader=vtkXMLImageDataReader.newInstance();
+
+      // Set URL to dataset (User Requirement: Load from specific path)
+      reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+        reader.loadData().then(() => {
+          const data = reader.getOutputData();
+
+          // ----------------------------------------------------------------------------
+          // Compute velocity magnitude from velocity vector
+          // ----------------------------------------------------------------------------
+          const velocityArray = data.getPointData().getArrayByName('velocity');
+          const velocityData = velocityArray.getData();
+          const numTuples = velocityArray.getNumberOfTuples();
+
+          const magnitudeData = new Float32Array(numTuples);
+          for (let i = 0; i < numTuples; i++) {
+            const x = velocityData[i * 3];
+            const y = velocityData[i * 3 + 1];
+            const z = velocityData[i * 3 + 2];
+            magnitudeData[i] = Math.sqrt(x * x + y * y + z * z);
+          }
+
+          const magnitudeArray = vtkDataArray.newInstance({
+            name: 'velocityMagnitude',
+            values: magnitudeData,
+          });
+
+          data.getPointData().addArray(magnitudeArray);
+          data.getPointData().setActiveScalars('velocityMagnitude'); // Requirement: Set as active scalar
+
+          // ----------------------------------------------------------------------------
+          // Create volume mapper and volume actor
+          // ----------------------------------------------------------------------------
+          const volumeMapper = vtkVolumeMapper.newInstance();
+          volumeMapper.setSampleDistance(0.7);
+          volumeMapper.setInputData(data);
+
+          const volume = vtkVolume.newInstance();
+          volume.setMapper(volumeMapper);
+
+          // ----------------------------------------------------------------------------
+          // Create color transfer function (User Requirement: blue → white → red)
+          // ----------------------------------------------------------------------------
+          const colorTransferFunction = vtkColorTransferFunction.newInstance();
+          const dataRange = magnitudeArray.getRange();
+          const min = dataRange[0];
+          const max = dataRange[1];
+          const mid = (min + max) / 2;
+
+          colorTransferFunction.addRGBPoint(min, 0.0, 0.0, 1.0); // Blue
+          colorTransferFunction.addRGBPoint(mid, 1.0, 1.0, 1.0); // White
+          colorTransferFunction.addRGBPoint(max, 1.0, 0.0, 0.0); // Red
+
+          // ----------------------------------------------------------------------------
+          // Create opacity transfer function (User Requirement: piecewise opacity)
+          // ----------------------------------------------------------------------------
+          const opacityFunction = vtkPiecewiseFunction.newInstance();
+          opacityFunction.addPoint(min, 0.0);
+          opacityFunction.addPoint(mid, 0.2);
+          opacityFunction.addPoint(max, 0.8);
+
+          // ----------------------------------------------------------------------------
+          // Set volume properties for realistic rendering (Requirement)
+          // ----------------------------------------------------------------------------
+          const volumeProperty = volume.getProperty();
+          volumeProperty.setRGBTransferFunction(0, colorTransferFunction);
+          volumeProperty.setScalarOpacity(0, opacityFunction);
+          volumeProperty.setScalarOpacityUnitDistance(0, 1.0);
+          volumeProperty.setInterpolationTypeToLinear();
+          volumeProperty.setShade(true);                // Enable shading
+          volumeProperty.setAmbient(0.2);               // Ambient light
+          volumeProperty.setDiffuse(0.7);               // Diffuse reflection
+          volumeProperty.setSpecular(0.3);              // Specular highlight
+
+          // ----------------------------------------------------------------------------
+          // Add volume to scene
+          // ----------------------------------------------------------------------------
+          renderer.addVolume(volume);
+          renderer.resetCamera(); // Center camera on dataset
+
+          // ----------------------------------------------------------------------------
+          // Adjust camera to look along +Z axis (Requirement)
+          // ----------------------------------------------------------------------------
+          const camera = renderer.getActiveCamera();
+          const center = data.getCenter();
+          camera.setFocalPoint(...center);
+          camera.setPosition(center[0], center[1], center[2] + 500); // +Z
+          camera.setViewUp([0, 1, 0]);
+          renderer.resetCameraClippingRange();
+          
+          renderWindow.render();
+        });
+      });
+    </script>
+  </body>
+</html>

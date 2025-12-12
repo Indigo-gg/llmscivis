@@ -1,0 +1,98 @@
+<!DOCTYPE html>_x000d__x000d_
+<html lang="en">_x000d__x000d_
+_x000d__x000d_
+<head>_x000d__x000d_
+<meta charset="UTF-8">_x000d__x000d_
+<meta name="viewport" content="width=device-width, initial-scale=1.0">_x000d__x000d_
+<title>Isosurface Rendering for Isabel Dataset</title>_x000d__x000d_
+</head>_x000d__x000d_
+_x000d__x000d_
+<body>_x000d__x000d_
+<!-- Renderer container -->_x000d__x000d_
+<div id="renderer"></div>_x000d__x000d_
+<!-- Load VTK.js library -->_x000d__x000d_
+<script src="https://unpkg.com/vtk.js"></script>_x000d__x000d_
+<script>_x000d__x000d_
+// Import required VTK.js classes_x000d__x000d_
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;_x000d__x000d_
+const vtkActor = vtk.Rendering.Core.vtkActor;_x000d__x000d_
+const vtkMapper = vtk.Rendering.Core.vtkMapper;_x000d__x000d_
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;_x000d__x000d_
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;_x000d__x000d_
+const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;_x000d__x000d_
+_x000d__x000d_
+// Initialize render window, set background color to black_x000d__x000d_
+const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({_x000d__x000d_
+background: [0.1, 0.1, 0.1],_x000d__x000d_
+});_x000d__x000d_
+const renderWindow = fullScreenRenderWindow.getRenderWindow();_x000d__x000d_
+const renderer = fullScreenRenderWindow.getRenderer();_x000d__x000d_
+_x000d__x000d_
+// Create XML image data reader instance_x000d__x000d_
+const reader = vtkXMLImageDataReader.newInstance();_x000d__x000d_
+_x000d__x000d_
+// Set data file URL and load data_x000d__x000d_
+reader.setUrl('..\\..\\..\\vtkjs-benchmark-datasets\\isabel.vti').then(() => {_x000d__x000d_
+// After data URL is set successfully, load data_x000d__x000d_
+reader.loadData().then(() => {_x000d__x000d_
+// Get loaded image data_x000d__x000d_
+const imageData = reader.getOutputData(0);_x000d__x000d_
+_x000d__x000d_
+// Get velocity vector field from data_x000d__x000d_
+const velocityArray = imageData.getPointData().getArrayByName('Velocity');_x000d__x000d_
+// Get total number of data points_x000d__x000d_
+const numPoints = imageData.getNumberOfPoints();_x000d__x000d_
+// Create new array to store velocity magnitude_x000d__x000d_
+const magnitudeData = new Float64Array(numPoints);_x000d__x000d_
+_x000d__x000d_
+// Calculate velocity magnitude (norm of velocity vector) for each point_x000d__x000d_
+for (let i = 0; i < numPoints; i++) {_x000d__x000d_
+// Get three components of velocity_x000d__x000d_
+const vx = velocityArray.getData()[3 * i + 0]; // x component_x000d__x000d_
+const vy = velocityArray.getData()[3 * i + 1]; // y component_x000d__x000d_
+const vz = velocityArray.getData()[3 * i + 2]; // z component_x000d__x000d_
+// Calculate velocity magnitude (Euclidean norm)_x000d__x000d_
+magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);_x000d__x000d_
+}_x000d__x000d_
+_x000d__x000d_
+// Create VTK data array class_x000d__x000d_
+const vtkDataArray = vtk.Common.Core.vtkDataArray;_x000d__x000d_
+// Create VTK array for velocity magnitude_x000d__x000d_
+const magnitudeVtkArray = vtkDataArray.newInstance({_x000d__x000d_
+numberOfComponents: 1, // Scalar data, only one component_x000d__x000d_
+values: magnitudeData, // Data values_x000d__x000d_
+name: 'velocityMagnitude', // Array name_x000d__x000d_
+});_x000d__x000d_
+imageData.getPointData().addArray(magnitudeVtkArray);_x000d__x000d_
+_x000d__x000d_
+imageData.getPointData().setActiveScalars('velocityMagnitude');_x000d__x000d_
+imageData.setSpacing(2.5, 2.5, 1.0);_x000d__x000d_
+_x000d__x000d_
+const newRange = magnitudeVtkArray.getRange();_x000d__x000d_
+console.log('Velocity magnitude range:', newRange);_x000d__x000d_
+const [minV, maxV] = newRange;_x000d__x000d_
+_x000d__x000d_
+const marchingCube = vtkImageMarchingCubes.newInstance({_x000d__x000d_
+contourValue: minV + 0.5 * (maxV - minV), // Set isosurface value to middle of data range_x000d__x000d_
+computeNormals: true, // Compute normals for lighting effects_x000d__x000d_
+mergePoints: true // Merge duplicate points to reduce data size_x000d__x000d_
+});_x000d__x000d_
+_x000d__x000d_
+marchingCube.setInputData(imageData);_x000d__x000d_
+_x000d__x000d_
+const mapper = vtkMapper.newInstance();_x000d__x000d_
+mapper.setInputConnection(marchingCube.getOutputPort());_x000d__x000d_
+_x000d__x000d_
+const actor = vtkActor.newInstance();_x000d__x000d_
+actor.setMapper(mapper);_x000d__x000d_
+renderer.addActor(actor);_x000d__x000d_
+const camera = renderer.getActiveCamera();_x000d__x000d_
+renderer.resetCameraClippingRange();_x000d__x000d_
+renderer.resetCamera();_x000d__x000d_
+renderWindow.render();_x000d__x000d_
+});_x000d__x000d_
+});_x000d__x000d_
+</script>_x000d__x000d_
+</body>_x000d__x000d_
+_x000d__x000d_
+</html>

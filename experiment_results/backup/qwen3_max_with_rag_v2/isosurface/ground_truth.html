@@ -1,0 +1,169 @@
+<!DOCTYPE html>_x000d__x000d_
+<html lang="en">_x000d__x000d_
+_x000d__x000d_
+<head>_x000d__x000d_
+<meta charset="UTF-8">_x000d__x000d_
+<meta name="viewport" content="width=device-width, initial-scale=1.0">_x000d__x000d_
+<title>Isosurface Rendering for Deepwater Dataset</title>_x000d__x000d_
+<style>_x000d__x000d_
+body,_x000d__x000d_
+html {_x000d__x000d_
+margin: 0;_x000d__x000d_
+padding: 0;_x000d__x000d_
+width: 100%;_x000d__x000d_
+height: 100%;_x000d__x000d_
+overflow: hidden;_x000d__x000d_
+}_x000d__x000d_
+_x000d__x000d_
+#renderer {_x000d__x000d_
+width: 100%;_x000d__x000d_
+height: 100%;_x000d__x000d_
+}_x000d__x000d_
+</style>_x000d__x000d_
+</head>_x000d__x000d_
+_x000d__x000d_
+<body>_x000d__x000d_
+<div id="renderer"></div>_x000d__x000d_
+<script src="https://unpkg.com/vtk.js"></script>_x000d__x000d_
+<script>_x000d__x000d_
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;_x000d__x000d_
+const vtkActor = vtk.Rendering.Core.vtkActor;_x000d__x000d_
+const vtkMapper = vtk.Rendering.Core.vtkMapper;_x000d__x000d_
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;_x000d__x000d_
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;_x000d__x000d_
+const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;_x000d__x000d_
+_x000d__x000d_
+const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({_x000d__x000d_
+background: [1,1,1],_x000d__x000d_
+});_x000d__x000d_
+const renderWindow = fullScreenRenderWindow.getRenderWindow();_x000d__x000d_
+const renderer = fullScreenRenderWindow.getRenderer();_x000d__x000d_
+_x000d__x000d_
+const reader = vtkXMLImageDataReader.newInstance();_x000d__x000d_
+reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {_x000d__x000d_
+reader.loadData().then(() => {_x000d__x000d_
+const imageData = reader.getOutputData(0);_x000d__x000d_
+_x000d__x000d_
+// Output array names in the dataset to help with debugging_x000d__x000d_
+// Fix: getArrayNames is not a function, use getArrays() to get the array list_x000d__x000d_
+const arrays = imageData.getPointData().getArrays();_x000d__x000d_
+const arrayNames = arrays.map(array => array.getName());_x000d__x000d_
+console.log('Arrays in dataset:', arrayNames);_x000d__x000d_
+_x000d__x000d_
+// Use v02 and v03 arrays to calculate velocity magnitude_x000d__x000d_
+const v02Array = imageData.getPointData().getArrayByName('v02');_x000d__x000d_
+const v03Array = imageData.getPointData().getArrayByName('v03');_x000d__x000d_
+_x000d__x000d_
+if (!v02Array || !v03Array) {_x000d__x000d_
+console.error('Cannot find v02 or v03 arrays');_x000d__x000d_
+// Try to use another available array_x000d__x000d_
+const availableArray = imageData.getPointData().getArrayByName('prs');_x000d__x000d_
+if (availableArray) {_x000d__x000d_
+// Directly use pressure (prs) array as scalar field_x000d__x000d_
+imageData.getPointData().setActiveScalars('prs');_x000d__x000d_
+} else {_x000d__x000d_
+console.error('Unable to find suitable array for rendering');_x000d__x000d_
+return;_x000d__x000d_
+}_x000d__x000d_
+} else {_x000d__x000d_
+// Calculate velocity magnitude_x000d__x000d_
+const numPoints = imageData.getNumberOfPoints();_x000d__x000d_
+const magnitudeData = new Float64Array(numPoints);_x000d__x000d_
+_x000d__x000d_
+for (let i = 0; i < numPoints; i++) {_x000d__x000d_
+// v02 and v03 are scalar arrays, directly get values_x000d__x000d_
+const v2 = v02Array.getData()[i];_x000d__x000d_
+const v3 = v03Array.getData()[i];_x000d__x000d_
+// Calculate velocity magnitude_x000d__x000d_
+magnitudeData[i] = Math.sqrt(v2 * v2 + v3 * v3);_x000d__x000d_
+}_x000d__x000d_
+_x000d__x000d_
+// Create velocity magnitude array_x000d__x000d_
+const vtkDataArray = vtk.Common.Core.vtkDataArray;_x000d__x000d_
+const magnitudeVtkArray = vtkDataArray.newInstance({_x000d__x000d_
+numberOfComponents: 1,_x000d__x000d_
+values: magnitudeData,_x000d__x000d_
+name: 'velocityMagnitude',_x000d__x000d_
+});_x000d__x000d_
+imageData.getPointData().addArray(magnitudeVtkArray);_x000d__x000d_
+imageData.getPointData().setActiveScalars('velocityMagnitude');_x000d__x000d_
+}_x000d__x000d_
+_x000d__x000d_
+// Get range of current active scalar_x000d__x000d_
+const activeScalars = imageData.getPointData().getScalars();_x000d__x000d_
+const newRange = activeScalars.getRange();_x000d__x000d_
+const [minV, maxV] = newRange;_x000d__x000d_
+_x000d__x000d_
+console.log('Using scalar field:', activeScalars.getName());_x000d__x000d_
+console.log('Data range:', newRange);_x000d__x000d_
+_x000d__x000d_
+const marchingCube = vtkImageMarchingCubes.newInstance({_x000d__x000d_
+contourValue: minV + 0.5 * (maxV - minV),_x000d__x000d_
+computeNormals: true,_x000d__x000d_
+mergePoints: true_x000d__x000d_
+});_x000d__x000d_
+_x000d__x000d_
+marchingCube.setInputData(imageData);_x000d__x000d_
+_x000d__x000d_
+const mapper = vtkMapper.newInstance();_x000d__x000d_
+mapper.setInputConnection(marchingCube.getOutputPort());_x000d__x000d_
+_x000d__x000d_
+const colorTransferFunction = vtkColorTransferFunction.newInstance();_x000d__x000d_
+colorTransferFunction.addRGBPoint(minV, 0.0, 0.0, 1.0);_x000d__x000d_
+colorTransferFunction.addRGBPoint(minV + 0.25 * (maxV - minV), 0.0, 0.5, 1.0);_x000d__x000d_
+colorTransferFunction.addRGBPoint(minV + 0.5 * (maxV - minV), 1.0, 1.0, 1.0);_x000d__x000d_
+colorTransferFunction.addRGBPoint(minV + 0.75 * (maxV - minV), 1.0, 0.5, 0.0);_x000d__x000d_
+colorTransferFunction.addRGBPoint(maxV, 1.0, 0.0, 0.0);_x000d__x000d_
+_x000d__x000d_
+mapper.setLookupTable(colorTransferFunction);_x000d__x000d_
+mapper.setScalarRange(minV, maxV);_x000d__x000d_
+mapper.setInterpolateScalarsBeforeMapping(true);_x000d__x000d_
+_x000d__x000d_
+const actor = vtkActor.newInstance();_x000d__x000d_
+actor.setMapper(mapper);_x000d__x000d_
+actor.getProperty().setRepresentationToSurface();_x000d__x000d_
+actor.getProperty().setEdgeVisibility(false);_x000d__x000d_
+actor.getProperty().setOpacity(1.0);_x000d__x000d_
+actor.getProperty().setAmbient(0.3);_x000d__x000d_
+actor.getProperty().setDiffuse(0.7);_x000d__x000d_
+actor.getProperty().setSpecular(0.4);_x000d__x000d_
+_x000d__x000d_
+renderer.addActor(actor);_x000d__x000d_
+_x000d__x000d_
+const bounds = imageData.getBounds();_x000d__x000d_
+const center = [_x000d__x000d_
+(bounds[0] + bounds[1]) / 2,_x000d__x000d_
+(bounds[2] + bounds[3]) / 2,_x000d__x000d_
+(bounds[4] + bounds[5]) / 2,_x000d__x000d_
+];_x000d__x000d_
+_x000d__x000d_
+const camera = renderer.getActiveCamera();_x000d__x000d_
+camera.setFocalPoint(...center);_x000d__x000d_
+camera.setPosition(center[0] + 300, center[1] + 200, center[2] + 200);_x000d__x000d_
+camera.setViewUp(0, 0, 1);_x000d__x000d_
+renderer.resetCameraClippingRange();_x000d__x000d_
+renderWindow.render();_x000d__x000d_
+renderer.resetCamera();_x000d__x000d_
+renderWindow.render();_x000d__x000d_
+_x000d__x000d_
+const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();_x000d__x000d_
+const widget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({_x000d__x000d_
+actor: axes,_x000d__x000d_
+interactor: renderWindow.getInteractor(),_x000d__x000d_
+});_x000d__x000d_
+widget.setEnabled(true);_x000d__x000d_
+widget.setViewportCorner(_x000d__x000d_
+vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT_x000d__x000d_
+);_x000d__x000d_
+widget.setViewportSize(0.15);_x000d__x000d_
+widget.setMinPixelSize(100);_x000d__x000d_
+widget.setMaxPixelSize(300);_x000d__x000d_
+_x000d__x000d_
+const interactor = renderWindow.getInteractor();_x000d__x000d_
+interactor.start();_x000d__x000d_
+});_x000d__x000d_
+});_x000d__x000d_
+</script>_x000d__x000d_
+</body>_x000d__x000d_
+_x000d__x000d_
+</html>

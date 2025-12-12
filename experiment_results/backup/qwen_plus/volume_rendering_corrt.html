@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Redsea Volume Rendering</title>
+<style>
+body {
+margin: 0;
+padding: 0;
+overflow: hidden;
+}
+</style>
+</head>
+<body>
+<div id="container"></div>
+<script src="https://unpkg.com/vtk.js"></script>
+<script>
+// Import required modules
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+const vtkDataArray = vtk.Common.Core.vtkDataArray;
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+const vtkVolume = vtk.Rendering.Core.vtkVolume;
+const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+const vtkVolumeProperty = vtk.Rendering.Core.vtkVolumeProperty;
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+
+// Create full screen render window
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderer.getRenderWindow();
+
+// Load dataset from the given URL
+const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: false });
+reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+reader.loadData().then(() => {
+const dataset = reader.getOutputData();
+
+// Compute velocity magnitude from the "velocity" array
+const velocityArray = dataset.getPointData().getArrayByName('velocity');
+const numTuples = velocityArray.getNumberOfTuples();
+const magnitudeData = new Float32Array(numTuples);
+
+for (let i = 0; i < numTuples; i++) {
+const vx = velocityArray.getComponent(i, 0);
+const vy = velocityArray.getComponent(i, 1);
+const vz = velocityArray.getComponent(i, 2);
+magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);
+}
+
+// Create new data array for magnitude
+const magnitude = vtkDataArray.newInstance({
+name: 'VelocityMagnitude',
+values: magnitudeData,
+numberOfComponents: 1,
+});
+
+// Add to dataset and set as active scalar
+dataset.getPointData().addArray(magnitude);
+dataset.getPointData().setActiveScalars('VelocityMagnitude');
+console.log(dataset.toJSON())
+
+// Setup volume mapper
+const volumeMapper = vtkVolumeMapper.newInstance();
+volumeMapper.setInputData(dataset);
+volumeMapper.setSampleDistance(0.1); // Adjust for quality/performance
+
+// Setup color transfer function (blue -> white -> red)
+const colorTransferFunction = vtkColorTransferFunction.newInstance();
+const range = magnitude.getRange();
+const [min, max] = range;
+const mid = (min + max) / 2;
+
+colorTransferFunction.addRGBPoint(min, 0, 0, 1);      // blue
+colorTransferFunction.addRGBPoint(mid, 1, 1, 1);      // white
+colorTransferFunction.addRGBPoint(max, 1, 0, 0);      // red
+
+// Setup opacity transfer function
+const opacityFunction = vtkPiecewiseFunction.newInstance();
+opacityFunction.addPoint(min, 0.0);
+opacityFunction.addPoint((min + max / 3), 0.2);
+opacityFunction.addPoint((min + max / 1.5), 0.6);
+opacityFunction.addPoint(max, 1.0);
+
+// Setup volume property
+const volumeProperty = vtkVolumeProperty.newInstance();
+volumeProperty.setInterpolationTypeToLinear();
+volumeProperty.setAmbient(0.2);
+volumeProperty.setDiffuse(0.9);
+volumeProperty.setSpecular(0.7);
+volumeProperty.setSpecularPower(10);
+
+// Setup volume actor
+const volume = vtkVolume.newInstance();
+volume.setMapper(volumeMapper);
+volume.setProperty(volumeProperty);
+volume.getProperty().setRGBTransferFunction(0, colorTransferFunction);
+volume.getProperty().setScalarOpacityUnitDistance(0, 0.1);
+volume.getProperty().setShade(false);
+volume.getProperty().setScalarOpacity(0, opacityFunction);
+
+// Add volume to scene
+renderer.addActor(volume);
+
+// Set camera to look along +Z
+const bounds = dataset.getBounds();
+const center = [
+(bounds[0] + bounds[1]) / 2,
+(bounds[2] + bounds[3]) / 2,
+(bounds[4] + bounds[5]) / 2
+];
+renderer.getActiveCamera().setFocalPoint(...center);
+renderer.getActiveCamera().setPosition(center[0], center[1], center[2] + 10); // Look along +Z
+renderer.getActiveCamera().setViewUp(0, 1, 0);
+renderer.resetCamera();
+renderWindow.render();
+});
+});
+</script>
+</body>
+</html>

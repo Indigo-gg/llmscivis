@@ -1,0 +1,20 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the Redsea dataset with volume rendering._x000D_
+_x000D_
+Load the dataset from: http://127.0.0.1:5000/dataset/redsea.vti_x000D_
+_x000D_
+Compute velocity magnitude from the "velocity" array and set it as the active scalar_x000D_
+_x000D_
+Apply volume rendering using a blue → white → red color map spanning the scalar range (min to max)_x000D_
+_x000D_
+Apply a piecewise opacity function to control transparency across scalar values_x000D_
+_x000D_
+Set shading, ambient, diffuse, and specular properties for realistic volume appearance_x000D_
+_x000D_
+Adjust the camera to look along +Z and center on the dataset
+
+Relevant VTK.js Examples:
+
+--------------------------------------------------------------------------------No relevant VTK.js examples found.

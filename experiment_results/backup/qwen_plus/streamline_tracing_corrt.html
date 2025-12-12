@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VTK.js Streamline Visualization of Isabel Dataset</title>
+<style>
+body {
+margin: 0;
+}
+</style>
+</head>
+<body>
+<div id="container"></div>
+<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+<script>
+// Import required VTK.js modules
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+const vtkPolyDataMapper = vtk.Rendering.Core.vtkPolyDataMapper;
+const vtkMapper = vtk.Rendering.Core.vtkMapper;
+const vtkActor = vtk.Rendering.Core.vtkActor;
+const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+const vtkDataArray = vtk.Common.Core.vtkDataArray;
+
+// Create full screen render window
+const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderer.getRenderWindow();
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+function addRepresentation(name, filter, props = {}) {
+    const mapper = vtkMapper.newInstance();
+    mapper.setInputConnection(filter.getOutputPort());
+    const actor = vtkActor.newInstance();
+    actor.setMapper(mapper);
+    actor.getProperty().set(props);
+    renderer.addActor(actor);
+}
+// Load the dataset from the given URL
+const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: false });
+reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+reader.update();
+
+// 1. Use the "Velocity" array as the vector field for streamlines
+const dataset = reader.getOutputData();
+const velocityArray = dataset.getPointData().getArrayByName('Velocity');
+if (!velocityArray) {
+console.error("Velocity array not found in dataset.");
+return;
+}
+
+// 2. Generate seed points at the center of the dataset with sufficient density
+const bounds = dataset.getBounds();
+const center = [
+(bounds[0] + bounds[1]) / 2,
+(bounds[2] + bounds[3]) / 2,
+(bounds[4] + bounds[5]) / 2
+];
+
+const pointSource = vtk.Filters.Sources.vtkPointSource.newInstance();
+pointSource.setNumberOfPoints(1000);  // 增加种子点密度
+pointSource.setCenter(
+    (bounds[0] + bounds[1]) / 2,
+    (bounds[2] + bounds[3]) / 2,
+    (bounds[4] + bounds[5]) / 2
+);
+pointSource.setRadius(Math.max(
+    bounds[1] - bounds[0],
+    bounds[3] - bounds[2],
+    bounds[5] - bounds[4],
+) / 2);
+const streamline = vtkImageStreamline.newInstance();
+streamline.setInputData(dataset);
+streamline.setInputConnection(pointSource.getOutputPort(), 1); // 种子点数据
+streamline.set({
+    maximumNumberOfSteps: 1000,
+    integrationStep: 0.5,
+});
+addRepresentation('streamLine', streamline, {
+    diffuseColor: [0, 1, 1], // 使用 diffuseColor
+    lineWidth: 5,            // 使用更粗的线条
+});
+const outlineFilter = vtkOutlineFilter.newInstance();
+outlineFilter.setInputData(dataset); // 使用统一的变量名
+addRepresentation('outline', outlineFilter, {
+    diffuseColor: [1, 0, 0], // 使用 diffuseColor
+    lineWidth: 3,            // 使用更粗的线条
+});
+// Add actors to the renderer
+
+// Reset camera and render
+renderer.resetCamera();
+renderWindow.render();
+});
+
+// Ensure the reader is accessible globally for debugging
+window.reader = reader;
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VTK.js Isabel Streamlines Visualization</title>
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+</head>
+<body>
+  <div id="container"></div>
+
+  <script>
+    // Load required VTK.js modules
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+    const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+    const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+
+    // Create full screen render window
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.querySelector('#container'),
+      background: [0, 0, 0]
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Create reader for the dataset
+    const reader = vtkXMLImageDataReader.newInstance();
+    reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+      // Extract the dataset from the reader
+      const dataset = reader.getOutputData();
+
+      // Create seed points at the center of the dataset
+      const bounds = dataset.getBounds();
+      const center = [
+        (bounds[0] + bounds[1]) / 2,
+        (bounds[2] + bounds[3]) / 2,
+        (bounds[4] + bounds[5]) / 2
+      ];
+
+      // Create plane source for seeding streamlines
+      const planeSource = vtkPlaneSource.newInstance();
+      planeSource.setOrigin(
+        bounds[0] + (bounds[1] - bounds[0]) * 0.25,
+        bounds[2] + (bounds[3] - bounds[2]) * 0.25,
+        center[2]
+      );
+      planeSource.setPoint1(
+        bounds[1] - (bounds[1] - bounds[0]) * 0.25,
+        bounds[2] + (bounds[3] - bounds[2]) * 0.25,
+        center[2]
+      );
+      planeSource.setPoint2(
+        bounds[0] + (bounds[1] - bounds[0]) * 0.25,
+        bounds[3] - (bounds[3] - bounds[2]) * 0.25,
+        center[2]
+      );
+      planeSource.setXResolution(10);
+      planeSource.setYResolution(10);
+
+      // Create streamline filter
+      const streamlines = vtkImageStreamline.newInstance();
+      streamlines.setInputConnection(reader.getOutputPort());
+      streamlines.setInputConnection(planeSource.getOutputPort(), 1);
+      streamlines.setIntegrationStep(0.5);
+      streamlines.setStepLength(0.1);
+      streamlines.setMaximumNumberOfSteps(2000);
+      streamlines.setInitialIntegrationStep(0.1);
+      streamlines.setIntegratorTypeToRungeKutta45();
+      streamlines.setVectorField('Velocity'); // Use Velocity array as vector field
+
+      // Create mapper and actor for streamlines
+      const streamMapper = vtkMapper.newInstance();
+      streamMapper.setInputConnection(streamlines.getOutputPort());
+
+      const streamActor = vtkActor.newInstance();
+      streamActor.setMapper(streamMapper);
+      streamActor.getProperty().setColor(0, 1, 1); // Cyan color
+      streamActor.getProperty().setLineWidth(2);   // Line width
+
+      // Create outline filter for dataset bounds
+      const outlineFilter = vtkOutlineFilter.newInstance();
+      outlineFilter.setInputConnection(reader.getOutputPort());
+
+      // Create mapper and actor for outline
+      const outlineMapper = vtkMapper.newInstance();
+      outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+
+      const outlineActor = vtkActor.newInstance();
+      outlineActor.setMapper(outlineMapper);
+      outlineActor.getProperty().setColor(1, 0, 0); // Red color
+      outlineActor.getProperty().setLineWidth(3);   // Line width
+
+      // Add actors to the renderer
+      renderer.addActor(streamActor);
+      renderer.addActor(outlineActor);
+
+      // Reset camera and render
+      renderer.resetCamera();
+      renderWindow.render();
+    });
+  </script>
+</body>
+</html>
