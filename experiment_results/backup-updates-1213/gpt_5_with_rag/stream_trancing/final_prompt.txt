@@ -1,0 +1,671 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the Isabel dataset with streamline rendering._x000d_
+_x000d_
+Load the dataset from: http://127.0.0.1:5000/dataset/isabel.vti_x000d_
+_x000d_
+Use the "Velocity" array as the vector field for streamlines_x000d_
+_x000d_
+Generate seed points at the center of the dataset with sufficient density to cover the domain_x000d_
+_x000d_
+Compute streamlines following the velocity field_x000d_
+_x000d_
+Render streamlines in cyan ([0, 1, 1]) with a specified line width_x000d_
+_x000d_
+Render a dataset outline in red ([1, 0, 0]) with a specified line width
+
+Relevant VTK.js Examples:
+
+--------------------------------------------------------------------------------Example 1 (Score: 30.00, Matches: vtkMapper, vtkActor, vtkOutlineFilter, vtkImageStreamline):
+Description: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+Modules: vtk.Common.Core.vtkDataArray, vtk.Common.DataModel.vtkImageData, vtk.Filters.General.vtkImageStreamline, vtk.Filters.General.vtkOutlineFilter, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.Property, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Core.vtkProperty.Representation, vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance, vtk.macro
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js ImageOutlineFilter</title>
+    <!-- <link rel="stylesheet" href="https://kit.fontawesome.com/419a5ebb56.css" crossorigin="anonymous"> -->
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        console.log(vtk.Rendering.Core.Property);
+
+        const Representation = vtk.Rendering.Core.vtkProperty.Representation;
+        // const Representation = Constants.representation;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const macro = vtk.macro;
+
+        // Load control panel HTML
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>
+`
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        function addRepresentation(name, filter, props = {}) {
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(filter.getOutputPort());
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+            actor.getProperty().set(props);
+            renderer.addActor(actor);
+
+            window[`${name}Actor`] = actor;
+            window[`${name}Mapper`] = mapper;
+        }
+
+        // ----------------------------------------------------------------------------
+
+        const vecSource = macro.newInstance((publicAPI, model) => {
+            macro.obj(publicAPI, model); // make it an object
+            macro.algo(publicAPI, model, 0, 1); // mixin algorithm code 1 in, 1 out
+            publicAPI.requestData = (inData, outData) => {
+                // implement requestData
+                if (!outData[0]) {
+                    const id = vtkImageData.newInstance();
+                    id.setSpacing(0.1, 0.1, 0.1);
+                    id.setExtent(0, 9, 0, 9, 0, 9);
+                    const dims = [10, 10, 10];
+
+                    const newArray = new Float32Array(3 * dims[0] * dims[1] * dims[2]);
+
+                    let i = 0;
+                    for (let z = 0; z <= 9; z++) {
+                        for (let y = 0; y <= 9; y++) {
+                            for (let x = 0; x <= 9; x++) {
+                                newArray[i++] = 0.1 * x;
+                                const v = 0.1 * y;
+                                newArray[i++] = v * v;
+                                newArray[i++] = 0;
+                            }
+                        }
+                    }
+
+                    const da = vtkDataArray.newInstance({
+                        numberOfComponents: 3,
+                        values: newArray,
+                    });
+                    da.setName('vectors');
+
+                    const cpd = id.getPointData();
+                    cpd.setVectors(da);
+
+                    // Update output
+                    outData[0] = id;
+                }
+            };
+        })();
+
+        const planeSource = vtkPlaneSource.newInstance();
+        planeSource.setOrigin(0.05, 0.05, 0.05);
+        planeSource.setPoint1(0.05, 0.85, 0.05);
+        planeSource.setPoint2(0.05, 0.05, 0.85);
+
+        const sline = vtkImageStreamline.newInstance();
+        sline.setIntegrationStep(0.01);
+        sline.setInputConnection(vecSource.getOutputPort());
+        sline.setInputConnection(planeSource.getOutputPort(), 1);
+
+        const outlineFilter = vtkOutlineFilter.newInstance();
+        outlineFilter.setInputConnection(vecSource.getOutputPort());
+
+        addRepresentation('streamLine', sline, {
+            diffuseColor: [0, 1, 1],
+            lineWidth: 5,
+        });
+        addRepresentation('outline', outlineFilter, {
+            diffuseColor: [1, 0, 0],
+            lineWidth: 3,
+        });
+        addRepresentation('seed', planeSource, {
+            representation: Representation.POINTS,
+            pointSize: 10,
+        });
+
+        // -----------------------------------------------------------
+
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // ----------------------------------------------------------------------------
+        // UI control handling
+        // ----------------------------------------------------------------------------
+
+        fullScreenRenderer.addController(controlPanel);
+
+        ['xResolution', 'yResolution'].forEach((propertyName) => {
+            document.querySelector(`.${propertyName}`).addEventListener('input', (e) => {
+                const value = Number(e.target.value);
+                planeSource.set({ [propertyName]: value });
+                renderWindow.render();
+            });
+        });
+
+        // -----------------------------------------------------------
+        // Make some variables global so that you can inspect and
+        // modify objects in your browser's developer console:
+        // -----------------------------------------------------------
+
+        window.planeSource = planeSource;
+        window.sline = sline;
+        window.outlineFilter = outlineFilter;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+
+    </script>
+
+</body>
+
+</html>
+
+Example 2 (Score: 20.00, Matches: vtkMapper, vtkActor):
+Description: This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.
+
+Modules: vtk.Common.Core.vtkPoints, vtk.Common.DataModel.vtkDataSet.FieldDataTypes, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Common.DataModel.vtkPolyData, vtk.Filters.General.vtkCalculator, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // using vtk namespace
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkPolyData = vtk.Common.DataModel.vtkPolyData;
+        const vtkPoints = vtk.Common.Core.vtkPoints;
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // setting vtkCalculator and set formula
+
+        const simpleFilter = vtkCalculator.newInstance();
+
+        simpleFilter.setFormulaSimple(
+            FieldDataTypes.POINT, // Generate an output array defined over points.
+            [], // We don't request any point-data arrays because point coordinates are made available by default.
+            'outputArray', // Name the output array 
+            (x) => (x[0] - 0.5) * (x[0] - 0.5) + (x[1] - 0.5) * (x[1] - 0.5) + 0.125
+        ); 
+
+        //using plane source to generate a poly data which can be rendered by vtkActor
+        const planeSource = vtkPlaneSource.newInstance({
+            xResolution: 25,
+            yResolution: 25,
+        });
+
+        const sourceData = planeSource.getOutputData();
+
+        simpleFilter.setInputData(sourceData);
+        const planeActor = vtkActor.newInstance();
+        const planeMapper = vtkMapper.newInstance();
+        planeMapper.setInputData(simpleFilter.getOutputData());
+        planeMapper.setColorByArrayName('outputArray'); 
+
+        planeMapper.setScalarModeToUsePointFieldData();   
+        planeActor.setMapper(planeMapper);
+        planeActor.getProperty().setEdgeVisibility(true);
+
+        renderer.addActor(planeActor);
+        renderer.resetCamera();
+        renderWindow.render();
+    </script>
+</body>
+
+</html>
+
+Example 3 (Score: 20.00, Matches: vtkMapper, vtkActor):
+Description: Generates a closed circular polyline from 16 points and triangulates it using `vtkContourTriangulator` for wireframe rendering.
+
+Modules: vtk.Common.Core.vtkCellArray, vtk.Common.Core.vtkPoints, vtk.Common.DataModel.vtkPolyData, vtk.Filters.General.vtkContourTriangulator, vtk.Filters.Sources.vtkSphereSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkCamera, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        //init necessary path 
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkContourTriangulator = vtk.Filters.General.vtkContourTriangulator;
+        const vtkCamera = vtk.Rendering.Core.vtkCamera;
+        const vtkPolyData = vtk.Common.DataModel.vtkPolyData;
+        const vtkPoints  = vtk.Common.Core.vtkPoints;
+        const vtkCellArray = vtk.Common.Core.vtkCellArray;
+
+        //init render actor and mapper
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        const actor = vtkActor.newInstance();
+        renderer.addActor(actor);
+
+        const mapper = vtkMapper.newInstance({ interpolateScalarBeforeMapping: true });
+        actor.setMapper(mapper);
+        actor.getProperty().setRepresentationToWireframe();
+        
+        // Generate a ring of points
+        const source = vtkPolyData.newInstance();
+        const nbPoints = 16;
+        const points = vtkPoints.newInstance({
+            size: nbPoints * 3,
+        });
+        source.setPoints(points);
+        const lines = vtkCellArray.newInstance();
+        source.setLines(lines);
+
+        for (let i = 0; i < nbPoints; i++) {
+            const phi = (i * (2 * Math.PI)) / nbPoints;
+            points.setPoint(i, Math.cos(phi), Math.sin(phi), 0);
+
+            // Connect points with lines
+            if (i === nbPoints - 1) {
+                lines.insertNextCell([i, 0]);
+            } else {
+                lines.insertNextCell([i, i + 1]);
+            }
+        }
+
+        //apply triangular filter on data sources 
+        const filter = vtkContourTriangulator.newInstance();
+        filter.setInputData(source);
+        mapper.setInputConnection(filter.getOutputPort());
+
+        renderer.resetCamera();
+        renderWindow.render();
+    </script>
+</body>
+
+</html>
+
+Example 4 (Score: 20.00, Matches: vtkMapper, vtkActor):
+Description: Displays a 2D image volume with an outlined labelmap. Specific regions (high/low values) are highlighted in red/green with transparent outlines.
+
+Modules: vtk.Common.Core.vtkDataArray, vtk.Common.DataModel.vtkDataSet.FieldAssociations, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Common.DataModel.vtkImageData, vtk.Common.DataModel.vtkPiecewiseFunction, vtk.Filters.General.vtkCalculator, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkColorTransferFunction, vtk.Rendering.Core.vtkImageMapper, vtk.Rendering.Core.vtkImageSlice, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js ImageLabelOutline</title>
+    <style>
+        #renderer {
+            width: 100%;
+            height: 600px;
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // Use the vtk namespace to reference each class
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+
+        // Use the vtk namespace to reference constants
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0.5, 0.5, 0.5],
+        });
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+        const renderer = fullScreenRenderWindow.getRenderer();
+
+        const BACKGROUND = 0;
+        const LOW_VALUE = 80;
+        const HIGH_VALUE = 160;
+
+        const FIRST_SEGMENT = 1;
+        const SECOND_SEGMENT = 5;
+
+        /**
+         * Creates a labelmap image with the same dimensions as the background volume.
+         * @param {vtkImageData} backgroundImageData - The background volume data.
+         * @returns {Object} An object containing the labelmap actor, mapper, image data, color transfer function, and opacity function.
+         */
+        function createLabelmap(backgroundImageData) {
+            // Create a labelmap image the same dimensions as our background volume.
+            const labelMapData = vtkImageData.newInstance(
+                backgroundImageData.get('spacing', 'origin', 'direction')
+            );
+
+            labelMapData.computeTransforms();
+
+            const dataArray = vtkDataArray.newInstance({
+                numberOfComponents: 1,
+                values: new Uint8Array(backgroundImageData.getNumberOfPoints()),
+            });
+            labelMapData.getPointData().setScalars(dataArray);
+
+            labelMapData.setDimensions(...backgroundImageData.getDimensions());
+            labelMapData.setSpacing(...backgroundImageData.getSpacing());
+            labelMapData.setOrigin(...backgroundImageData.getOrigin());
+            labelMapData.setDirection(...backgroundImageData.getDirection());
+            const mapper = vtkImageMapper.newInstance();
+            mapper.setInputData(labelMapData);
+
+            const actor = vtkImageSlice.newInstance();
+
+            actor.setMapper(mapper);
+
+            const labelMap = {
+                actor,
+                mapper,
+                imageData: labelMapData,
+                cfun: vtkColorTransferFunction.newInstance(),
+                ofun: vtkPiecewiseFunction.newInstance(),
+            };
+
+            // Labelmap pipeline
+            labelMap.mapper.setInputData(labelMapData);
+            labelMap.actor.setMapper(labelMap.mapper);
+
+            // Set up labelMap color and opacity mapping
+            labelMap.cfun.addRGBPoint(0, 0, 0, 0); // label "1" will be red
+            labelMap.cfun.addRGBPoint(FIRST_SEGMENT, 1, 0, 0); // label "1" will be red
+            labelMap.cfun.addRGBPoint(SECOND_SEGMENT, 0, 1, 0); // label "5" will be green
+            labelMap.ofun.addPoint(0, 0);
+            labelMap.ofun.addPoint(FIRST_SEGMENT, 0.1); // Red will have an opacity of 0.1.
+            labelMap.ofun.addPoint(SECOND_SEGMENT, 0.1); // Green will have an opacity of 0.1.
+
+            labelMap.actor.getProperty().setRGBTransferFunction(0, labelMap.cfun);
+            labelMap.actor.getProperty().setScalarOpacity(0, labelMap.ofun);
+            labelMap.actor.getProperty().setInterpolationTypeToNearest();
+
+            labelMap.actor.getProperty().setUseLabelOutline(true);
+            // Label outline thickness is for first segment -> 2 (positioned at array index 0), second segment -> 4
+            // (positioned at array index 4)
+            labelMap.actor.getProperty().setLabelOutlineThickness([2, 1, 1, 1, 4]);
+            labelMap.actor.getProperty().setLabelOutlineOpacity(1.0);
+
+            // This is very important to make sure the labelmap is rendered
+            // correctly
+            labelMap.actor.getProperty().setUseLookupTableScalarRange(true);
+
+            const dims = labelMap.imageData.getDimensions();
+            const values = labelMap.imageData.getPointData().getScalars().getData();
+
+            const backgroundValues = backgroundImageData
+                .getPointData()
+                .getScalars()
+                .getData();
+            const size = dims[0] * dims[1] * dims[2];
+
+            for (let i = 0; i < size; i++) {
+                if (backgroundValues[i] === LOW_VALUE) {
+                    values[i] = FIRST_SEGMENT;
+                } else if (backgroundValues[i] === HIGH_VALUE) {
+                    values[i] = SECOND_SEGMENT;
+                }
+            }
+
+            labelMap.imageData.getPointData().getScalars().setData(values);
+
+            return labelMap;
+        }
+
+        // Create a one slice vtkImageData that has four quadrants of different values
+        const imageData = vtkImageData.newInstance();
+        const dims = [10, 10, 1];
+        imageData.setSpacing(1, 1, 1);
+        imageData.setOrigin(0.1, 0.1, 0.1);
+        imageData.setDirection(1, 0, 0, 0, 1, 0, 0, 0, 1);
+        imageData.setExtent(0, dims[0] - 1, 0, dims[1] - 1, 0, dims[2] - 1);
+
+        imageData.computeTransforms();
+
+        const values = new Uint8Array(dims[0] * dims[1] * dims[2]);
+
+        let i = 0;
+        for (let y = 0; y < dims[1]; y++) {
+            for (let x = 0; x < dims[0]; x++, i++) {
+                if ((x < 3 && y < 3) || (x > 7 && y > 7)) {
+                    values[i] = BACKGROUND;
+                } else if (x > 4 && x < 6 && y > 4 && y < 7) {
+                    values[i] = LOW_VALUE;
+                } else {
+                    values[i] = HIGH_VALUE;
+                }
+            }
+        }
+
+        const dataArray = vtkDataArray.newInstance({
+            numberOfComponents: 1,
+            values,
+        });
+        imageData.getPointData().setScalars(dataArray);
+        imageData.modified();
+
+        const data = imageData;
+        const labelMap = createLabelmap(data);
+
+        const actor = vtkImageSlice.newInstance();
+        const mapper = vtkImageMapper.newInstance();
+        mapper.setInputData(data);
+        actor.setMapper(mapper);
+        actor.getProperty().setInterpolationTypeToNearest();
+
+        renderer.addActor(actor);
+        renderer.addActor(labelMap.actor);
+        renderer.resetCamera();
+        renderer.resetCameraClippingRange();
+        renderWindow.render();
+
+        window.fullScreen = fullScreenRenderWindow;
+
+    </script>
+</body>
+
+</html>
+
+Example 5 (Score: 20.00, Matches: vtkMapper, vtkActor):
+Description: Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.
+Modules: vtk.Common.DataModel.vtkSphere, vtk.Filters.General.vtkImageMarchingCubes, vtk.Imaging.Hybrid.vtkSampleFunction, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+</head>
+
+<body>
+    <script src="https://unpkg.com/vtk.js@32.6.0/vtk.js"></script>
+    <script>
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        const mCubes = vtkImageMarchingCubes.newInstance({ contourValue: 0.1 });
+        
+        //using the sphere function and sample function to create the source code
+        const vtkSphere = vtk.Common.DataModel.vtkSphere;
+        const vtkSampleFunction = vtk.Imaging.Hybrid.vtkSampleFunction;
+        const sphere = vtkSphere.newInstance({ center: [0.0, 0.0, 0.0], radius: 0.5 });
+        const sample = vtkSampleFunction.newInstance({
+            implicitFunction: sphere,
+            sampleDimensions: [50, 50, 50],
+            modelBounds: [-0.5, 0.5, -0.5, 0.5, -0.5, 0.5],
+        });
+
+        //connecting actor with render
+        const actor = vtkActor.newInstance();
+        renderer.addActor(actor);
+        
+        //connecting mapper with actor
+        const mapper = vtkMapper.newInstance();
+        actor.setMapper(mapper);
+
+        // Connect the pipeline proper
+        mCubes.setInputConnection(sample.getOutputPort());
+        mapper.setInputConnection(mCubes.getOutputPort());
+
+        renderer.resetCamera();
+        renderWindow.render();
+
+    </script>
+</body>
+
+</html>
+
+Example 6 (Score: 20.00, Matches: vtkMapper, vtkActor):
+Description: Creates a 3D visualization by sampling an implicit boolean function and extracting contour lines with `vtkImageMarchingSquares`.
+
+Modules: vtk.Common.DataModel.vtkImplicitBoolean, vtk.Common.DataModel.vtkPlane, vtk.Filters.General.vtkImageMarchingSquares, vtk.Filters.Sources.vtkSphereSource, vtk.Imaging.Hybrid.vtkSampleFunction, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+</head>
+
+<body>
+  <div id="renderer"></div>
+  <script src="https://unpkg.com/vtk.js"></script>
+  <script>
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkSphereSource = vtk.Filters.Sources.vtkSphereSource;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkImageMarchingSquares = vtk.Filters.General.vtkImageMarchingSquares;
+
+    const vtkPlane = vtk.Common.DataModel.vtkPlane;
+    const vtkImplicitBoolean = vtk.Common.DataModel.vtkImplicitBoolean;
+    const vtkSampleFunction = vtk.Imaging.Hybrid.vtkSampleFunction;
+
+    //const sphere = vtkSphereSource.newInstance({ center: [-2.5, 0.0, 0.0], radius: 0.5 });
+
+    const plane = vtkPlane.newInstance({ origin: [0, 0, 0], normal: [0, 1, 0] });
+
+    const { Operation } = vtkImplicitBoolean;
+
+    const impBool = vtkImplicitBoolean.newInstance({
+      operation: Operation.UNION,
+      functions: [plane],
+    });
+
+    const sample = vtkSampleFunction.newInstance({
+      implicitFunction: impBool,
+      sampleDimensions: [5, 3, 3],
+      modelBounds: [-5.0, 5.0, -1.0, 1.0, -1.0, 1.0],
+    });
+
+    ms = vtkImageMarchingSquares.newInstance();
+    //connect the sphere filter with the marchingsqures
+    ms.setInputConnection(sample.getOutputPort())
+
+    const mapper = vtkMapper.newInstance();
+    mapper.setInputConnection(ms.getOutputPort());
+
+    const actor = vtkActor.newInstance();
+    actor.setMapper(mapper);
+
+
+    // adding actor into the scene
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({ background: [0, 0, 0] });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Add actor to renderer
+    renderer.addActor(actor);
+
+    // Reset camera and start rendering
+    renderer.resetCamera();
+    renderWindow.render();
+
+  </script>
+</body>
+
+</html>
+

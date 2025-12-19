@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Isabel Streamlines with Outline (vtk.js)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000; /* Black background to match requirement of clean visualization */
+    }
+  </style>
+</head>
+<body>
+  <!-- Requirement: Use VTK.js from CDN (v34.10.0) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // Import required vtk.js modules using the vtk global namespace
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader; // Requirement: vti format -> use vtkXMLImageDataReader (not HttpDatasetReader)
+    const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline; // Requirement: Compute streamlines following the velocity field
+    const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;     // Requirement: Render dataset outline
+    const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;         // Requirement: Generate seed points (plane at dataset center)
+
+    // ----------------------------------------------------------------------------
+    // Rendering setup (no UI controls -> clean view as requested)
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      background: [0, 0, 0], // Black background
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Pipeline creation after data loading
+    // ----------------------------------------------------------------------------
+    const reader = vtkXMLImageDataReader.newInstance();
+
+    // Requirement: Load the Isabel dataset from provided URL (vti format)
+    const DATA_URL = 'http://127.0.0.1:5000/dataset/isabel.vti';
+
+    // Load the VTI file using the correct XML reader
+    reader.setUrl(DATA_URL).then(() => {
+      // Get the image data
+      const imageData = reader.getOutputData();
+
+      // Requirement: Use "Velocity" array as the vector field for streamlines
+      // Ensure the "Velocity" array is set as the active vectors on the point data
+      const pd = imageData.getPointData();
+      const velocityArray = pd.getArrayByName('Velocity');
+      if (!velocityArray) {
+        console.error('Vector array "Velocity" not found in dataset. Check the dataset arrays.');
+      } else {
+        pd.setVectors(velocityArray); // This sets the active vector field used by vtkImageStreamline
+      }
+
+      // Requirement: Generate seed points at the center of the dataset with sufficient density to cover the domain
+      // Compute dataset bounds and center
+      const bounds = imageData.getBounds(); // [xmin, xmax, ymin, ymax, zmin, zmax]
+      const center = [
+        0.5 * (bounds[0] + bounds[1]),
+        0.5 * (bounds[2] + bounds[3]),
+        0.5 * (bounds[4] + bounds[5]),
+      ];
+
+      // Use an XY plane placed at the center Z, spanning the full XY domain
+      const planeSource = vtkPlaneSource.newInstance();
+      planeSource.setOrigin(bounds[0], bounds[2], center[2]);
+      planeSource.setPoint1(bounds[1], bounds[2], center[2]);
+      planeSource.setPoint2(bounds[0], bounds[3], center[2]);
+
+      // Choose seed density based on dataset dimensions, capped for performance
+      const dims = imageData.getDimensions(); // [nx, ny, nz]
+      const xRes = Math.min(60, Math.max(20, Math.floor(dims[0] / 4)));
+      const yRes = Math.min(60, Math.max(20, Math.floor(dims[1] / 4)));
+      planeSource.setXResolution(xRes);
+      planeSource.setYResolution(yRes);
+      // The plane's grid points serve as streamline seed points, covering the domain center slice
+
+      // Requirement: Compute streamlines following the velocity field
+      const streamlines = vtkImageStreamline.newInstance();
+
+      // Integration parameters: choose a step relative to voxel spacing to ensure stable tracing
+      const spacing = imageData.getSpacing();
+      const minSpacing = Math.min(spacing[0], spacing[1], spacing[2]);
+      streamlines.setIntegrationStep(0.4 * minSpacing); // reasonable step based on grid spacing
+
+      // Connect streamline inputs: port 0 -> vector image, port 1 -> seed geometry
+      streamlines.setInputConnection(reader.getOutputPort());          // vector field (image data)
+      streamlines.setInputConnection(planeSource.getOutputPort(), 1);  // seed points
+
+      // Requirement: Render streamlines in cyan ([0, 1, 1]) with a specified line width
+      const streamlineMapper = vtkMapper.newInstance();
+      streamlineMapper.setInputConnection(streamlines.getOutputPort());
+      streamlineMapper.setScalarVisibility(false); // use solid actor color
+
+      const streamlineActor = vtkActor.newInstance();
+      streamlineActor.setMapper(streamlineMapper);
+      streamlineActor.getProperty().setColor(0, 1, 1);   // cyan color
+      streamlineActor.getProperty().setLineWidth(2.5);   // specified line width (note: actual width may vary by platform)
+
+      // Requirement: Render a dataset outline in red ([1, 0, 0]) with a specified line width
+      const outlineFilter = vtkOutlineFilter.newInstance();
+      outlineFilter.setInputConnection(reader.getOutputPort());
+
+      const outlineMapper = vtkMapper.newInstance();
+      outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+      outlineMapper.setScalarVisibility(false);
+
+      const outlineActor = vtkActor.newInstance();
+      outlineActor.setMapper(outlineMapper);
+      outlineActor.getProperty().setColor(1, 0, 0);    // red color
+      outlineActor.getProperty().setLineWidth(2.0);    // specified line width
+
+      // Add actors to the scene
+      renderer.addActor(streamlineActor);
+      renderer.addActor(outlineActor);
+
+      // Render
+      renderer.resetCamera();
+      renderWindow.render();
+    }).catch((err) => {
+      console.error('Failed to load VTI dataset:', err);
+    });
+
+    // Notes in code comments mapping to user requirements:
+    // - Used vtkXMLImageDataReader to load .vti (Requirement: correct IO module for vti; not HttpDatasetReader)
+    // - Loaded dataset from http://127.0.0.1:5000/dataset/isabel.vti (Requirement: specific path)
+    // - Set "Velocity" as the active vectors for streamlines (Requirement: use Velocity array)
+    // - Generated a central plane of seed points covering the domain with adequate density (Requirement: seed generation)
+    // - Computed streamlines using vtkImageStreamline (Requirement: streamline rendering)
+    // - Streamlines colored cyan with line width set (Requirement: streamline color & width)
+    // - Outline of dataset rendered in red with line width set (Requirement: outline color & width)
+    // - No UI controls were added (Requirement: display without UI unless requested)
+  </script>
+</body>
+</html>

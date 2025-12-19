@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deepwater Isosurface Visualization</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #vtkContainer {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div id="vtkContainer"></div>
+
+  <script type="module">
+    import vtkFullScreenRenderWindow from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Misc/FullScreenRenderWindow';
+    import vtkXMLImageDataReader from 'https://unpkg.com/vtk.js@34.10.0/Sources/IO/XML/XMLImageDataReader';
+    import vtkContourFilter from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/ContourFilter';
+    import vtkMapper from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Mapper';
+    import vtkActor from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/Actor';
+    import vtkColorTransferFunction from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/ColorTransferFunction';
+    import vtkOrientationMarkerWidget from 'https://unpkg.com/vtk.js@34.10.0/Sources/Interaction/Widgets/OrientationMarkerWidget';
+    import vtkAxesActor from 'https://unpkg.com/vtk.js@34.10.0/Sources/Rendering/Core/AxesActor';
+    import vtkCalculator from 'https://unpkg.com/vtk.js@34.10.0/Sources/Filters/General/Calculator';
+
+    // Create rendering window
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Load dataset
+    const reader = vtkXMLImageDataReader.newInstance();
+    
+    // Fetch and process data
+    fetch('http://127.0.0.1:5000/dataset/deepwater.vti')
+      .then(response => response.arrayBuffer())
+      .then(buffer => {
+        reader.parseAsArrayBuffer(buffer);
+        const imageData = reader.getOutputData(0);
+        
+        // Compute velocity magnitude if v02 and v03 arrays exist
+        let scalarArrayName = 'prs'; // default fallback
+        const pointData = imageData.getPointData();
+        const v02Array = pointData.getArrayByName('v02');
+        const v03Array = pointData.getArrayByName('v03');
+        
+        if (v02Array && v03Array) {
+          // Create calculator to compute velocity magnitude
+          const calculator = vtkCalculator.newInstance();
+          calculator.setInputData(imageData);
+          calculator.setFormula({
+            getArrays: inputDataSets => ({
+              input: [{ location: vtkCalculator.InputDataSets.INPUT, name: 'v02' }],
+              output: [
+                {
+                  location: vtkCalculator.InputDataSets.INPUT,
+                  name: 'velocity_magnitude',
+                  dataType: 'Float32Array',
+                  attribute: vtkCalculator.AttributeTypes.POINT,
+                },
+              ],
+            }),
+            evaluate: (arrays, datasets) => {
+              const [v02] = arrays;
+              const v02Data = v02.getData();
+              const v03Data = pointData.getArrayByName('v03').getData();
+              const result = new Float32Array(v02Data.length);
+              
+              for (let i = 0; i < v02Data.length; i++) {
+                result[i] = Math.sqrt(v02Data[i] * v02Data[i] + v03Data[i] * v03Data[i]);
+              }
+              
+              return [result];
+            },
+          });
+          
+          const calculatedData = calculator.getOutputData();
+          scalarArrayName = 'velocity_magnitude';
+          imageData.shallowCopy(calculatedData);
+        }
+        
+        // Get scalar range
+        const scalars = imageData.getPointData().getScalars() || 
+                       imageData.getPointData().getArrayByName(scalarArrayName);
+        const range = scalars.getRange();
+        const midValue = (range[0] + range[1]) / 2;
+        
+        // Create contour (isosurface)
+        const contour = vtkContourFilter.newInstance();
+        contour.setInputData(imageData);
+        contour.setComputeNormals(true);
+        contour.setComputeScalars(true);
+        contour.setNumberOfContours(1);
+        contour.setValue(0, midValue);
+        
+        // Create mapper and actor
+        const mapper = vtkMapper.newInstance();
+        mapper.setInputConnection(contour.getOutputPort());
+        
+        const actor = vtkActor.newInstance();
+        actor.setMapper(mapper);
+        actor.getProperty().setOpacity(1.0); // fully opaque
+        actor.getProperty().setInterpolationTypeToPhong(); // smooth shading
+        
+        // Create color map (blue → white → red)
+        const colorTransferFunction = vtkColorTransferFunction.newInstance();
+        colorTransferFunction.addRGBPoint(range[0], 0, 0, 1);     // blue
+        colorTransferFunction.addRGBPoint(midValue, 1, 1, 1);     // white
+        colorTransferFunction.addRGBPoint(range[1], 1, 0, 0);     // red
+        mapper.setLookupTable(colorTransferFunction);
+        mapper.setScalarRange(range[0], range[1]);
+        
+        // Add actor to renderer
+        renderer.addActor(actor);
+        renderer.resetCamera();
+        renderWindow.render();
+        
+        // Add XYZ orientation marker in bottom-right corner
+        const axesActor = vtkAxesActor.newInstance();
+        const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+          actor: axesActor,
+          interactor: renderWindow.getInteractor(),
+        });
+        orientationWidget.setEnabled(true);
+        orientationWidget.setViewportCorner(
+          vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+        );
+        orientationWidget.setViewportSize(0.15);
+        orientationWidget.setMinPixelSize(100);
+        orientationWidget.setMaxPixelSize(300);
+        
+        renderWindow.render();
+      })
+      .catch(error => {
+        console.error('Error loading dataset:', error);
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // Import required VTK.js modules
+        const vtkVolume = vtk.Rendering.Core.vtkVolume;
+        const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+
+        // Create full screen render window
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderWindow.getRenderer();
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+        // Set data URL
+        const dataURL = 'http://127.0.0.1:5000/dataset/redsea.vti';
+
+        // Create reader for VTI format
+        const reader = vtkXMLImageDataReader.newInstance();
+
+        // Load dataset and process
+        reader.setUrl(dataURL).then(() => {
+            const imageData = reader.getOutputData(0);
+
+            // Create calculator to compute velocity magnitude
+            const calculator = vtkCalculator.newInstance();
+            calculator.setInputData(imageData);
+            calculator.setFormulaSimple(
+                vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes.SCALARS,
+                ['velocity'],
+                'velocity_magnitude',
+                (velocity) => Math.sqrt(velocity[0]*velocity[0] + velocity[1]*velocity[1] + velocity[2]*velocity[2])
+            );
+            calculator.update();
+            const processedData = calculator.getOutputData();
+
+            // Get scalar range for velocity magnitude
+            const dataArray = processedData.getPointData().getScalars();
+            const range = dataArray.getRange();
+
+            // Create color transfer function (blue → white → red)
+            const cfun = vtkColorTransferFunction.newInstance();
+            cfun.addRGBPoint(range[0], 0, 0, 1);      // Blue at min
+            cfun.addRGBPoint((range[0]+range[1])/2, 1, 1, 1); // White at mid
+            cfun.addRGBPoint(range[1], 1, 0, 0);      // Red at max
+
+            // Create piecewise opacity function
+            const ofun = vtkPiecewiseFunction.newInstance();
+            ofun.addPoint(range[0], 0.0);
+            ofun.addPoint(range[1]*0.3, 0.1);
+            ofun.addPoint(range[1]*0.6, 0.3);
+            ofun.addPoint(range[1], 0.7);
+
+            // Create volume mapper
+            const mapper = vtkVolumeMapper.newInstance();
+            mapper.setInputData(processedData);
+            mapper.setSampleDistance(1.0);
+
+            // Create volume actor
+            const actor = vtkVolume.newInstance();
+            actor.setMapper(mapper);
+            
+            // Set volume properties
+            const property = actor.getProperty();
+            property.setRGBTransferFunction(0, cfun);
+            property.setScalarOpacity(0, ofun);
+            property.setInterpolationTypeToLinear();
+            property.setShade(true);
+            property.setAmbient(0.3);
+            property.setDiffuse(0.7);
+            property.setSpecular(0.3);
+            property.setSpecularPower(10.0);
+
+            // Add volume to renderer
+            renderer.addVolume(actor);
+
+            // Adjust camera to look along +Z and center on dataset
+            const bounds = processedData.getBounds();
+            const center = [
+                (bounds[0] + bounds[1]) / 2,
+                (bounds[2] + bounds[3]) / 2,
+                (bounds[4] + bounds[5]) / 2
+            ];
+            renderer.getActiveCamera().setFocalPoint(...center);
+            renderer.getActiveCamera().setPosition(center[0], center[1], center[2] - 1000);
+            renderer.getActiveCamera().setViewUp(0, 1, 0);
+            renderer.resetCameraClippingRange();
+
+            // Render the scene
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>

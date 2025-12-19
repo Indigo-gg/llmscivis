@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deepwater Isosurface Visualization</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    #renderer { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="renderer"></div>
+
+  <script src="https://unpkg.com/vtk.js"></script>
+  <script>
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkCalculator = vtk.Filters.General.vtkCalculator;
+    const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
+
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      container: document.querySelector('#renderer'),
+      background: [0, 0, 0],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    const reader = vtkXMLImageDataReader.newInstance();
+    reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti', { loadData: true }).then(() => {
+      const imageData = reader.getOutputData(0);
+      const pointData = imageData.getPointData();
+      const v02Array = pointData.getArray('v02');
+      const v03Array = pointData.getArray('v03');
+      const prsArray = pointData.getArray('prs');
+
+      if (v02Array && v03Array) {
+        const calculator = vtkCalculator.newInstance();
+        calculator.setInputData(imageData);
+        calculator.setFormula({
+          getArrays: (inputDataSets) => {
+            const nPts = inputDataSets[0].getNumberOfPoints();
+            return {
+              input: [
+                { location: FieldDataTypes.POINT, name: 'v02' },
+                { location: FieldDataTypes.POINT, name: 'v03' },
+              ],
+              output: [{
+                location: FieldDataTypes.POINT,
+                name: 'velocityMagnitude',
+                dataType: 'Float32Array',
+                numberOfComponents: 1,
+                tuples: nPts,
+                size: nPts,
+              }],
+            };
+          },
+          evaluate: (arraysIn, arraysOut) => {
+            const [v02, v03] = arraysIn.map(d => d.getData());
+            const [velocityMag] = arraysOut.map(d => d.getData());
+            for (let i = 0; i < velocityMag.length; i++) {
+                velocityMag[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+            }
+            arraysOut.forEach(x => x.modified());
+          }
+        });
+        calculator.update();
+        const computedData = calculator.getOutputData();
+        console.log('Computed data', computedData.toJSON());
+
+        const magArr = computedData.getPointData().getArray('velocityMagnitude');
+        computedData.getPointData().setScalars(magArr);
+        computedData.getPointData().setActiveScalars('velocityMagnitude');
+        processIsosurface(computedData, 'velocityMagnitude');
+
+      } else if (prsArray) {
+        // ✅ 修复：这里应该传 imageData，不是 computedData
+        imageData.getPointData().setScalars(prsArray);
+        imageData.getPointData().setActiveScalars('prs');
+        processIsosurface(imageData, 'prs');
+      } else {
+        console.error('Required arrays not found in dataset');
+      }
+    });
+
+    function processIsosurface(data, arrayName) {
+      // ✅ 更稳：按名字取 scalars
+      const scalars = data.getPointData().getArray(arrayName);
+      if (!scalars) {
+        console.error('No scalars array found:', arrayName);
+        return;
+      }
+      const range = scalars.getRange();
+      const midValue = (range[0] + range[1]) / 2;
+
+      const marchingCubes = vtkImageMarchingCubes.newInstance();
+      marchingCubes.setInputData(data);
+      marchingCubes.setContourValue(midValue);
+      marchingCubes.update();
+
+      const iso = marchingCubes.getOutputData();
+
+      const ctfun = vtkColorTransferFunction.newInstance();
+      ctfun.addRGBPoint(range[0], 0, 0, 1);
+      ctfun.addRGBPoint(midValue, 1, 1, 1);
+      ctfun.addRGBPoint(range[1], 1, 0, 0);
+      const mapper = vtkMapper.newInstance();
+      mapper.setInputConnection(marchingCubes.getOutputPort());
+      mapper.setScalarRange(...range);
+      mapper.setLookupTable(ctfun);
+      mapper.setScalarVisibility(true);
+      mapper.setColorByArrayName(arrayName);
+      mapper.setInterpolateScalarsBeforeMapping(true);
+
+      const actor = vtkActor.newInstance();
+      actor.setMapper(mapper);
+      actor.getProperty().setOpacity(1.0);
+      actor.getProperty().setLighting(true);
+      actor.getProperty().setInterpolationToGouraud();
+
+      renderer.addActor(actor);
+      renderer.resetCamera();
+      renderWindow.render();
+    }
+  </script>
+</body>
+</html>

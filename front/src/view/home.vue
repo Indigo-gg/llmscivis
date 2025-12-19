@@ -41,20 +41,20 @@
       <!-- Center: Code preview and output -->
       <div class="center">
         <div class="preview">
-          <preview class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
-            :title="'Generated Code'" ref="generatedPreview" @console-output="handleConsoleOutput">
+          <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
+            ref="generatedPreview" @console-output="handleConsoleOutput" @update:htmlContent="(val) => currentCase.generatedCode = val">
             <template #actions>
               <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
                 variant="text" @click="toggleFullScreen('generated')" class="fullscreen-btn"></v-btn>
             </template>
-          </preview>
-          <preview class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.groundTruth"
-            ref="truthPreview" @console-output="handleConsoleOutput">
+          </edit>
+          <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.groundTruth"
+            ref="truthPreview" @console-output="handleConsoleOutput" @update:htmlContent="(val) => currentCase.groundTruth = val">
             <template #actions>
               <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
                 variant="text" @click="toggleFullScreen('truth')" class="fullscreen-btn"></v-btn>
             </template>
-          </preview>
+          </edit>
         </div>
         
         <div class="output">
@@ -104,6 +104,7 @@
 
 <script>
 import preview from "@/components/preview/index.vue";
+import edit from "@/components/edit/index.vue";
 import config from "@/components/config/index.vue";
 import output from "@/components/output/index.vue"
 import LeftSidebar from "@/components/sidebar/LeftSidebar.vue";
@@ -121,6 +122,7 @@ export default {
   name: "home",
   components: {
     preview,
+    edit,
     config,
     Output: output,
     LeftSidebar,

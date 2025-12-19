@@ -1,0 +1,106 @@
+{
+  "gpt_5_witout_rag": {
+    "cutter": {
+      "added": 18,
+      "deleted": 15,
+      "total": 33,
+      "changed": 8
+    },
+    "isosurface": {
+      "added": 64,
+      "deleted": 105,
+      "total": 169,
+      "changed": 37
+    },
+    "stream_trancing": {
+      "added": 68,
+      "deleted": 250,
+      "total": 318,
+      "changed": 53
+    },
+    "volume": {
+      "added": 0,
+      "deleted": 0,
+      "total": 0,
+      "changed": 0
+    }
+  },
+  "gpt_5_with_rag": {
+    "cutter": {
+      "added": 0,
+      "deleted": 0,
+      "total": 0,
+      "changed": 0
+    },
+    "isosurface": {
+      "added": 9,
+      "deleted": 7,
+      "total": 16,
+      "changed": 4
+    },
+    "stream_trancing": {
+      "added": 0,
+      "deleted": 0,
+      "total": 0,
+      "changed": 0
+    },
+    "volume": {
+      "added": 1,
+      "deleted": 1,
+      "total": 2,
+      "changed": 0
+    }
+  },
+  "qwen3_max_without_rag": {
+    "cuter": {
+      "added": 16,
+      "deleted": 15,
+      "total": 31,
+      "changed": 7
+    },
+    "isosurface": {
+      "added": 48,
+      "deleted": 56,
+      "total": 104,
+      "changed": 32
+    },
+    "stream_tracing": {
+      "added": 18,
+      "deleted": 17,
+      "total": 35,
+      "changed": 12
+    },
+    "volume_rendering": {
+      "added": 3,
+      "deleted": 4,
+      "total": 7,
+      "changed": 2
+    }
+  },
+  "qwen3_max_with_rag": {
+    "cutter": {
+      "added": 9,
+      "deleted": 7,
+      "total": 16,
+      "changed": 4
+    },
+    "isosurface": {
+      "added": 58,
+      "deleted": 90,
+      "total": 148,
+      "changed": 25
+    },
+    "stream_trancing": {
+      "added": 9,
+      "deleted": 11,
+      "total": 20,
+      "changed": 5
+    },
+    "volume": {
+      "added": 28,
+      "deleted": 17,
+      "total": 45,
+      "changed": 15
+    }
+  }
+}

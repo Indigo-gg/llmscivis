@@ -1,0 +1,79 @@
+======================================================================
+任务顺序（Task Order）功能使用说明
+======================================================================
+
+功能概述：
+----------
+现在您可以手动指定读取和绘制哪些子文件夹（任务），以及它们的顺序。
+
+方法一：通过命令行参数指定
+--------------------------
+使用 --task-order 参数来指定任务顺序，用逗号分隔：
+
+python draw_correct_cost.py --task-order "slice,isosurface,stream_tracing,volume_rendering" --use-without-rag
+
+示例：
+1. 仅绘制 slice 和 isosurface 两个任务：
+   python draw_correct_cost.py --task-order "slice,isosurface" --use-without-rag
+
+2. 自定义顺序（isosurface 优先）：
+   python draw_correct_cost.py --task-order "isosurface,slice,stream_tracing" --use-without-rag
+
+3. 结合其他参数：
+   python draw_correct_cost.py --task-order "slice,isosurface,stream_tracing,volume_rendering" \
+                                 --use-without-rag \
+                                 --fontsize-title 28 \
+                                 --fontsize-tick 22
+
+
+方法二：通过修改代码中的全局变量
+--------------------------------
+编辑 draw_correct_cost.py 文件，修改第 23 行的 GLOBAL_TASK_ORDER 变量：
+
+# 例如：
+GLOBAL_TASK_ORDER = ['slice', 'isosurface', 'stream_tracing', 'volume_rendering']
+
+或者只读取特定任务：
+GLOBAL_TASK_ORDER = ['slice', 'isosurface']
+
+如果设置为 None，则自动识别所有子文件夹（默认行为）：
+GLOBAL_TASK_ORDER = None
+
+
+使用优先级
+----------
+1. 命令行 --task-order 参数（最高优先级）
+2. 代码中的 GLOBAL_TASK_ORDER 变量
+3. 自动识别所有子文件夹（默认）
+
+
+注意事项
+--------
+• 任务名称应该与实际子文件夹名称匹配（区分大小写）
+• 如果指定的任务不存在于数据中，会被自动跳过
+• 未在 task_order 中指定但存在于数据中的任务，会自动追加到列表末尾
+• 任务顺序会影响图表中 X 轴的显示顺序
+
+======================================================================
+示例场景
+======================================================================
+
+场景 1：按特定顺序显示任务
+--------
+如果您想要按照 [volume_rendering, stream_tracing, isosurface, slice] 的顺序显示：
+python draw_correct_cost.py --task-order "volume_rendering,stream_tracing,isosurface,slice" --use-without-rag
+
+场景 2：仅对比某些任务
+--------
+如果您只关心 slice 和 isosurface 两个任务的数据：
+python draw_correct_cost.py --task-order "slice,isosurface" --use-without-rag
+
+场景 3：使用全局配置
+--------
+修改代码：
+GLOBAL_TASK_ORDER = ['slice', 'isosurface', 'stream_tracing', 'volume_rendering']
+
+然后直接运行：
+python draw_correct_cost.py --use-without-rag
+
+======================================================================

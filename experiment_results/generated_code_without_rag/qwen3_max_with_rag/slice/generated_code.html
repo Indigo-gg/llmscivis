@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js Rotor Dataset Visualization</title>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // Initialize render window and renderer
+        const fullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            containerStyle: { height: '100%', width: '100%' },
+            background: [0.2, 0.2, 0.2],
+        });
+        const renderer = fullScreenRenderWindow.getRenderer();
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+        // Create reader for VTI file (using XMLImageDataReader instead of HttpDataSetReader)
+        const reader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+        
+        // Load dataset from specified URL
+        reader.setUrl('http://127.0.0.1:5000/dataset/rotor.vti', { loadData: true }).then(() => {
+            const data = reader.getOutputData(0);
+            
+            // Set active scalar array to "Pressure"
+            const pointData = data.getPointData();
+            const pressureArray = pointData.getArray('Pressure');
+            if (!pressureArray) {
+                console.error('Pressure array not found in dataset');
+                return;
+            }
+            pointData.setScalars(pressureArray);
+            
+            // Get scalar range for color mapping
+            const scalarRange = pressureArray.getRange();
+            
+            // Calculate Y-axis slice index at 95% depth
+            const extent = data.getExtent();
+            const yMin = extent[2];
+            const yMax = extent[3];
+            const ySliceIndex = Math.round(yMin + 0.95 * (yMax - yMin));
+            
+            // Create image mapper and set Y slice (JSlice corresponds to Y-axis)
+            const mapper = vtk.Rendering.Core.vtkImageMapper.newInstance();
+            mapper.setInputData(data);
+            mapper.setJSlice(ySliceIndex);
+            
+            // Create image slice actor
+            const actor = vtk.Rendering.Core.vtkImageSlice.newInstance();
+            actor.setMapper(mapper);
+            
+            // Configure color transfer function (blue → white → red)
+            const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+            ctfun.addRGBPoint(scalarRange[0], 0, 0, 1);      // Blue at min
+            ctfun.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // White at mid
+            ctfun.addRGBPoint(scalarRange[1], 1, 0, 0);      // Red at max
+            
+            // Set fully opaque (no transparency)
+            const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+            ofun.addPoint(scalarRange[0], 1.0);
+            ofun.addPoint(scalarRange[1], 1.0);
+            
+            // Apply color and opacity functions to actor
+            actor.getProperty().setRGBTransferFunction(0, ctfun);
+            actor.getProperty().setScalarOpacity(0, ofun);
+            actor.getProperty().setInterpolationTypeToLinear();
+            
+            // Add actor to renderer
+            renderer.addActor(actor);
+            
+            // Add orientation marker (axes widget)
+            const axes = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
+                actor: vtk.Rendering.Core.vtkAnnotatedCubeActor.newInstance(),
+                interactor: renderWindow.getInteractor(),
+            });
+            axes.setViewportCorner(vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+            axes.setViewportSize(0.15);
+            axes.setEnabled(true);
+            axes.setInteractive(false);
+            
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>

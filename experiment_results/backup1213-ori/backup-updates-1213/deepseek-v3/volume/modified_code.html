@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK.js Redsea Volume Rendering</title>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+</head>
+<body>
+    <div id="container"></div>
+    <script>
+        // Load required VTK modules
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+        const vtkVolume = vtk.Rendering.Core.vtkVolume;
+        const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+        
+        // Create render window and get references to renderer and render window
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+            rootContainer: document.getElementById('container')
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create reader for VTI file
+        const reader = vtkXMLImageDataReader.newInstance();
+        
+        // Create volume mapper and volume actor
+        const mapper = vtkVolumeMapper.newInstance();
+        const actor = vtkVolume.newInstance();
+        
+        // Set up the volume rendering pipeline
+        mapper.setInputConnection(reader.getOutputPort());
+        actor.setMapper(mapper);
+        actor.setMapper(mapper);
+        
+        // Create color transfer function (blue-white-red)
+        const cfun = vtkColorTransferFunction.newInstance();
+        cfun.addRGBPoint(0, 0, 0, 1);   // Blue at min
+        cfun.addRGBPoint(0.5, 1, 1, 1); // White at middle
+        cfun.addRGBPoint(1, 1, 0, 0);   // Red at max
+        
+        // Create piecewise opacity function
+        const ofun = vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(0, 0.0);
+        ofun.addPoint(0.1, 0.1);
+        ofun.addPoint(0.5, 0.3);
+        ofun.addPoint(1, 0.5);
+        
+        // Configure volume properties
+        actor.getProperty().setRGBTransferFunction(0, cfun);
+        actor.getProperty().setScalarOpacity(0, ofun);
+        actor.getProperty().setInterpolationTypeToLinear();
+        
+        // Set lighting properties for realistic appearance
+        actor.getProperty().setShade(true);
+        actor.getProperty().setAmbient(0.3);
+        actor.getProperty().setDiffuse(0.6);
+        actor.getProperty().setSpecular(0.5);
+        actor.getProperty().setSpecularPower(40);
+        
+        // Add actor to renderer
+        renderer.addVolume(actor);
+        
+        // Load the data file and set up the visualization
+        reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+            reader.loadData().then(() => {
+                const imageData = reader.getOutputData(0);
+                const velocityArray = imageData.getPointData().getArrayByName('velocity');
+                if (!velocityArray) {
+                    console.error('Velocity array not found in dataset');
+                    return;
+                }
+                const numPoints = imageData.getNumberOfPoints();
+                const magnitudeData = new Float32Array(numPoints);
+                const velocity = velocityArray.getData();
+                for (let i = 0; i < numPoints; i++) {
+                    const vx = velocity[i * 3];
+                    const vy = velocity[i * 3 + 1];
+                    const vz = velocity[i * 3 + 2];
+                    magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                }
+                const vtkDataArray = vtk.Common.Core.vtkDataArray;
+                const magnitudeVtkArray = vtkDataArray.newInstance({
+                    numberOfComponents: 1,
+                    values: magnitudeData,
+                    name: 'velMag',
+                });
+                imageData.getPointData().addArray(magnitudeVtkArray);
+                imageData.getPointData().setActiveScalars('velMag');
+                
+                // Get scalar range for color/opacity mapping
+                const range = magnitudeVtkArray.getRange();
+                
+                // Update transfer functions to use actual data range
+                cfun.removeAllPoints();
+                cfun.addRGBPoint(range[0], 0, 0, 1);    // Blue at min
+                cfun.addRGBPoint((range[0] + range[1])/2, 1, 1, 1);  // White at mid
+                cfun.addRGBPoint(range[1], 1, 0, 0);    // Red at max
+                
+                ofun.removeAllPoints();
+                ofun.addPoint(range[0], 0.0);
+                ofun.addPoint(range[0] + (range[1] - range[0]) * 0.1, 0.1);
+                ofun.addPoint(range[0] + (range[1] - range[0]) * 0.5, 0.3);
+                ofun.addPoint(range[1], 0.5);
+                
+                // Set camera to look along +Z and center on dataset
+                const bounds = imageData.getBounds();
+                const center = [
+                    (bounds[0] + bounds[1])/2,
+                    (bounds[2] + bounds[3])/2,
+                    (bounds[4] + bounds[5])/2
+                ];
+                
+                const camera = renderer.getActiveCamera();
+                camera.setFocalPoint(...center);
+                camera.setPosition(center[0], center[1], center[2] + (bounds[5] - bounds[4]) * 2);
+                camera.setViewUp(0, 1, 0);
+                
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        });
+    </script>
+</body>
+</html>

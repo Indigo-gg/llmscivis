@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepwater Dataset Isosurface Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #renderWindowContainer {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="renderWindowContainer"></div>
+    
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // VTK.js module imports
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+        const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+
+        // Setup full screen render window
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0.1, 0.1, 0.1],
+            container: document.getElementById('renderWindowContainer')
+        });
+        const renderer = fullScreenRenderWindow.getRenderer();
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+        // Create data reader for VTI format - Using vtkXMLImageDataReader for .vti files
+        const reader = vtkXMLImageDataReader.newInstance();
+
+        // Load dataset from specified URL: http://127.0.0.1:5000/dataset/deepwater.vti
+        reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+            console.log('Dataset loaded successfully');
+            
+            // Get the loaded image data
+            const imageData = reader.getOutputData();
+            const pointData = imageData.getPointData();
+            
+            // Compute velocity magnitude from arrays v02 and v03; if not available, use prs as the scalar
+            const calculator = vtkCalculator.newInstance();
+            
+            // Check if v02 and v03 arrays are available for velocity magnitude calculation
+            const v02Array = pointData.getArrayByName('v02');
+            const v03Array = pointData.getArrayByName('v03');
+            const prsArray = pointData.getArrayByName('prs');
+            
+            let scalarArrayName;
+            
+            if (v02Array && v03Array) {
+                console.log('Computing velocity magnitude from v02 and v03 arrays');
+                // Calculate velocity magnitude: sqrt(v02^2 + v03^2)
+                calculator.setFormulaSimple(
+                    FieldDataTypes.POINT,
+                    ['v02', 'v03'],
+                    'velocity_magnitude',
+                    (v02, v03) => Math.sqrt(v02*v02 + v03*v03)
+                );
+                calculator.setInputData(imageData);
+                scalarArrayName = 'velocity_magnitude';
+            } else if (prsArray) {
+                console.log('Using pressure (prs) array as scalar field');
+                // Use pressure array directly
+                calculator.setInputData(imageData);
+                scalarArrayName = 'prs';
+            } else {
+                console.error('No suitable scalar arrays found (v02, v03, or prs)');
+                return;
+            }
+
+            // Get scalar data range for isosurface generation and color mapping
+            const scalarData = calculator.getOutputData();
+            const scalars = scalarData.getPointData().getArrayByName(scalarArrayName) || 
+                           scalarData.getPointData().getArrayByName('prs');
+            
+            if (!scalars) {
+                console.error('Could not find scalar array for visualization');
+                return;
+            }
+
+            const scalarRange = scalars.getRange();
+            console.log(`Scalar range: [${scalarRange[0]}, ${scalarRange[1]}]`);
+
+            // Generate an isosurface at the mid-value of the scalar range
+            const midValue = (scalarRange[0] + scalarRange[1]) / 2.0;
+            console.log(`Generating isosurface at mid-value: ${midValue}`);
+
+            const marchingCubes = vtkImageMarchingCubes.newInstance({
+                contourValue: midValue,
+                computeNormals: true, // Enable smooth shading
+                mergePoints: true
+            });
+
+            // Connect pipeline
+            marchingCubes.setInputConnection(calculator.getOutputPort());
+
+            // Create mapper and actor for isosurface rendering
+            const mapper = vtkMapper.newInstance({
+                interpolateScalarsBeforeMapping: true // Enable smooth shading
+            });
+            mapper.setInputConnection(marchingCubes.getOutputPort());
+
+            // Use a blue → white → red color map spanning the scalar range (min to max)
+            const colorTransferFunction = vtkColorTransferFunction.newInstance();
+            colorTransferFunction.addRGBPoint(scalarRange[0], 0.0, 0.0, 1.0); // Blue at minimum
+            colorTransferFunction.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2.0, 1.0, 1.0, 1.0); // White at middle
+            colorTransferFunction.addRGBPoint(scalarRange[1], 1.0, 0.0, 0.0); // Red at maximum
+
+            mapper.setLookupTable(colorTransferFunction);
+            mapper.setColorByArrayName(scalarArrayName);
+            mapper.setScalarRange(scalarRange[0], scalarRange[1]);
+            mapper.setScalarModeToUsePointFieldData();
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+
+            // Set the isosurface to fully opaque with smooth shading
+            const property = actor.getProperty();
+            property.setOpacity(1.0); // Fully opaque
+            property.setInterpolationToPhong(); // Smooth shading
+            property.setAmbient(0.2);
+            property.setDiffuse(0.8);
+            property.setSpecular(0.2);
+            property.setSpecularPower(20);
+
+            // Add actor to renderer
+            renderer.addActor(actor);
+
+            // Add an XYZ orientation marker in the bottom-right corner
+            const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                actor: vtkAnnotatedCubeActor.newInstance(),
+                interactor: renderWindow.getInteractor()
+            });
+            orientationWidget.setEnabled(true);
+            orientationWidget.setViewportCorner(
+                vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+            );
+            orientationWidget.setViewportSize(0.15); // 15% of viewport size
+            orientationWidget.setMinPixelSize(100);
+            orientationWidget.setMaxPixelSize(300);
+
+            // Setup cube faces with XYZ labels
+            const cube = orientationWidget.getActor();
+            cube.setXPlusFaceText('+X');
+            cube.setXMinusFaceText('-X');
+            cube.setYPlusFaceText('+Y');
+            cube.setYMinusFaceText('-Y');
+            cube.setZPlusFaceText('+Z');
+            cube.setZMinusFaceText('-Z');
+
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+
+            console.log('Deepwater dataset visualization completed successfully');
+
+        }).catch((error) => {
+            console.error('Error loading dataset:', error);
+            // Display error message to user
+            document.body.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 18px; color: red;">
+                    Error loading dataset: ${error.message}<br>
+                    Please ensure the server is running at http://127.0.0.1:5000
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

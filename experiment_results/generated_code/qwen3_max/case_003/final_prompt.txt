@@ -1,0 +1,19 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the Isabel dataset with streamline rendering._x000D__x000D_
+_x000D__x000D_
+Load the dataset from: http://127.0.0.1:5000/dataset/isabel.vti_x000D__x000D_
+_x000D__x000D_
+Use the "Velocity" array as the vector field for streamlines_x000D__x000D_
+_x000D__x000D_
+Generate seed points at the center of the dataset with sufficient density to cover the domain_x000D__x000D_
+_x000D__x000D_
+Compute streamlines following the velocity field_x000D__x000D_
+_x000D__x000D_
+Render streamlines in cyan ([0, 1, 1]) with a specified line width_x000D__x000D_
+_x000D__x000D_
+Render a dataset outline in red ([1, 0, 0]) with a specified line width
+
+Relevant VTK.js Examples:
+No examples provided (direct generation mode).

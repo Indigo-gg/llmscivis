@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Redsea Volume Rendering</title>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; }
+    #container { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+
+    // Get container and create renderer, render window, and interactor
+    const container = document.getElementById('container');
+    const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({ container });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Create volume actor and mapper
+    const volumeActor = vtk.Rendering.Core.vtkVolume.newInstance();
+    const volumeMapper = vtk.Rendering.Core.vtkVolumeMapper.newInstance();
+    volumeActor.setMapper(volumeMapper);
+
+    // Load the Redsea dataset
+    const reader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+    reader.setUrl('http://127.0.0.1:5000/dataset/redsea.vti').then(() => {
+      const imageData = reader.getOutputData(0);
+      
+      // Compute velocity magnitude from "velocity" array
+      const velocityArray = imageData.getPointData().getArray('velocity');
+      if (velocityArray) {
+        const numTuples = velocityArray.getNumberOfTuples();
+        const magnitudeArray = new Float32Array(numTuples);
+        
+        for (let i = 0; i < numTuples; i++) {
+          const x = velocityArray.getComponent(i, 0);
+          const y = velocityArray.getComponent(i, 1);
+          const z = velocityArray.getComponent(i, 2);
+          magnitudeArray[i] = Math.sqrt(x*x + y*y + z*z);
+        }
+        
+        // Create new scalar array for magnitude
+        const magnitudeDataArray = vtk.Common.Core.vtkDataArray.newInstance({
+          name: 'VelocityMagnitude',
+          values: magnitudeArray,
+          numberOfComponents: 1
+        });
+        
+        // Set as active scalars
+        imageData.getPointData().setScalars(magnitudeDataArray);
+      }
+
+      // Set input for volume mapper
+      volumeMapper.setInputData(imageData);
+
+      // Create color transfer function (blue → white → red)
+      const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+      const dataArray = imageData.getPointData().getScalars();
+      const range = dataArray.getRange();
+      ctfun.addRGBPoint(range[0], 0, 0, 1);     // Blue at min
+      ctfun.addRGBPoint((range[0]+range[1])/2, 1, 1, 1); // White at mid
+      ctfun.addRGBPoint(range[1], 1, 0, 0);     // Red at max
+
+      // Create piecewise opacity function
+      const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+      ofun.addPoint(range[0], 0.0);
+      ofun.addPoint(range[0] + (range[1]-range[0])*0.2, 0.1);
+      ofun.addPoint(range[0] + (range[1]-range[0])*0.5, 0.3);
+      ofun.addPoint(range[1], 0.6);
+
+      // Set volume properties
+      volumeActor.getProperty().setRGBTransferFunction(0, ctfun);
+      volumeActor.getProperty().setScalarOpacity(0, ofun);
+      volumeActor.getProperty().setShade(true);
+      volumeActor.getProperty().setAmbient(0.2);
+      volumeActor.getProperty().setDiffuse(0.8);
+      volumeActor.getProperty().setSpecular(0.3);
+      volumeActor.getProperty().setSpecularPower(10.0);
+
+      // Add volume to renderer
+      renderer.addVolume(volumeActor);
+      renderer.resetCamera();
+
+      // Adjust camera to look along +Z and center on dataset
+      const bounds = imageData.getBounds();
+      const center = [
+        (bounds[0] + bounds[1]) / 2,
+        (bounds[2] + bounds[3]) / 2,
+        (bounds[4] + bounds[5]) / 2
+      ];
+      renderer.getActiveCamera().setPosition(center[0], center[1], center[2] - (bounds[5] - bounds[4]));
+      renderer.getActiveCamera().setFocalPoint(center[0], center[1], center[2]);
+      renderer.getActiveCamera().setViewUp(0, 1, 0);
+
+      // Render
+      renderWindow.render();
+    });
+  </script>
+</body>
+</html>

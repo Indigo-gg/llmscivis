@@ -74,7 +74,6 @@
                     mergePoints: true
                 });
                 marchingCube.setInputData(imageData);
-
                 const mapper = vtkMapper.newInstance();
                 mapper.setInputConnection(marchingCube.getOutputPort());
                 const colorTransferFunction = vtkColorTransferFunction.newInstance();
