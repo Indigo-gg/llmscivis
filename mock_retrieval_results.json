@@ -1,0 +1,56 @@
+[
+  {
+    "id": "result_0",
+    "title": "Cutter",
+    "description": "VTK Cutter 用于将数据集切割成任意平面，适用于体积数据和表面数据的切割操作",
+    "relevance": 0.92,
+    "vtkjs_modules": [
+      "Filters/General/Cutter",
+      "IO/Image"
+    ],
+    "matched_keywords": [
+      "VTK",
+      "数据可视化",
+      "3D渲染"
+    ],
+    "file_path": "data/vtkjs-examples/0.html",
+    "raw_score": 92.0,
+    "thumbnail_url": "/get_image/vtkjs-examples/benchmark/data/dataset/test.png"
+  },
+  {
+    "id": "result_1",
+    "title": "Volume Rendering",
+    "description": "体积渲染技术用于三维科学数据的可视化，支持高质量的光线投射和色彩映射",
+    "relevance": 0.78,
+    "vtkjs_modules": [
+      "Rendering/Volume",
+      "Rendering/Core"
+    ],
+    "matched_keywords": [
+      "VTK",
+      "数据可视化",
+      "3D渲染"
+    ],
+    "file_path": "data/vtkjs-examples/1.html",
+    "raw_score": 78.0,
+    "thumbnail_url": "/get_image/vtkjs-examples/benchmark/data/dataset/test.png"
+  },
+  {
+    "id": "result_2",
+    "title": "IsosurfaceExtraction",
+    "description": "提取标量数据的等值面，常用于医学影像和科学计算中的表面提取",
+    "relevance": 0.65,
+    "vtkjs_modules": [
+      "Filters/Core/ContourFilter",
+      "Rendering/OpenGL"
+    ],
+    "matched_keywords": [
+      "VTK",
+      "数据可视化",
+      "3D渲染"
+    ],
+    "file_path": "data/vtkjs-examples/2.html",
+    "raw_score": 65.0,
+    "thumbnail_url": "/get_image/vtkjs-examples/benchmark/data/dataset/test.png"
+  }
+]

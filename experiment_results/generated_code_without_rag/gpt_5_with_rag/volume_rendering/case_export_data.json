@@ -92,60 +92,68 @@
   ],
   "retrieval_results": [
     {
-      "id": 895986302,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Filter-VolumeClip\\code.html",
-      "description": "Renders a 3D medical volume (`headsq.vti`) with a clipping plane, using `vtkVolumeMapper` and `vtkVolumeActor` for customized appearance.\n",
-      "relevance": 10.0,
-      "matched_keywords": [
-        "vtkVolumeMapper",
-        "vtkVolumeActor"
-      ]
-    },
-    {
-      "id": 431419998,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Rendering-VolumeMapper\\code.html",
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-VolumeMapper\\code.html",
+      "faiss_id": 431419998,
       "description": "Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.\n",
-      "relevance": 10.0,
-      "matched_keywords": [
-        "vtkVolumeMapper",
-        "vtkVolumeActor"
-      ]
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']",
+      "rerank_score": 38.0,
+      "matched_keywords": "['vtkVolumeMapper', 'vtkVolumeActor', 'vtkPiecewiseFunction', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys\", \"Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 2 keys\"]",
+      "title": "Rendering-VolumeMapper"
     },
     {
-      "id": 1276004285,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Filter-Calculator\\code.html",
-      "description": "This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.\n",
-      "relevance": 5.0,
-      "matched_keywords": [
-        "vtkCalculator"
-      ]
-    },
-    {
-      "id": 144015752,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageLabelOutline\\code.html",
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageLabelOutline\\code.html",
+      "faiss_id": 144015752,
       "description": "Displays a 2D image volume with an outlined labelmap. Specific regions (high/low values) are highlighted in red/green with transparent outlines.\n",
-      "relevance": 5.0,
-      "matched_keywords": [
-        "vtkCalculator"
-      ]
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkImageData', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Filters.General.vtkCalculator', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 32.0,
+      "matched_keywords": "['vtkPiecewiseFunction', 'vtkCalculator', 'vtkActor', 'vtkRenderWindow', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageLabelOutline"
     },
     {
-      "id": 771311485,
-      "title": "data\\vtkjs-examples\\prompt-sample\\IO-StickMapper\\code.html",
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-ItkWasmVolume\\code.html",
+      "faiss_id": 1398812761,
+      "description": "Loads a medical image dataset (MHA) and renders it as a 3D volume using `vtkVolumeMapper` with custom color and opacity transfer functions.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkITKHelper', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.IO.Core.DataAccessHelper.vtkLiteHttpDataAccessHelper', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 31.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkVolumeMapper', 'vtkPiecewiseFunction', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Visualization Setup — Apply a blue → white → red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys\", \"Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Rendering-ItkWasmVolume"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-VolumeClip\\code.html",
+      "faiss_id": 895986302,
+      "description": "Renders a 3D medical volume (`headsq.vti`) with a clipping plane, using `vtkVolumeMapper` and `vtkVolumeActor` for customized appearance.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Common.DataModel.vtkPlane', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']",
+      "rerank_score": 30.0,
+      "matched_keywords": "['vtkVolumeActor', 'vtkPiecewiseFunction', 'vtkVolumeMapper']",
+      "match_explanation": "[\"Query: 'Visualization Setup — Define a piecewise opacity function to control transparency across scalar values using vtkPiecewiseFunction;' (w=10.0) -> Hit 1 keys\", \"Query: 'Volume Rendering — Render the dataset using vtkVolumeMapper and vtkVolumeActor;' (w=10.0) -> Hit 2 keys\"]",
+      "title": "Filter-VolumeClip"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-Calculator\\code.html",
+      "faiss_id": 1276004285,
+      "description": "This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkDataSet.FieldDataTypes', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 14.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-Calculator"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\IO-StickMapper\\code.html",
+      "faiss_id": 771311485,
       "description": "Generates a plane and uses `vtkCalculator` to create custom point data ('orientation', 'temperature', 'pressure'), which `vtkStickMapper` could use for rendering (currently not fully connected).\n",
-      "relevance": 5.0,
-      "matched_keywords": [
-        "vtkCalculator"
-      ]
-    },
-    {
-      "id": 105009849,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Rendering-GlyphMapper\\code.html",
-      "description": "Visualizes a 3D plane with glyphs (e.g., cones) whose scale and orientation are based on scalar and vector data, using `vtkGlyph3DMapper` and `vtkCalculator`.\n",
-      "relevance": 5.0,
-      "matched_keywords": [
-        "vtkCalculator"
-      ]
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 14.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Compute the velocity magnitude from the 'velocity' array and set it as the active scalar using vtkCalculator;' (w=8.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "IO-StickMapper"
     }
-  ]
+  ],
+  "metadata": {
+    "keyword_aware_retrieval_time": 0.01036524772644043,
+    "retrieval_time_seconds": 0.01
+  }
 }

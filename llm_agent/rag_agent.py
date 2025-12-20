@@ -71,6 +71,15 @@ class RAGAgent:
         
         return result
     
+    def _get_thumbnail_url(self, file_path: str) -> str:
+        """
+        根据文件路径生成缩略图 URL
+        临时使用测试图片路径
+        """
+        # 临时测试：使用固定的测试图片
+        test_image_path = "vtkjs-examples/benchmark/data/dataset/test.png"
+        return f"/get_image/{test_image_path}"
+    
     def _extract_metadata_from_v3(self):
         """
         从 retriever_v3 的检索结果中提取元数据用于前端展示
@@ -81,17 +90,45 @@ class RAGAgent:
         if hasattr(self.searcher, 'reranked_results_history') and self.searcher.reranked_results_history:
             last_results = self.searcher.reranked_results_history[-1]
             
+            # 提取所有分数用于归一化
+            all_scores = [r.get("rerank_score", 0.0) for r in last_results]
+            
+            if not all_scores:
+                print(f"[RAGAgent] 无有效分数")
+                return
+            
+            # 使用最小-最大归一化方法：normalized = (score - min) / (max - min)
+            # 这样最低分变为0%，最高分变为100%，中间分数线性分布
+            max_score = max(all_scores)
+            min_score = min(all_scores)
+            score_range = max_score - min_score if max_score > min_score else 1.0
+            
             for idx, result in enumerate(last_results[:10]):  # Top 10 results
                 meta = result.get("meta_info", {})
+                raw_score = result.get("rerank_score", 0.0)
+                
+                # 使用最小-最大归一化
+                if score_range > 0:
+                    normalized_relevance = (raw_score - min_score) / score_range
+                else:
+                    normalized_relevance = 1.0 if raw_score > 0 else 0.0
+                
+                # 确保在0-1范围内
+                normalized_relevance = min(max(normalized_relevance, 0.0), 1.0)
+                
                 self.last_retrieval_results.append({
                     "id": result.get("faiss_id") or result.get("file_path") or idx,
-                    "title": meta.get("title") or meta.get("file_path", f"Example {idx+1}"),
+                    "title": meta.get("file_name") or meta.get("file_path", f"Example {idx+1}"),
                     "description": meta.get("description", "N/A")[:200],
-                    "relevance": result.get("rerank_score", 0.0),
-                    "matched_keywords": result.get("matched_keywords", [])
+                    "relevance": normalized_relevance,
+                    "raw_score": raw_score,  # 保留原始分数供调试
+                    "vtkjs_modules": meta.get("vtkjs_modules", []),  # 添加模块信息
+                    "matched_keywords": result.get("matched_keywords", []),
+                    "file_path": meta.get("file_path", ""),  # 添加文件路径供参考
+                    "thumbnail_url": self._get_thumbnail_url(meta.get("file_path", ""))
                 })
-        
-        print(f"[RAGAgent] 提取了 {len(self.last_retrieval_results)} 条检索元数据")
+
+
     
     def get_retrieval_metadata(self) -> list:
         """
@@ -220,4 +257,4 @@ if __name__ == "__main__":
     
     # 以下代码用于将JSON结果转换为Excel，可以根据需要独立运行
     # excel_output_path = "D://Pcode//LLM4VIS//llmscivis//data//recoreds//experiment_results.xlsx"
-    # json_to_excel(output_file, excel_output_path)
+    # json_to_excel(output_file, excel_output_path)![1766231455900](image/rag_agent/1766231455900.png)![1766231456154](image/rag_agent/1766231456154.png)![1766231456389](image/rag_agent/1766231456389.png)![1766231456544](image/rag_agent/1766231456544.png)![1766231456723](image/rag_agent/1766231456723.png)![1766231457570](image/rag_agent/1766231457570.png)![1766231458075](image/rag_agent/1766231458075.png)![1766231458928](image/rag_agent/1766231458928.png)![1766231460243](image/rag_agent/1766231460243.png)![1766231460643](image/rag_agent/1766231460643.png)![1766231461220](image/rag_agent/1766231461220.png)![1766231461623](image/rag_agent/1766231461623.png)![1766231461956](image/rag_agent/1766231461956.png)![1766231467051](image/rag_agent/1766231467051.png)![1766231467408](image/rag_agent/1766231467408.png)![1766231467641](image/rag_agent/1766231467641.png)![1766231467821](image/rag_agent/1766231467821.png)![1766231474831](image/rag_agent/1766231474831.png)![1766231475139](image/rag_agent/1766231475139.png)![1766231475361](image/rag_agent/1766231475361.png)![1766231475541](image/rag_agent/1766231475541.png)![1766231475697](image/rag_agent/1766231475697.png)![1766231475871](image/rag_agent/1766231475871.png)

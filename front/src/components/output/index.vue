@@ -3,7 +3,7 @@
     <v-row class="output-row">
       <v-col cols="12" md="6" class="console-col">
         <v-card variant="tonal" class="output-card">
-          <v-card-title class="d-flex align-center">
+          <v-card-title class="d-flex align-center" style="padding: var(--spacing-md) var(--spacing-lg);">
             Console Output
             <v-spacer></v-spacer>
             <v-btn-group variant="outlined" class="ml-1" density="compact">
@@ -36,8 +36,8 @@
       </v-col>
       <v-col cols="12" md="6" class="evaluator-col">
         <v-card variant="tonal" class="output-card">
-          <div class="evaluator-header">
-            <v-card-title class="flex-grow-1">Evaluator Output</v-card-title>
+          <div class="evaluator-header" style="padding: var(--spacing-md) var(--spacing-lg);">
+            <v-card-title class="flex-grow-1" style="padding: 0;">Evaluator Output</v-card-title>
             <v-btn 
               icon="mdi-download" 
               size="x-small" 
@@ -277,10 +277,10 @@ export default {
             {
               label: 'Evaluation Score',
               data: scores,
-              borderColor: '#4a5568',
-              backgroundColor: 'rgba(74, 85, 104, 0.15)',
+              borderColor: 'var(--text-primary)',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
               borderWidth: 2.5,
-              pointBackgroundColor: '#4a5568',
+              pointBackgroundColor: 'var(--primary-color)',
               pointBorderColor: '#fff',
               pointBorderWidth: 2,
               pointRadius: 4,
@@ -300,7 +300,7 @@ export default {
               padding: 12,
               titleFont: { size: 13 },
               bodyFont: { size: 12 },
-              borderColor: '#4a5568',
+              borderColor: 'var(--primary-color)',
               borderWidth: 1,
               callbacks: {
                 label: function(context) {
@@ -322,12 +322,12 @@ export default {
                 }
               },
               grid: {
-                color: '#e5e7eb',
+                color: 'var(--border-color)',
                 drawBorder: false
               },
               pointLabels: {
                 font: { size: 12, weight: 'bold' },
-                color: '#4a5568',
+                color: 'var(--text-primary)',
                 padding: 8
               }
             }
@@ -376,7 +376,7 @@ export default {
 
 .console-col,
 .evaluator-col {
-  padding: 8px;
+  padding: var(--spacing-sm);
 }
 
 .output-card {
@@ -391,14 +391,14 @@ export default {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: var(--spacing-md);
 }
 
 .evaluator-header {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  gap: 8px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  gap: var(--spacing-sm);
 }
 
 .evaluator-header .v-card-title {
@@ -425,17 +425,17 @@ export default {
   text-align: left;
   overflow: auto;
   flex: 1;
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 8px;
-  color: #333333;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm);
+  color: var(--text-primary);
 }
 
 .log-entry {
-  padding: 4px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   margin: 2px 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
 }
@@ -457,9 +457,9 @@ export default {
 }
 
 .log-timestamp {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.85em;
-  margin-right: 8px;
+  margin-right: var(--spacing-sm);
 }
 
 .log-message {
@@ -471,14 +471,14 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: var(--spacing-xxl) var(--spacing-lg);
   min-height: 150px;
 }
 
 .empty-text {
-  margin-top: 12px;
+  margin-top: var(--spacing-md);
   font-size: 14px;
-  color: #9e9e9e;
+  color: var(--disabled-color);
 }
 
 /* Structured Evaluation Styles */
@@ -489,45 +489,45 @@ export default {
 }
 
 .overall-assessment {
-  background-color: #f3f4f6;
-  border-radius: 8px;
-  padding: 16px;
-  border-left: 3px solid #6b7280;
+  background-color: var(--secondary-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border-left: 3px solid var(--text-secondary);
 }
 
 .assessment-header {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-md);
 }
 
 .assessment-title {
   font-weight: 600;
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-primary);
 }
 
 .assessment-content {
   font-size: 14px;
   line-height: 1.6;
-  color: #333;
+  color: var(--text-primary);
   font-style: italic;
 }
 
 .detailed-breakdown {
-  margin-top: 8px;
-  background-color: #f9fafb;
-  padding: 12px;
-  border-radius: 6px;
+  margin-top: var(--spacing-sm);
+  background-color: var(--secondary-bg);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
 }
 
 .breakdown-title {
   font-weight: 600;
   font-size: 14px;
-  color: #4b5563;
-  margin-bottom: 12px;
-  padding-left: 8px;
-  border-left: 3px solid #6b7280;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  padding-left: var(--spacing-sm);
+  border-left: 3px solid var(--text-secondary);
 }
 
 .dimension-header {
@@ -548,13 +548,13 @@ export default {
 .dimension-reason {
   font-size: 13px;
   line-height: 1.6;
-  color: #5a6470;
-  padding: 8px 0;
+  color: var(--text-secondary);
+  padding: var(--spacing-sm) 0;
 }
 
 /* Radar Chart Styles */
 .radar-chart-section {
-  margin: 12px 0;
+  margin: var(--spacing-md) 0;
 }
 
 .section-title {
@@ -562,21 +562,20 @@ export default {
   align-items: center;
   font-weight: 600;
   font-size: 14px;
-  color: #4b5563;
-  padding-left: 8px;
-  border-left: 3px solid #6b7280;
+  color: var(--text-primary);
+  padding-left: var(--spacing-sm);
+  border-left: 3px solid var(--text-secondary);
 }
 
 .radar-chart-wrapper {
-  margin: 12px 0;
-  background-color: #ffffff;
-  /* padding: 8px; */
+  margin: var(--spacing-md) 0;
+  background-color: var(--background-color);
   width: 100%;
   height: 300px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   display: flex;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-light);
 }
 
 .radar-chart-container {
@@ -590,6 +589,6 @@ export default {
 .radar-chart-container canvas {
   max-width: 60%;
   height: auto;
-  background-color: #ffffff;
+  background-color: var(--background-color);
 }
 </style>

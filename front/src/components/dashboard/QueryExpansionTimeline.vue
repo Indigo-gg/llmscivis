@@ -33,18 +33,12 @@
 
         <!-- Step Content Card -->
         <div class="step-content">
-          <v-card elevation="2" class="step-card">
-            <v-card-title class="step-header">
-              <!-- Phase Badge -->
-              <v-chip 
-                :color="getPhaseColor(step.phase)" 
-                size="small" 
-                class="phase-chip"
-                label
-              >
-                <v-icon start size="small">{{ getPhaseIcon(step.phase) }}</v-icon>
-                {{ step.phase }}
-              </v-chip>
+          <div class="step-card">
+            <div class="step-header">
+              <!-- Combined Phase and Step Name -->
+              <div class="step-title">
+                {{ step.phase }} - {{ step.step_name }}
+              </div>
 
               <!-- Edit Button -->
               <v-btn 
@@ -73,66 +67,11 @@
                   @click="cancelEditing"
                 ></v-btn>
               </div>
-            </v-card-title>
+            </div>
 
-            <v-card-text class="step-body">
-              <!-- Step Name -->
+            <div class="step-body">
+              <!-- Description (main content) -->
               <div class="field-group">
-                <label class="field-label">Step Name</label>
-                <v-text-field
-                  v-if="editingIndex === index"
-                  v-model="editingStep.step_name"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                ></v-text-field>
-                <div v-else class="field-value step-name">{{ step.step_name }}</div>
-              </div>
-
-              <!-- VTK Modules -->
-              <div class="field-group">
-                <label class="field-label">VTK Modules</label>
-                <v-combobox
-                  v-if="editingIndex === index"
-                  v-model="editingStep.vtk_modules"
-                  chips
-                  multiple
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                  closable-chips
-                  class="modules-input"
-                >
-                  <template v-slot:chip="{ props, item }">
-                    <v-chip
-                      v-bind="props"
-                      :text="item"
-                      size="small"
-                      color="primary"
-                      closable
-                    ></v-chip>
-                  </template>
-                </v-combobox>
-                <div v-else class="field-value modules-list">
-                  <v-chip
-                    v-for="(module, mIndex) in step.vtk_modules"
-                    :key="mIndex"
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    class="module-chip"
-                  >
-                    {{ module }}
-                  </v-chip>
-                  <span v-if="!step.vtk_modules || step.vtk_modules.length === 0" class="no-modules">
-                    No modules specified
-                  </span>
-                </div>
-              </div>
-
-              <!-- Description -->
-              <div class="field-group">
-                <label class="field-label">Description</label>
                 <v-textarea
                   v-if="editingIndex === index"
                   v-model="editingStep.description"
@@ -141,11 +80,26 @@
                   variant="outlined"
                   hide-details
                   auto-grow
+                  label="Description"
                 ></v-textarea>
-                <div v-else class="field-value description">{{ step.description }}</div>
+                <div v-else class="description">{{ step.description }}</div>
               </div>
-            </v-card-text>
-          </v-card>
+
+              <!-- VTK Modules (compact display) -->
+              <div v-if="step.vtk_modules && step.vtk_modules.length > 0" class="modules-container">
+                <v-chip
+                  v-for="(module, mIndex) in step.vtk_modules"
+                  :key="mIndex"
+                  size="x-small"
+                  color="primary"
+                  variant="outlined"
+                  class="module-chip"
+                >
+                  {{ module }}
+                </v-chip>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -296,9 +250,9 @@ export default {
 <style scoped>
 .query-expansion-timeline {
   width: 100%;
-  height: 100%;
+  height: 90vh;
   overflow-y: auto;
-  padding: 12px;
+  padding: var(--spacing-md);
 }
 
 .loading-state {
@@ -306,15 +260,15 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px;
+  padding: var(--spacing-xxl) var(--spacing-xl);
   text-align: center;
   min-height: 300px;
 }
 
 .loading-text {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 15px;
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
   font-weight: 500;
 }
 
@@ -323,32 +277,32 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: var(--spacing-xxl);
   text-align: center;
   min-height: 200px;
 }
 
 .empty-text {
-  color: #9e9e9e;
+  color: var(--disabled-color);
   font-size: 14px;
-  margin-top: 12px;
+  margin-top: var(--spacing-md);
 }
 
 .timeline-container {
   position: relative;
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .timeline-step {
   display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
   position: relative;
 }
 
 .timeline-step.editing .step-card {
-  border: 2px solid #1976d2;
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .step-indicator {
@@ -359,17 +313,17 @@ export default {
 }
 
 .step-circle {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-color);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-light);
   z-index: 1;
 }
 
@@ -377,8 +331,8 @@ export default {
   width: 2px;
   flex: 1;
   min-height: 40px;
-  background: linear-gradient(180deg, #667eea 0%, #e0e0e0 100%);
-  margin-top: 4px;
+  background: var(--border-color);
+  margin-top: var(--spacing-xs);
 }
 
 .step-content {
@@ -387,26 +341,32 @@ export default {
 }
 
 .step-card {
-  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
   transition: all 0.3s ease;
+  box-shadow: var(--shadow-light);
 }
 
 .step-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-medium);
 }
 
 .step-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  border-bottom: 1px solid #e0e0e0;
+  padding: var(--spacing-md);
+  background: var(--secondary-bg);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-.phase-chip {
+.step-title {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+  flex: 1;
 }
 
 .edit-btn {
@@ -420,90 +380,55 @@ export default {
 
 .edit-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .step-body {
-  padding: 16px;
+  padding: var(--spacing-md);
 }
 
 .field-group {
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .field-group:last-child {
   margin-bottom: 0;
 }
 
-.field-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.description {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: var(--secondary-bg);
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
 }
 
-.field-value {
-  font-size: 14px;
-  color: #333;
-  line-height: 1.5;
-}
-
-.step-name {
-  font-weight: 600;
-  font-size: 15px;
-  color: #1976d2;
-}
-
-.modules-list {
+.modules-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
 }
 
 .module-chip {
   font-family: 'Courier New', monospace;
-  font-size: 12px;
-}
-
-.no-modules {
-  color: #9e9e9e;
-  font-style: italic;
-  font-size: 13px;
-}
-
-.description {
-  white-space: pre-wrap;
-  word-break: break-word;
-  background-color: #f9f9f9;
-  padding: 8px;
-  border-radius: 4px;
-  border-left: 3px solid #1976d2;
-}
-
-.modules-input :deep(.v-field) {
-  font-family: 'Courier New', monospace;
+  font-size: 11px;
 }
 
 .action-container {
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 2px dashed #e0e0e0;
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px dashed var(--border-color);
 }
 
 .next-step-btn {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   text-transform: none;
   letter-spacing: 0.5px;
-  padding: 24px 0;
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
-}
-
-.next-step-btn:hover {
-  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.4);
 }
 
 /* Scrollbar Styling */
@@ -516,11 +441,11 @@ export default {
 }
 
 .query-expansion-timeline::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--disabled-color);
   border-radius: 3px;
 }
 
 .query-expansion-timeline::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--text-secondary);
 }
 </style>

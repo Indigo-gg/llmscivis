@@ -66,15 +66,15 @@ def generation():
         "prompt": obj["prompt"],
         "ground_truth": obj["groundTruth"],
         "generated_code": None,
-        "generator_prompt":obj["generatorPrompt"],
+        "generator_prompt":obj.get("generatorPrompt", ""),
         "final_prompt":None,
-        "evaluator_prompt": obj["evaluatorPrompt"],
+        "evaluator_prompt": obj.get("evaluatorPrompt", ""),
         "generator": obj["generator"],
         "evaluator": obj["evaluator"],
         "score": None,
         "workflow": obj["workflow"],
         "eval_id": eval_id,
-        "eval_user": obj["evalUser"],
+        "eval_user": obj.get("evalUser", ""),
         "export_time":None,
         "console_output":None,
         "eval_time": current_time,
@@ -120,7 +120,7 @@ def generation():
         # Extract retrieval results for frontend display
         retrieval_results = rag_agent.get_retrieval_metadata()
     
-    response = get_llm_response(final_prompt, obj['generator'],system=obj['generatorPrompt'])
+    response = get_llm_response(final_prompt, obj['generator'],system=obj.get('generatorPrompt', ''))
 
     data_dict['generated_code']=response
     data_dict['final_prompt']=final_prompt
@@ -538,6 +538,45 @@ def get_exported_cases():
     tree_structure = read_directory_structure(exports_path, '', include_content=include_content)
     
     return Response(json.dumps(tree_structure), content_type='application/json')
+
+
+@app.route('/get_image/<path:filename>', methods=['GET'])
+def get_image(filename):
+    """
+    获取图片文件并返回 base64 编码
+    """
+    try:
+        file_path = os.path.join('data', filename)
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # 只允许 PNG 和 JPG 文件
+        file_ext = os.path.splitext(filename)[1].lower()
+        if file_ext not in ['.png', '.jpg', '.jpeg']:
+            return jsonify({'error': 'Unsupported file type'}), 400
+        
+        # 读取文件并转换为 base64
+        with open(file_path, 'rb') as f:
+            image_data = f.read()
+        
+        # 确定 MIME 类型
+        mime_type = 'image/png' if file_ext == '.png' else 'image/jpeg'
+        
+        # 生成 base64 数据 URL
+        base64_data = base64.b64encode(image_data).decode('utf-8')
+        image_url = f'data:{mime_type};base64,{base64_data}'
+        
+        return jsonify({
+            'success': True,
+            'image_url': image_url,
+            'filename': filename
+        })
+        
+    except Exception as e:
+        print(f"Error reading image: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/dataset/<path:filename>', methods=['GET'])

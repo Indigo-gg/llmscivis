@@ -1,63 +1,55 @@
 <template>
-  <v-card variant="outlined" class="evaluation-score-card">
-    <!-- Card Title -->
-    <v-card-title class="card-title">
-      <v-icon class="mr-2">mdi-star</v-icon>
-      Evaluation Results
-    </v-card-title>
+  <div class="evaluation-score-card">
+    <!-- Generation Loading State -->
+    <div v-if="isGenerating" class="generation-loading-state">
+      <v-progress-circular
+        indeterminate
+        size="48"
+        width="5"
+        color="primary"
+      ></v-progress-circular>
+      <p class="generation-loading-text">Generating Code...</p>
+    </div>
 
-    <v-card-text class="card-content">
-      <!-- Generation Loading State -->
-      <div v-if="isGenerating" class="generation-loading-state">
-        <v-progress-circular
-          indeterminate
-          size="48"
-          width="5"
-          color="primary"
-        ></v-progress-circular>
-        <p class="generation-loading-text">Generating Code...</p>
+    <!-- Top Section: Overall Score + Automated Checks Badges -->
+    <div v-else class="top-section">
+      <div class="overall-score" :class="{ 'unscored': displayOverallScore === 0 }" :style="displayOverallScore === 0 ? { color: 'var(--disabled-color)' } : { color: overallScoreColor }">
+        {{ displayOverallScore || 'N/A' }}
       </div>
-
-      <!-- Top Section: Overall Score + Automated Checks Badges -->
-      <div v-else class="top-section">
-        <div class="overall-score" :class="{ 'unscored': displayOverallScore === 0 }" :style="displayOverallScore === 0 ? { color: '#9e9e9e' } : { color: overallScoreColor }">
-          {{ displayOverallScore || 'N/A' }}
-        </div>
-        <div class="score-label">Overall Score</div>
-        
-        <!-- Automated Checks Badges -->
-        <div class="badges-container" v-if="checkStatus !== 'idle'">
-          <!-- 代码语法检查：在生成代码前显示等待，生成后显示通过，待后续实现实际检查逻辑 -->
-          <v-chip
-            size="small"
-            :color="checkStatus === 'loading' ? 'warning' : 'success'"
-            variant="flat"
-            class="mr-2"
-          >
-            <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-check-circle' }}</v-icon>
-            {{ checkStatus === 'loading' ? 'Checking' : 'Executable' }}
-          </v-chip>
-          <v-chip
-            size="small"
-            :color="checkStatus === 'loading' ? 'warning' : 'success'"
-            variant="flat"
-          >
-            <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-code-braces-box' }}</v-icon>
-            {{ checkStatus === 'loading' ? 'Validating' : 'Valid' }}
-          </v-chip>
-        </div>
+      <div class="score-label">Overall Score</div>
+      
+      <!-- Automated Checks Badges -->
+      <div class="badges-container" v-if="checkStatus !== 'idle'">
+        <v-chip
+          size="small"
+          :color="checkStatus === 'loading' ? 'warning' : 'success'"
+          variant="flat"
+          class="mr-2"
+        >
+          <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-check-circle' }}</v-icon>
+          {{ checkStatus === 'loading' ? 'Checking' : 'Executable' }}
+        </v-chip>
+        <v-chip
+          size="small"
+          :color="checkStatus === 'loading' ? 'warning' : 'success'"
+          variant="flat"
+        >
+          <v-icon start size="small">{{ checkStatus === 'loading' ? 'mdi-timer-sand' : 'mdi-code-braces-box' }}</v-icon>
+          {{ checkStatus === 'loading' ? 'Validating' : 'Valid' }}
+        </v-chip>
       </div>
+    </div>
 
-      <v-divider class="my-4"></v-divider>
+    <v-divider class="my-3"></v-divider>
 
-      <!-- Manual Evaluation Section -->
-      <div class="manual-evaluation-section">
-        <div class="section-subtitle">
-          <v-icon size="small" class="mr-1" color="#5c6370">mdi-account-edit</v-icon>
-          Manual Evaluation
-        </div>
-        
-        <div class="manual-form">
+    <!-- Manual Evaluation Section -->
+    <div class="manual-evaluation-section">
+      <div class="section-subtitle">
+        <v-icon size="small" class="mr-1">mdi-account-edit</v-icon>
+        Manual Evaluation
+      </div>
+      
+      <div class="manual-form">
           <!-- Correction Cost Slider -->
           <div class="slider-group">
             <div class="slider-label">Correction Cost</div>
@@ -120,7 +112,7 @@
               :min="0"
               :max="100"
               :step="1"
-              color="#546e7a"
+              color="primary"
               density="compact"
             >
               <template v-slot:append>
@@ -131,39 +123,20 @@
           </div>
         </div>
       </div>
-    </v-card-text>
 
-    <!-- Action Buttons -->
-    <v-card-actions>
-      <!-- Save Human Evaluation Button -->
-      <v-btn
-        variant="tonal"
-        color="primary"
-        :loading="isManualSubmitting"
-        block
-        @click="submitManualEvaluation"
-      >
-        <v-icon start>mdi-account-check</v-icon>
-        Save Human Evaluation
-      </v-btn>
-    </v-card-actions>
-
-    <!-- Export Section -->
-    <v-divider class="my-2"></v-divider>
-    <v-card-actions>
-      <!-- Export Results Button -->
-      <v-btn
-        variant="tonal"
-        color="success"
-        :loading="isExporting"
-        block
-        @click="handleExportResults"
-      >
-        <v-icon start>mdi-download</v-icon>
-        Export Complete Results
-      </v-btn>
-    </v-card-actions>
-  </v-card>
+    <!-- Save Button -->
+    <v-btn
+      variant="tonal"
+      color="primary"
+      :loading="isManualSubmitting"
+      block
+      @click="submitManualEvaluation"
+      class="mt-4"
+    >
+      <v-icon start>mdi-account-check</v-icon>
+      Save Human Evaluation
+    </v-btn>
+  </div>
 </template>
 
 <script>
@@ -398,10 +371,7 @@ export default {
 }
 
 .manual-evaluation-section {
-  background-color: #fafbfc;
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 3px solid #546e7a;
+  padding: 12px 0;
   margin-top: 12px;
 }
 

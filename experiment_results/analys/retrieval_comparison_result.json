@@ -1,0 +1,86 @@
+{
+  "isosurface": {
+    "manual_time": 35.4,
+    "model_time": null,
+    "manual_modules_count": 1,
+    "model_modules_count": 8,
+    "overlap_count": 0,
+    "similarity": 0.0,
+    "overlap_rate": 0.0,
+    "manual_only": [
+      "filter-volumecontour"
+    ],
+    "model_only": [
+      "io-stickmapper",
+      "rendering-stickmapper",
+      "filter-imagemarchingcubes",
+      "vtkcalculator",
+      "filter-calculator"
+    ]
+  },
+  "slice": {
+    "manual_time": 52.81,
+    "model_time": null,
+    "manual_modules_count": 6,
+    "model_modules_count": 7,
+    "overlap_count": 3,
+    "similarity": 50.0,
+    "overlap_rate": 30.0,
+    "manual_only": [
+      "rendering-itkwasmvolume",
+      "rendering-glyphmapper",
+      "rendering-volumemapper"
+    ],
+    "model_only": [
+      "rendering-image2d",
+      "filter-imagelabeloutline",
+      "vtkimageslice",
+      "vtkimagemapper"
+    ]
+  },
+  "streamline": {
+    "manual_time": 30.88,
+    "model_time": null,
+    "manual_modules_count": 6,
+    "model_modules_count": 10,
+    "overlap_count": 2,
+    "similarity": 33.33,
+    "overlap_rate": 14.29,
+    "manual_only": [
+      "rendering-stickmapper",
+      "io-httpdatasetreader",
+      "rendering-glyphmapper",
+      "rendering-volumemapper"
+    ],
+    "model_only": [
+      "vtkactor",
+      "vtkmapper",
+      "filter-calculator",
+      "filter-imagelabeloutline",
+      "vtkimagestreamline"
+    ]
+  },
+  "volume_rendering": {
+    "manual_time": 28.32,
+    "model_time": null,
+    "manual_modules_count": 6,
+    "model_modules_count": 9,
+    "overlap_count": 1,
+    "similarity": 16.67,
+    "overlap_rate": 7.14,
+    "manual_only": [
+      "io-xmlimagepolydatawriter\"\"\"",
+      "io-httpdatasetreader",
+      "filter-multiimageslice",
+      "io-xmlimagedatawriter",
+      "rendering-multisliceimagemapper"
+    ],
+    "model_only": [
+      "io-stickmapper",
+      "vtkcalculator",
+      "filter-calculator",
+      "filter-volumeclip",
+      "filter-imagelabeloutline"
+    ]
+  }
+}

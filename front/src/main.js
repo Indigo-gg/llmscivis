@@ -12,5 +12,23 @@ import router from "@/routers/index.js";
 const vuetify = createVuetify({
     components,
     directives,
+    theme: {
+        defaultTheme: 'light',
+        themes: {
+            light: {
+                dark: false,
+                colors: {
+                    primary: '#3b82f6',
+                    secondary: '#6b7280',
+                    success: '#10b981',
+                    warning: '#f59e0b',
+                    error: '#ef4444',
+                    info: '#3b82f6',
+                    background: '#ffffff',
+                    surface: '#f8fafc',
+                },
+            },
+        },
+    },
 });
 createApp(App).use(vuetify).use(router).mount('#app')

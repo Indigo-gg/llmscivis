@@ -76,78 +76,106 @@ export default {
       }
 
       try {
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        if (!doc) {
-          console.error('Cannot access iframe document');
-          return;
-        }
-
         const content = extractHtmlCode(props.htmlContent);
         
-        // Build console script
-        const consoleScript = (
-          '// Capture global errors\n' +
-          'window.onerror = function(message, source, lineno, colno, error) {\n' +
-          '  window.parent.postMessage({\n' +
-          '    type: "console",\n' +
-          '    logType: "error",\n' +
-          '    message: "Error: " + message + " (at " + source + ":" + lineno + ":" + colno + ")",\n' +
-          '    timestamp: new Date().toISOString()\n' +
-          '  }, "*");\n' +
-          '  return false;\n' +
-          '};\n' +
-          'window.addEventListener("unhandledrejection", function(event) {\n' +
-          '  window.parent.postMessage({\n' +
-          '    type: "console",\n' +
-          '    logType: "error",\n' +
-          '    message: "Unhandled Promise Rejection: " + event.reason,\n' +
-          '    timestamp: new Date().toISOString()\n' +
-          '  }, "*");\n' +
-          '});\n' +
-          '["log", "info", "warn", "error", "debug", "trace"].forEach(type => {\n' +
-          '  const originalConsole = console[type];\n' +
-          '  console[type] = function(...args) {\n' +
-          '    const processedArgs = args.map(arg => {\n' +
-          '      if (arg === null) return "null";\n' +
-          '      if (arg === undefined) return "undefined";\n' +
-          '      if (typeof arg === "object") {\n' +
-          '        try { \n' +
-          '          return JSON.stringify(arg);\n' +
-          '        } catch(e) { \n' +
-          '          return String(arg);\n' +
-          '        }\n' +
-          '      }\n' +
-          '      return String(arg);\n' +
-          '    });\n' +
-          '    originalConsole.apply(this, args);\n' +
-          '    window.parent.postMessage({\n' +
-          '      type: "console",\n' +
-          '      logType: type,\n' +
-          '      message: processedArgs.join(" "),\n' +
-          '      timestamp: new Date().toISOString()\n' +
-          '    }, "*");\n' +
-          '  };\n' +
-          '});'
-        );
+        // 构建完整的 HTML（不注入任何监听脚本）
+        let finalHtml = '';
+        
+        if (!content.includes('<!DOCTYPE') && !content.includes('<html')) {
+          // 片段代码，添加完整的 HTML 结构
+          finalHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+${content}
+</body>
+</html>`;
+        } else {
+          // 完整的 HTML 代码
+          finalHtml = content;
+        }
 
-        // Build complete HTML - using string concatenation to avoid Vue parser issues
-        const htmlStart = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
-        const scriptTag = '<scr' + 'ipt>' + consoleScript + '</scr' + 'ipt>';
-        const bodyStart = '</head><body>';
-        const bodyEnd = '</body></html>';
-        const fullHtml = htmlStart + scriptTag + bodyStart + content + bodyEnd;
+        // 使用 Blob URL 加载（不注入脚本，保证行号准确）
+        const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // 清理旧的事件监听
+        if (previewFrame.value && previewFrame.value._messageHandler) {
+          window.removeEventListener('message', previewFrame.value._messageHandler);
+        }
+        
+        // 在 iframe 加载完成后，从 iframe 内部获取 window.onerror
+        iframe.onload = () => {
+          try {
+            // 注入一个最小的脚本来捕获 iframe 内的错误
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            if (iframeDoc && !iframeDoc.querySelector('script[data-error-handler]')) {
+              const script = iframeDoc.createElement('script');
+              script.setAttribute('data-error-handler', 'true');
+              script.textContent = `
+window.onerror = function(message, source, lineno, colno, error) {
+  window.parent.postMessage({
+    type: "console",
+    logType: "error",
+    message: "Error: " + message + " (at " + source + ":" + lineno + ":" + colno + ")",
+    lineno: lineno,
+    colno: colno,
+    timestamp: new Date().toISOString()
+  }, "*");
+  return false;
+};
+window.addEventListener("unhandledrejection", function(event) {
+  let message = "Unhandled Promise Rejection: ";
+  if (event.reason) message += String(event.reason.message || event.reason);
+  window.parent.postMessage({
+    type: "console",
+    logType: "error",
+    message: message,
+    lineno: null,
+    timestamp: new Date().toISOString()
+  }, "*");
+});
+["log", "info", "warn", "error", "debug", "trace"].forEach(type => {
+  const originalConsole = console[type];
+  console[type] = function(...args) {
+    const processedArgs = args.map(arg => String(arg));
+    originalConsole.apply(this, args);
+    window.parent.postMessage({
+      type: "console",
+      logType: type,
+      message: processedArgs.join(" "),
+      timestamp: new Date().toISOString()
+    }, "*");
+  };
+});
+`;
+              iframeDoc.head.appendChild(script);
+            }
+          } catch (e) {
+            console.warn('Failed to inject error handler into iframe:', e);
+          }
+        };
+        
+        // 设置 iframe src
+        iframe.src = blobUrl;
 
-        doc.open();
-        doc.write(fullHtml);
-        doc.close();
+        // 清理 Blob URL
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
 
-        // Setup message listener for console output
+        // 消息监听（直接使用浏览器报告的行号）
         const messageHandler = (event) => {
           if (event.data && event.data.type === 'console') {
             const logEntry = {
               type: event.data.logType,
               message: typeof event.data.message === 'string' ? event.data.message : String(event.data.message),
-              timestamp: event.data.timestamp
+              timestamp: event.data.timestamp,
+              lineno: event.data.lineno,  // 直接使用浏览器报告的行号
+              colno: event.data.colno
             };
 
             emit('console-output', [logEntry]);
@@ -158,6 +186,8 @@ export default {
           }
         };
 
+        // 保存事件监听器供后续清理
+        previewFrame.value._messageHandler = messageHandler;
         window.removeEventListener('message', messageHandler);
         window.addEventListener('message', messageHandler);
       } catch (error) {

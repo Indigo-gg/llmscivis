@@ -1,7 +1,7 @@
 from config.ollama_config import ollama_config
 from config.app_config import app_config
 from langchain_ollama import OllamaLLM
-from llm_agent.ollma_chat import get_qwen_response
+from llm_agent.ollma_chat import get_llm_response
 import pandas as pd
 import time
 import json
@@ -167,7 +167,7 @@ Output only one valid JSON object."""
     # 从LLM获取回答
     try:
         result = ''
-        response = get_qwen_response(
+        response = get_llm_response(
             analysis_prompt, model_name, default_system)
         print('prompt analysis (raw):\n', response, '\n')
 

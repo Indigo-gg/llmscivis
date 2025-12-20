@@ -24,23 +24,19 @@
           <div class="empty-icon-bg">
             <!-- 假设你有 v-icon 组件，如果没有可以用 svg 代替 -->
             <slot name="empty-icon">
-               <svg style="width:48px;height:48px;color:#cbd5e1" viewBox="0 0 24 24">
-                 <path fill="currentColor" d="M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6Z" />
-               </svg>
+              <svg style="width:48px;height:48px;color:#cbd5e1" viewBox="0 0 24 24">
+                <path fill="currentColor"
+                  d="M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6Z" />
+              </svg>
             </slot>
           </div>
           <p class="empty-text">Waiting for code generation...</p>
         </div>
       </div>
-      
+
       <div v-else class="preview-area">
-        <iframe 
-          ref="previewFrame" 
-          sandbox="allow-scripts allow-same-origin allow-top-navigation"
-          class="preview-iframe"
-          src="about:blank" 
-          frameBorder="0"
-        ></iframe>
+        <iframe ref="previewFrame" sandbox="allow-scripts allow-same-origin allow-top-navigation" class="preview-iframe"
+          src="about:blank" frameBorder="0"></iframe>
       </div>
     </div>
   </div>
@@ -77,50 +73,76 @@ export default {
     const editorContainer = ref(null);
     const previewFrame = ref(null);
     const isFullscreen = ref(false);
-    
+
     let editor = null;
     let decorationIds = []; // 用于存储高亮的ID，以便清除
 
     const hasContent = computed(() => {
-      return props.htmlContent && 
-             props.htmlContent.trim() !== '' && 
-             props.htmlContent !== 'Ground Truth:' &&
-             props.htmlContent !== 'Generated Code:';
+      return props.htmlContent &&
+        props.htmlContent.trim() !== '' &&
+        props.htmlContent !== 'Ground Truth:' &&
+        props.htmlContent !== 'Generated Code:';
     });
 
     function initEditor() {
       destroyEditor();
       if (editorContainer.value && hasContent.value) {
+        // 在 initEditor 函数内
         editor = monaco.editor.create(editorContainer.value, {
           value: extractHtmlCode(props.htmlContent),
           language: 'html',
-          theme: 'vs-light', // 或者使用 'vs-dark' 配合暗色模式
+          theme: 'vs-light',
           automaticLayout: true,
           minimap: { enabled: false },
           fontSize: 14,
-          fontFamily: "'Fira Code', 'JetBrains Mono', 'Consolas', monospace", // 更现代的字体
+          fontFamily: "'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
+
+          // --- 修改重点开始 ---
+
+
+          // 1. 行号设置：只保留最窄宽度
           lineNumbers: 'on',
+          lineNumbersMinChars: 3, // 保持最小宽度，防止行号跳动
+
+          // 2. 彻底关闭侧边栏的所有额外功能
+          glyphMargin: false,        // 关闭字形边缘（红点断点处）
+          folding: false,            // 关闭代码折叠（减号箭头）
+          lineDecorationsWidth: 0,   // [关键] 强制装饰区宽度为0
+          lineNumbersWidth: undefined, // 确保删除此行，让其自动计算
+
+          // 3. 视觉优化
+          renderLineHighlight: 'line', // 只高亮行内容，不包含侧边栏，减少视觉分割感
+          guides: {
+            indentation: true // 保持缩进线，但我们需要确保代码本身没缩进
+          },
+
+
+          // 6. [关键] 删除这一行！不要固定宽度！
+          // lineNumbersWidth: 40,  <-- 删除它
+
+          // --- 修改重点结束 ---
+
           scrollBeyondLastLine: false,
           roundedSelection: true,
           readOnly: false,
           cursorStyle: 'line',
-          wordWrap: 'on', // 建议开启换行
-          padding: { top: 16, bottom: 16 }, // 增加内边距
+          wordWrap: 'on',
+          padding: { top: 8, bottom: 8 },
           renderLineHighlight: 'all',
           smoothScrolling: true,
           scrollbar: {
             useShadows: false,
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
+            verticalScrollbarSize: 8,
+            horizontalScrollbarSize: 8,
             vertical: 'auto',
             horizontal: 'auto'
-          }
+          },
         });
 
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
-          if (newValue !== props.htmlContent) { 
-             emit('update:htmlContent', newValue);
+          if (newValue !== props.htmlContent) {
+            emit('update:htmlContent', newValue);
           }
         });
 
@@ -141,9 +163,9 @@ export default {
     // 核心功能：处理报错高亮
     function updateErrorHighlight(line, msg) {
       if (!editor) return;
-      
+
       const model = editor.getModel();
-      
+
       // 1. 清除旧的高亮和标记
       editor.removeDecorations(decorationIds);
       monaco.editor.setModelMarkers(model, 'owner', []);
@@ -181,7 +203,7 @@ export default {
       if (!props.isShowVis) {
         // 只有在代码视图才高亮
         nextTick(() => {
-            updateErrorHighlight(newLine, newMsg);
+          updateErrorHighlight(newLine, newMsg);
         });
       }
     });
@@ -197,20 +219,213 @@ export default {
     function extractHtmlCode(input) {
       const regex = /```html([\s\S]*?)```/;
       const match = input.match(regex);
-      return match ? match[1].trim() : input;
+      // 如果没匹配到，就用原文本；匹配到了就取第一组
+      let code = match ? match[1] : input;
+
+      // 1. 移除首尾的空行，防止第一行就是个换行符
+      code = code.replace(/^\n+/, '').replace(/\s+$/, '');
+
+      // 2. 将代码按行分割
+      const lines = code.split('\n');
+
+      // 3. 计算最小缩进量 (忽略空行)
+      let minIndent = Infinity;
+      for (const line of lines) {
+        // 只检查非空行
+        if (line.trim().length > 0) {
+          // 获取当前行开头的空格数量
+          const indentMatch = line.match(/^\s*/);
+          const currentIndent = indentMatch ? indentMatch[0].length : 0;
+          if (currentIndent < minIndent) {
+            minIndent = currentIndent;
+          }
+        }
+      }
+
+      // 4. 如果存在公共缩进，则每行都切掉这部分
+      if (minIndent > 0 && minIndent !== Infinity) {
+        code = lines.map(line => {
+          // 如果这一行长度甚至小于缩进量（通常是空行），直接返回空
+          if (line.length < minIndent) return '';
+          return line.substring(minIndent);
+        }).join('\n');
+      }
+
+      return code.trim();
     }
 
     function loadHtmlContentIntoIframe() {
-      // (保持原有的 iframe 逻辑不变，为了节省篇幅此处省略，请保留你原代码中的内容)
-      // ... 你的 iframe 注入逻辑 ...
-      const iframe = previewFrame.value;
-      if (iframe) {
-         // 这里简单复现一下关键部分，实际请使用你原来的完整逻辑
-         const content = extractHtmlCode(props.htmlContent);
-         const doc = iframe.contentDocument || iframe.contentWindow.document;
-         doc.open();
-         doc.write(content); // 这里建议还是加上你的 console 拦截脚本
-         doc.close();
+      try {
+        const iframe = previewFrame.value;
+        if (!iframe) return;
+
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        let content = extractHtmlCode(props.htmlContent);
+
+        // 1. 定义监控脚本
+        const consoleScript = (
+          'window.onerror = function(message, source, lineno, colno, error) {\n' +
+          '  window.parent.postMessage({\n' +
+          '    type: "console",\n' +
+          '    logType: "error",\n' +
+          '    message: "Error: " + message + " (at " + source + ":" + lineno + ":" + colno + ")",\n' +
+          '    lineno: lineno,\n' +
+          '    colno: colno,\n' +
+          '    timestamp: new Date().toISOString()\n' +
+          '  }, "*");\n' +
+          '  return false;\n' +
+          '};\n' +
+          'window.addEventListener("unhandledrejection", function(event) {\n' +
+          '  let message = "Unhandled Promise Rejection: ";\n' +
+          '  let lineno = null;\n' +
+          '  let colno = null;\n' +
+          '  \n' +
+          '  if (event.reason) {\n' +
+          '    if (event.reason instanceof Error) {\n' +
+          '      message += event.reason.message;\n' +
+          '      if (event.reason.stack) {\n' +
+          '        const stackMatch = event.reason.stack.match(/:([0-9]+):([0-9]+)/);\n' +
+          '        if (stackMatch) {\n' +
+          '          lineno = parseInt(stackMatch[1], 10);\n' +
+          '          colno = parseInt(stackMatch[2], 10);\n' +
+          '          message += " (at line " + lineno + ":" + colno + ")";\n' +
+          '        }\n' +
+          '      }\n' +
+          '    } else {\n' +
+          '      message += String(event.reason);\n' +
+          '    }\n' +
+          '  }\n' +
+          '  \n' +
+          '  window.parent.postMessage({\n' +
+          '    type: "console",\n' +
+          '    logType: "error",\n' +
+          '    message: message,\n' +
+          '    lineno: lineno,\n' +
+          '    colno: colno,\n' +
+          '    timestamp: new Date().toISOString()\n' +
+          '  }, "*");\n' +
+          '});\n' +
+          '["log", "info", "warn", "error", "debug", "trace"].forEach(type => {\n' +
+          '  const originalConsole = console[type];\n' +
+          '  console[type] = function(...args) {\n' +
+          '    const processedArgs = args.map(arg => {\n' +
+          '      if (arg === null) return "null";\n' +
+          '      if (arg === undefined) return "undefined";\n' +
+          '      if (typeof arg === "object") {\n' +
+          '        try { \n' +
+          '          return JSON.stringify(arg);\n' +
+          '        } catch(e) { \n' +
+          '          return String(arg);\n' +
+          '        }\n' +
+          '      }\n' +
+          '      return String(arg);\n' +
+          '    });\n' +
+          '    originalConsole.apply(this, args);\n' +
+          '    window.parent.postMessage({\n' +
+          '      type: "console",\n' +
+          '      logType: type,\n' +
+          '      message: processedArgs.join(" "),\n' +
+          '      timestamp: new Date().toISOString()\n' +
+          '    }, "*");\n' +
+          '  };\n' +
+          '});'
+        );
+
+        // 2. [关键] 智能注入逻辑：将脚本插入到现有的 <head> 中
+        let finalHtml = '';
+        let injectedLineOffset = 0;
+
+        // 准备要注入的脚本标签字符串，强制加上换行符以便计算行数
+        const scriptToInject = `<script>\n${consoleScript}\n<\/script>\n`;
+        // 计算注入脚本占用的行数
+        const scriptLinesCount = scriptToInject.split('\n').length - 1;
+
+        if (content.includes('<head>')) {
+          // 情况 A: 这是一个完整的 HTML，包含 <head>
+          // 我们把脚本注入到 <head> 标签之后
+          
+          // 1. 找到 <head> 在原始内容中的位置
+          const headIndex = content.indexOf('<head>');
+          const beforeHead = content.substring(0, headIndex + 6); // +6 是 '<head>' 的长度
+          
+          // 2. 计算 <head> 之前有多少行（包括 <head> 这一行）
+          const linesBeforeInjection = beforeHead.split('\n').length;
+          
+          // 3. 注入脚本
+          finalHtml = content.replace('<head>', `<head>\n${scriptToInject}`);
+          
+          // 4. 偏移量 = <head> 之前的行数 + 注入脚本的行数 - 1
+          // 因为用户代码从 <head> 的下一行开始，而注入的脚本会把用户代码向下推
+          injectedLineOffset = linesBeforeInjection + scriptLinesCount - 1;
+          
+          console.log('Debug - Head position:', {
+            headIndex,
+            linesBeforeInjection,
+            scriptLinesCount,
+            calculatedOffset: injectedLineOffset
+          });
+        } else if (content.includes('<html>')) {
+          // 情况 B: 有 html 但没写 head，注入到 html 之后
+          finalHtml = content.replace('<html>', `<html><head>\n${scriptToInject}</head>`);
+          injectedLineOffset = scriptLinesCount;
+        } else {
+          // 情况 C: 只是片段代码 (Fragment)，没有 DOCTYPE/HTML 标签
+          const htmlStart = '<!DOCTYPE html><html><head>';
+          const bodyStart = '</head><body>';
+          const bodyEnd = '</body></html>';
+          finalHtml = htmlStart + scriptToInject + bodyStart + content + bodyEnd;
+          
+          // 计算 Offset: 头部标签行数 + 注入脚本行数 + bodyStart行数
+          const prefix = htmlStart + scriptToInject + bodyStart;
+          injectedLineOffset = prefix.split('\n').length - 1;
+        }
+
+        // 3. 写入 iframe
+        doc.open();
+        doc.write(finalHtml);
+        doc.close();
+        
+        console.log('Debug - scriptLinesCount:', scriptLinesCount);
+        console.log('Debug - injectedLineOffset:', injectedLineOffset);
+
+        // 4. 消息监听与行号修正
+        const messageHandler = (event) => {
+          if (event.data && event.data.type === 'console') {
+            let actualLineno = event.data.lineno;
+
+            // [关键] 只有当报错行号大于偏移量时，才进行修正
+            if (actualLineno && actualLineno > injectedLineOffset) {
+              actualLineno = actualLineno - injectedLineOffset;
+            }
+            // 如果报错行号很小，说明是注入的脚本本身出错了
+            
+            console.log('Debug - line correction:', {
+              originalLineno: event.data.lineno,
+              injectedLineOffset,
+              actualLineno
+            });
+
+            const logEntry = {
+              type: event.data.logType,
+              message: typeof event.data.message === 'string' ? event.data.message : String(event.data.message),
+              timestamp: event.data.timestamp,
+              lineno: actualLineno,  // 使用修正后的行号
+              colno: event.data.colno
+            };
+
+            emit('console-output', [logEntry]);
+
+            if (event.data.logType === 'error') {
+              emit('error', logEntry);
+            }
+          }
+        };
+
+        window.removeEventListener('message', messageHandler);
+        window.addEventListener('message', messageHandler);
+      } catch (error) {
+        console.error('Error in loadHtmlContentIntoIframe:', error);
+        emit('error', { type: 'error', message: 'Failed to load iframe content: ' + error.message });
       }
     }
 
@@ -227,8 +442,8 @@ export default {
 
     watch(() => props.htmlContent, (newValue) => {
       if (props.isShowVis) {
-          loadHtmlContentIntoIframe(); // 预览模式下实时更新 iframe
-          return;
+        loadHtmlContentIntoIframe(); // 预览模式下实时更新 iframe
+        return;
       }
 
       const extractedValue = extractHtmlCode(newValue);
@@ -244,10 +459,10 @@ export default {
         const position = editor.getPosition(); // 保持光标位置
         editor.setValue(extractedValue);
         editor.setPosition(position);
-        
+
         // 内容更新后，如果有报错，需要重新高亮，因为 setValue 会清除 decorations
         if (props.errorLine) {
-            updateErrorHighlight(props.errorLine, props.errorMessage);
+          updateErrorHighlight(props.errorLine, props.errorMessage);
         }
       }
     });
@@ -265,6 +480,11 @@ export default {
 <style>
 /* 这里放置全局或穿透样式，因为 Monaco 是动态挂载到 DOM 的 */
 
+/* 强制覆盖 Monaco 内部的对齐方式 */
+.monaco-editor .view-line {
+  text-align: left !important;
+}
+
 /* 错误行背景高亮 */
 .myErrorLineDecoration {
   background: rgba(255, 0, 0, 0.2);
@@ -277,7 +497,8 @@ export default {
 .preview-container {
   position: relative;
   width: 100%;
-  height: 70vh; /* 或者由父级控制 */
+  height: 70vh;
+  /* 或者由父级控制 */
   border-radius: 12px;
   overflow: hidden;
   background-color: #ffffff;
@@ -290,7 +511,8 @@ export default {
 
 /* 头部：类似 VSCode 或 Mac 窗口 */
 .editor-title-bar {
-  background-color: #f8fafc; /* 浅灰白背景 */
+  background-color: #f8fafc;
+  /* 浅灰白背景 */
   padding: 10px 16px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
@@ -311,14 +533,24 @@ export default {
   display: flex;
   gap: 6px;
 }
+
 .mac-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
 }
-.mac-dot.red { background-color: #ff5f56; }
-.mac-dot.yellow { background-color: #ffbd2e; }
-.mac-dot.green { background-color: #27c93f; }
+
+.mac-dot.red {
+  background-color: #ff5f56;
+}
+
+.mac-dot.yellow {
+  background-color: #ffbd2e;
+}
+
+.mac-dot.green {
+  background-color: #27c93f;
+}
 
 .editor-title {
   margin: 0;
@@ -343,7 +575,8 @@ export default {
   background: #fff;
 }
 
-.code-area, .preview-area {
+.code-area,
+.preview-area {
   width: 100%;
   height: 100%;
 }
@@ -351,6 +584,7 @@ export default {
 .monaco-wrapper {
   width: 100%;
   height: 100%;
+  text-align: left;
 }
 
 .preview-iframe {

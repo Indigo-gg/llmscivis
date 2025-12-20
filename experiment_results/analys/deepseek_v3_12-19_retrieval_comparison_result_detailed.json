@@ -1,0 +1,234 @@
+{
+  "summary": {
+    "analysis_timestamp": "2025-12-19 15:50:50.530482",
+    "comparison_type": "keyword-aware(关键词检索) vs LLM(LLM直接检索)",
+    "total_tasks": 4,
+    "total_keyword_aware_time_seconds": 0.04,
+    "total_llm_time_seconds": 69.8,
+    "average_speedup_ratio": 1744.92
+  },
+  "detailed_results": {
+    "volume_rendering": {
+      "time_analysis": {
+        "keyword_aware_time_seconds": 0.01,
+        "llm_time_seconds": 17.353243589401245,
+        "speedup_ratio": 1735.32,
+        "time_faster_method": "keyword-aware"
+      },
+      "module_analysis": {
+        "keyword_aware_modules_count": 6,
+        "keyword_aware_modules": [
+          "rendering-volumemapper",
+          "filter-calculator",
+          "rendering-itkwasmvolume",
+          "filter-volumeclip",
+          "filter-imagelabeloutline",
+          "io-stickmapper"
+        ],
+        "keyword_aware_titles": [
+          "Rendering-VolumeMapper",
+          "Filter-ImageLabelOutline",
+          "Rendering-ItkWasmVolume",
+          "Filter-VolumeClip",
+          "Filter-Calculator",
+          "IO-StickMapper"
+        ],
+        "llm_modules_count": 4,
+        "llm_modules": [
+          "rendering-volumemapper",
+          "io-httpdatasetreader",
+          "filter-volumeclip",
+          "filter-multiimageslice"
+        ],
+        "overlap_count": 2,
+        "overlap_modules": [
+          "rendering-volumemapper",
+          "filter-volumeclip"
+        ]
+      },
+      "similarity_metrics": {
+        "coverage_rate": 33.33,
+        "keyword_aware_to_llm_ratio": 150.0
+      },
+      "unique_modules": {
+        "keyword_aware_only": [
+          "filter-calculator",
+          "io-stickmapper",
+          "filter-imagelabeloutline",
+          "rendering-itkwasmvolume"
+        ],
+        "llm_only": [
+          "io-httpdatasetreader",
+          "filter-multiimageslice"
+        ]
+      }
+    },
+    "streamline": {
+      "time_analysis": {
+        "keyword_aware_time_seconds": 0.01,
+        "llm_time_seconds": 18.14625334739685,
+        "speedup_ratio": 1814.63,
+        "time_faster_method": "keyword-aware"
+      },
+      "module_analysis": {
+        "keyword_aware_modules_count": 6,
+        "keyword_aware_modules": [
+          "filter-imagestreamline",
+          "filter-calculator",
+          "rendering-manyrenderers",
+          "filter-imagemarchingcubes",
+          "filter-contourtriangulator",
+          "filter-imagelabeloutline"
+        ],
+        "keyword_aware_titles": [
+          "Filter-ImageStreamline",
+          "Rendering-ManyRenderers",
+          "Filter-Calculator",
+          "Filter-ContourTriangulator",
+          "Filter-ImageLabelOutline",
+          "Filter-ImageMarchingCubes"
+        ],
+        "llm_modules_count": 5,
+        "llm_modules": [
+          "filter-imagestreamline",
+          "io-httpdatasetreader",
+          "rendering-volumemapper",
+          "filter-imagemarchingcubes",
+          "rendering-stickmapper"
+        ],
+        "overlap_count": 2,
+        "overlap_modules": [
+          "filter-imagestreamline",
+          "filter-imagemarchingcubes"
+        ]
+      },
+      "similarity_metrics": {
+        "coverage_rate": 33.33,
+        "keyword_aware_to_llm_ratio": 120.0
+      },
+      "unique_modules": {
+        "keyword_aware_only": [
+          "filter-calculator",
+          "filter-contourtriangulator",
+          "rendering-manyrenderers",
+          "filter-imagelabeloutline"
+        ],
+        "llm_only": [
+          "rendering-stickmapper",
+          "rendering-volumemapper",
+          "io-httpdatasetreader"
+        ]
+      }
+    },
+    "slice": {
+      "time_analysis": {
+        "keyword_aware_time_seconds": 0.01,
+        "llm_time_seconds": 15.853087902069092,
+        "speedup_ratio": 1585.31,
+        "time_faster_method": "keyword-aware"
+      },
+      "module_analysis": {
+        "keyword_aware_modules_count": 6,
+        "keyword_aware_modules": [
+          "rendering-volumemapper",
+          "rendering-image2d",
+          "rendering-itkwasmvolume",
+          "filter-multiimageslice",
+          "filter-imagelabeloutline",
+          "filter-imageslice"
+        ],
+        "keyword_aware_titles": [
+          "Filter-ImageLabelOutline",
+          "Rendering-ItkWasmVolume",
+          "Rendering-VolumeMapper",
+          "Filter-ImageSlice",
+          "Filter-MultiImageSlice",
+          "Rendering-Image2D"
+        ],
+        "llm_modules_count": 4,
+        "llm_modules": [
+          "filter-imageslice",
+          "io-httpdatasetreader",
+          "rendering-volumemapper",
+          "filter-multiimageslice"
+        ],
+        "overlap_count": 3,
+        "overlap_modules": [
+          "filter-imageslice",
+          "rendering-volumemapper",
+          "filter-multiimageslice"
+        ]
+      },
+      "similarity_metrics": {
+        "coverage_rate": 50.0,
+        "keyword_aware_to_llm_ratio": 150.0
+      },
+      "unique_modules": {
+        "keyword_aware_only": [
+          "rendering-image2d",
+          "rendering-itkwasmvolume",
+          "filter-imagelabeloutline"
+        ],
+        "llm_only": [
+          "io-httpdatasetreader"
+        ]
+      }
+    },
+    "isosurface": {
+      "time_analysis": {
+        "keyword_aware_time_seconds": 0.01,
+        "llm_time_seconds": 18.444414615631104,
+        "speedup_ratio": 1844.44,
+        "time_faster_method": "keyword-aware"
+      },
+      "module_analysis": {
+        "keyword_aware_modules_count": 6,
+        "keyword_aware_modules": [
+          "rendering-glyphmapper",
+          "filter-calculator",
+          "filter-imagemarchingcubes",
+          "rendering-stickmapper",
+          "filter-imagelabeloutline",
+          "io-stickmapper"
+        ],
+        "keyword_aware_titles": [
+          "Filter-ImageLabelOutline",
+          "Filter-ImageMarchingCubes",
+          "Filter-Calculator",
+          "IO-StickMapper",
+          "Rendering-GlyphMapper",
+          "Rendering-StickMapper"
+        ],
+        "llm_modules_count": 4,
+        "llm_modules": [
+          "io-httpdatasetreader",
+          "filter-imagemarchingcubes",
+          "rendering-volumemapper",
+          "filter-volumecontour"
+        ],
+        "overlap_count": 1,
+        "overlap_modules": [
+          "filter-imagemarchingcubes"
+        ]
+      },
+      "similarity_metrics": {
+        "coverage_rate": 16.67,
+        "keyword_aware_to_llm_ratio": 150.0
+      },
+      "unique_modules": {
+        "keyword_aware_only": [
+          "filter-calculator",
+          "io-stickmapper",
+          "rendering-stickmapper",
+          "filter-imagelabeloutline",
+          "rendering-glyphmapper"
+        ],
+        "llm_only": [
+          "filter-volumecontour",
+          "rendering-volumemapper",
+          "io-httpdatasetreader"
+        ]
+      }
+    }
+  }
+}

@@ -45,5 +45,70 @@
   },
   "options": null,
   "analysis": [],
-  "retrieval_results": []
+  "retrieval_results": [
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageLabelOutline\\code.html",
+      "faiss_id": 144015752,
+      "description": "Displays a 2D image volume with an outlined labelmap. Specific regions (high/low values) are highlighted in red/green with transparent outlines.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkImageData', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Filters.General.vtkCalculator', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 43.0,
+      "matched_keywords": "['vtkPiecewiseFunction', 'vtkActor', 'vtkMapper', 'vtkRenderWindow', 'vtkImageSlice', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys\", \"Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageLabelOutline"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-ItkWasmVolume\\code.html",
+      "faiss_id": 1398812761,
+      "description": "Loads a medical image dataset (MHA) and renders it as a 3D volume using `vtkVolumeMapper` with custom color and opacity transfer functions.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkITKHelper', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.IO.Core.DataAccessHelper.vtkLiteHttpDataAccessHelper', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 30.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkMapper', 'vtkPiecewiseFunction', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys\", \"Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Rendering-ItkWasmVolume"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-VolumeMapper\\code.html",
+      "faiss_id": 431419998,
+      "description": "Loads a 3D volume dataset and renders it using `vtkVolumeActor` and `vtkVolumeMapper` with extensive customization for appearance and quality.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.IO.Core.vtkHttpDataSetReader.newInstance', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkVolume', 'vtk.Rendering.Core.vtkVolumeMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance']",
+      "rerank_score": 27.0,
+      "matched_keywords": "['vtkMapper', 'vtkPiecewiseFunction', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 3 keys\"]",
+      "title": "Rendering-VolumeMapper"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageSlice\\code.html",
+      "faiss_id": 1985908936,
+      "description": "Generates and displays a 2D random image (100x100) using `vtkImageSlice` and `vtkImageMapper`.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray.newInstance', 'vtk.Common.DataModel.vtkImageData', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 22.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkMapper', 'vtkImageSlice']",
+      "match_explanation": "[\"Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Filter-ImageSlice"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-MultiImageSlice\\code.html",
+      "faiss_id": 739470138,
+      "description": "Loads a 3D volume and displays three orthogonal image slices (I, J, K planes) at the 30th layer using `vtkHttpDataSetReader` and `vtkImageSlice`.\n",
+      "vtkjs_modules": "['vtk.IO.Core.vtkHttpDataSetReader', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 22.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkMapper', 'vtkImageSlice']",
+      "match_explanation": "[\"Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Filter-MultiImageSlice"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-Image2D\\code.html",
+      "faiss_id": 38476787,
+      "description": "Displays a synthetic 2D image generated by `vtkRTAnalyticSource` using `vtkImageMapper` and `vtkImageSlice`.",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkImageData', 'vtk.Filters.Sources.vtkRTAnalyticSource', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 22.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkMapper', 'vtkImageSlice']",
+      "match_explanation": "[\"Query: 'Data Processing — Set 'Pressure' as the active scalar and apply a slice at 80% depth along the Y-axis using vtkImageSlice;' (w=10.0) -> Hit 1 keys\", \"Query: 'Visualization Setup — Map pressure values to a blue→white→red color gradient using vtkColorTransferFunction and set full opacity using vtkPiecewiseFunction, then associate with vtkMapper;' (w=9.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization without GUI controls using vtkRenderWindow, vtkRenderer, vtkActor, and vtkView;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Rendering-Image2D"
+    }
+  ],
+  "metadata": {
+    "keyword_aware_retrieval_time": 0.008682727813720703,
+    "retrieval_time_seconds": 0.01
+  }
 }

@@ -1,24 +1,66 @@
 <template>
   <div class="left-sidebar">
-    <!-- Sidebar Header with Toggle Switch -->
-    <div class="sidebar-header">
-      <h3 class="sidebar-title">{{ sidebarMode === 'config' ? 'Configuration' : 'Retrieval' }}</h3>
-      <v-switch
-        v-model="sidebarMode"
-        true-value="config"
-        false-value="retrieval"
-        :label="sidebarMode === 'config' ? 'Config' : 'Retrieval'"
-        density="compact"
-        size="small"
-        class="mode-switch"
-        hide-details
-      ></v-switch>
-    </div>
+    <!-- Tabs Navigation -->
+    <v-tabs
+      v-model="currentTab"
+      bg-color="white"
+      color="primary"
+      density="compact"
+      class="tabs-header"
+    >
+      <v-tab value="config" class="tab-item">
+        <v-icon start size="small">mdi-cog</v-icon>
+        Configuration
+        <v-badge
+          v-if="tabStatus.config === 'completed'"
+          color="success"
+          icon="mdi-check"
+          inline
+        ></v-badge>
+      </v-tab>
+      
+      <v-tab value="expansion" :disabled="!newCase.workflow.inquiryExpansion" class="tab-item">
+        <v-icon start size="small">mdi-chart-timeline-variant</v-icon>
+        Query Expansion
+        <v-badge
+          v-if="tabStatus.expansion === 'loading'"
+          color="primary"
+          icon="mdi-loading mdi-spin"
+          inline
+        ></v-badge>
+        <v-badge
+          v-if="tabStatus.expansion === 'completed'"
+          color="success"
+          icon="mdi-check"
+          inline
+        ></v-badge>
+      </v-tab>
+      
+      <v-tab value="retrieval" :disabled="!newCase.workflow.rag" class="tab-item">
+        <v-icon start size="small">mdi-database-search</v-icon>
+        Retrieval
+        <v-badge
+          v-if="tabStatus.retrieval === 'loading'"
+          color="primary"
+          icon="mdi-loading mdi-spin"
+          inline
+        ></v-badge>
+        <v-badge
+          v-if="tabStatus.retrieval === 'completed'"
+          color="success"
+          icon="mdi-check"
+          inline
+        ></v-badge>
+      </v-tab>
+    </v-tabs>
 
-    <v-divider class="my-2"></v-divider>
+    <v-divider></v-divider>
 
-    <!-- Configuration Panel -->
-    <div v-show="sidebarMode === 'config'" class="sidebar-content config-content">
+    <!-- Tab Windows -->
+    <v-window v-model="currentTab" class="tab-windows">
+      <!-- Tab 1: Configuration -->
+      <v-window-item value="config" class="tab-content">
+        <div class="sidebar-content config-content">
       <!-- Prompt Configuration Section -->
       <div class="config-section prompt-section">
         <h4 class="section-header">Prompt Configuration</h4>
@@ -126,7 +168,7 @@
       <!-- Generate Button -->
       <div class="action-section">
         <v-btn 
-          color="#4a5258" 
+          color="primary" 
           block 
           :loading="isLoading"
           @click="handleStart"
@@ -137,24 +179,11 @@
         </v-btn>
       </div>
     </div>
+      </v-window-item>
 
-    <!-- Retrieval Panel -->
-    <div v-show="sidebarMode === 'retrieval'" class="sidebar-content retrieval-content">
-      <!-- Workflow State Indicator -->
-      <div class="workflow-state">
-        <v-chip
-          :color="workflowState === 'expanded' ? 'success' : workflowState === 'retrieved' ? 'primary' : 'grey'"
-          size="small"
-          prepend-icon="mdi-information-outline"
-          class="state-chip"
-        >
-          {{ workflowStateText }}
-        </v-chip>
-      </div>
-
-      <!-- Query Expansion Timeline -->
-      <div class="retrieval-section expansion-section">
-        <h4 class="section-header">Query Expansion</h4>
+      <!-- Tab 2: Query Expansion -->
+      <v-window-item value="expansion" class="tab-content">
+        <div class="sidebar-content expansion-content">
         <QueryExpansionTimeline 
           :content="queryExpansionData"
           :is-loading="isExpanding"
@@ -162,38 +191,55 @@
           @update:content="handleExpansionUpdate"
           @next-step="handleProceedToRetrieval"
         />
-      </div>
-
-      <!-- Retrieval Results Card (only shown after retrieval) -->
-      <div v-if="workflowState === 'retrieved'" class="retrieval-section">
-        <h4 class="section-header">Retrieval Results</h4>
         
-        <!-- Loading State for Retrieval -->
-        <div v-if="isRetrieving" class="retrieval-loading">
-          <v-progress-circular
-            indeterminate
-            size="48"
-            width="5"
-            color="primary"
-          ></v-progress-circular>
-          <p class="loading-text">Retrieving relevant examples...</p>
+        <!-- Manual Retrieval Button (Fallback) -->
+        <div v-if="!isExpanding && queryExpansionData && queryExpansionData.length > 0 && newCase.workflow.rag" class="action-container" style="margin-top: 16px;">
+          <v-btn
+            color="success"
+            size="large"
+            block
+            @click="handleProceedToRetrieval(queryExpansionData)"
+            prepend-icon="mdi-database-search"
+            class="retrieval-btn"
+          >
+            <v-icon start>mdi-database-search</v-icon>
+            Go to Retrieval Module
+          </v-btn>
         </div>
-        
-        <RetrievalResultsCard v-else :results="retrievalResults" />
-        
-        <!-- Proceed to Generation Button -->
-        <v-btn
-          color="success"
-          size="large"
-          block
-          @click="handleProceedToGeneration"
-          prepend-icon="mdi-rocket-launch"
-          class="mt-4 generation-btn"
-        >
-          Proceed to Generation
-        </v-btn>
       </div>
-    </div>
+      </v-window-item>
+
+      <!-- Tab 3: Retrieval Results -->
+      <v-window-item value="retrieval" class="tab-content">
+        <div class="sidebar-content retrieval-content">
+          <!-- Loading State for Retrieval -->
+          <div v-if="isRetrieving" class="retrieval-loading">
+            <v-progress-circular
+              indeterminate
+              size="48"
+              width="5"
+              color="primary"
+            ></v-progress-circular>
+            <p class="loading-text">Retrieving relevant examples...</p>
+          </div>
+          
+          <!-- Retrieval Results Card -->
+          <RetrievalResultsCard v-else :results="retrievalResults" />
+          
+          <!-- Proceed to Generation Button -->
+          <v-btn
+            color="success"
+            size="large"
+            block
+            @click="handleProceedToGeneration"
+            prepend-icon="mdi-rocket-launch"
+            class="mt-4 generation-btn"
+          >
+            Proceed to Generation
+          </v-btn>
+        </div>
+      </v-window-item>
+    </v-window>
 
     <!-- Snackbar for notifications -->
     <v-snackbar
@@ -242,9 +288,14 @@ export default {
       default: () => []
     }
   },
-  emits: ['end', 'getNewCase'],
+  emits: ['end', 'getNewCase', 'retrieval-complete'],
   setup(props, context) {
-    const sidebarMode = ref('config'); // 'config' or 'retrieval'
+    const currentTab = ref('config'); // 'config', 'expansion', 'retrieval'
+    const tabStatus = reactive({
+      config: 'idle', // 'idle', 'loading', 'completed'
+      expansion: 'idle',
+      retrieval: 'idle'
+    });
     const workflowState = ref('idle'); // 'idle', 'expanded', 'retrieved', 'generated'
     const queryExpansionData = ref([]);
     const updatedExpansionData = ref(null); // 存储用户编辑后的数据
@@ -261,8 +312,9 @@ export default {
           queryExpansionData.value = newVal;
           if (Array.isArray(newVal) && newVal.length > 0) {
             workflowState.value = 'expanded';
-            // 自动切换到 retrieval 模式显示结果
-            sidebarMode.value = 'retrieval';
+            tabStatus.expansion = 'completed';
+            // 自动切换到 expansion 标签页
+            currentTab.value = 'expansion';
             isExpanding.value = false; // 拓展完成，关闭加载状态
           }
         }
@@ -276,6 +328,9 @@ export default {
       (newVal) => {
         if (newVal && newVal.length > 0) {
           workflowState.value = 'retrieved';
+          tabStatus.retrieval = 'completed';
+          // 自动切换到 retrieval 标签页
+          currentTab.value = 'retrieval';
           isRetrieving.value = false; // 检索完成，关闭加载状态
         }
       },
@@ -550,6 +605,9 @@ export default {
         return;
       }
 
+      // 标记配置标签页完成
+      tabStatus.config = 'completed';
+
       // 如果启用了提示词拓展，先执行拓展
       if (newCase.value.workflow.inquiryExpansion) {
         try {
@@ -557,9 +615,10 @@ export default {
           info.snackbar = true;
           isExpanding.value = true;
           isLoading.value = true;
+          tabStatus.expansion = 'loading';
           
-          // 切换到 retrieval 面板
-          sidebarMode.value = 'retrieval';
+          // 切换到 expansion 标签页
+          currentTab.value = 'expansion';
           workflowState.value = 'idle';
           queryExpansionData.value = []; // 清空旧数据
           
@@ -603,6 +662,9 @@ export default {
         info.snackbar = true;
         isRetrieving.value = true;
         isLoading.value = true;
+        tabStatus.retrieval = 'loading';
+        // 切换到检索标签页
+        currentTab.value = 'retrieval';
 
         // 调用后端 RAG 检索 API
         const response = await axios.post('http://127.0.0.1:5001/retrieval', {
@@ -716,7 +778,8 @@ export default {
     });
 
     return {
-      sidebarMode,
+      currentTab,
+      tabStatus,
       workflowState,
       workflowStateText,
       queryExpansionData,
@@ -748,42 +811,45 @@ export default {
 .left-sidebar {
   width: 100%;
   height: 100%;
-  background-color: #ffffff;
-  padding: 12px;
-  overflow-y: auto;
+  background-color: var(--background-color);
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  margin-bottom: 8px;
+/* Tabs Header */
+.tabs-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.sidebar-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
+.tab-item {
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.3px;
+}
+
+/* Tab Windows */
+.tab-windows {
   flex: 1;
+  overflow: hidden;
 }
 
-.mode-switch {
-  transform: scale(0.85);
-  transform-origin: right center;
-  margin-right: -8px;
+.tab-content {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-content {
-  flex: 1;
-  overflow-y: auto;
+  padding: var(--spacing-sm);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-right: 4px;
+  gap: var(--spacing-md);
+  flex: 1;
+  overflow: auto;
 }
 
 .sidebar-content::-webkit-scrollbar {
@@ -808,8 +874,8 @@ export default {
 }
 
 .config-section {
-  border-bottom: 1px solid #e8e8e8;
-  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-sm);
 }
 
 .config-section:last-of-type {
@@ -817,13 +883,14 @@ export default {
 }
 
 .section-header {
-  background-color: #4a5258;
-  color: #ffffff;
-  padding: 6px 8px;
-  margin: 0 -12px 8px -12px;
+  background-color: var(--secondary-bg);
+  color: var(--text-primary);
+  padding: var(--spacing-sm);
+  margin: 0 calc(-1 * var(--spacing-sm)) var(--spacing-sm) calc(-1 * var(--spacing-sm));
   font-size: 13px;
   font-weight: 600;
-  border-bottom: 2px solid #3a4248;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .expansion-header {
@@ -850,8 +917,8 @@ export default {
 
 .action-section {
   margin-top: auto;
-  padding-top: 12px;
-  border-top: 2px solid #e8e8e8;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
 }
 
 .generate-btn {
@@ -861,8 +928,9 @@ export default {
 }
 
 /* Retrieval Content */
-.retrieval-content {
-  gap: 16px;
+.retrieval-content,
+.expansion-content {
+  gap: var(--spacing-md);
 }
 
 .workflow-state {
@@ -922,5 +990,21 @@ export default {
   font-size: 15px;
   margin-top: 20px;
   font-weight: 500;
+}
+
+.retrieval-btn {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.retrieval-btn:hover {
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+.action-container {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
 }
 </style>

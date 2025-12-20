@@ -15,8 +15,8 @@ class OllamaConfig:
         self.models_qwen={
             "qwen3-turbo":"qwen-turbo-2025-07-15",
             "qwen3-plus":"qwen-plus-2025-09-11",
-            "qwen-max":"qwen3-max-2025-09-23",
             "qwen3-max":"qwen3-max-preview",
+            "qwen3-coder-flash":"qwen3-coder-flash-2025-07-28",
             "qwen3-32b":"qwen3-32b",
             "qwen3-325b":"qwen3-235b-a22b",
             "qwen2.5-14b":"qwen2.5-14b-instruct-1m"

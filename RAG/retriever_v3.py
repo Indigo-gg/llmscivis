@@ -380,6 +380,7 @@ class VTKSearcherV3:
         """
         self.raw_results_history = []
         self.reranked_results_history = []
+        self.retrieval_time_history = []  # 新增：记录每次检索的时间
         print("VTKSearcherV3 initialized (Weighted Keyword Logic).")
 
     def search(self, query: str, query_list: List[Dict]) -> str:
@@ -391,6 +392,9 @@ class VTKSearcherV3:
             query_list (List[Dict]): 分割后的子查询列表，需包含 'description' 和 'weight'。
                                      例如: [{'description': '画球', 'weight': 8}]
         """
+
+        # 记录检索开始时间
+        search_start_time = time.time()
 
         # --- 阶段 1: 广度召回 (Recall) ---
         # 目标：找出所有可能相关的候选文档，不论权重高低，只要沾边就捞出来
@@ -455,11 +459,15 @@ class VTKSearcherV3:
         # 由于我们现在是整体排序，不再是针对每个 query 单独排序，
         # 为了兼容 raw_results_history 的结构（List[List]），
         # 我们这里将最终结果复制一份放入 rerank history，或者也可以按需调整结构。
-        # 这里为了保持 VTKSearcherV1 的 Excel 导出逻辑，我们将最终结果作为“整体结果”存入。
+        # 这里为了保持 VTKSearcherV1 的 Excel 导出逻辑，我们将最终结果作为"整体结果"存入。
         self.raw_results_history.append(temp_raw_history)
         self.reranked_results_history.append(
             final_results)  # 注意：这里结构稍有变化，变为 List[Doc]
-
+        
+        # 记录检索耗时
+        search_duration = time.time() - search_start_time
+        self.retrieval_time_history.append(search_duration)
+        
         # --- 阶段 3: 构建 Prompt (Context) ---
         prompt = self._build_prompt(query, final_results)
         return prompt
@@ -619,8 +627,11 @@ def save_results_to_excel(searcher, input_file, output_file="retrieval_results_v
                 df.at[i,
                       'reranked_results'] = f"Error serializing reranked results: {str(e)}"
 
-            # 保存检索时间（如果有记录的话）
-            # 这里可以根据需要添加实际的时间记录逻辑
+            # 保存检索时间
+            retrieval_time = 0.0
+            if i < len(searcher.retrieval_time_history):
+                retrieval_time = searcher.retrieval_time_history[i]
+            df.at[i, 'retrieval_time'] = retrieval_time
 
         # 保存到Excel文件
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:

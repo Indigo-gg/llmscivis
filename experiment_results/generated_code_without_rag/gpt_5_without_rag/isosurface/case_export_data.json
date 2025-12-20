@@ -106,5 +106,70 @@
       "description": "Initialize the render window, renderer, and interactor to display the isosurface with the configured color map, opacity, shading, and orientation marker."
     }
   ],
-  "retrieval_results": []
+  "retrieval_results": [
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageLabelOutline\\code.html",
+      "faiss_id": 144015752,
+      "description": "Displays a 2D image volume with an outlined labelmap. Specific regions (high/low values) are highlighted in red/green with transparent outlines.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkImageData', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Filters.General.vtkCalculator', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 29.0,
+      "matched_keywords": "['vtkCalculator', 'vtkActor', 'vtkMapper', 'vtkRenderWindow', 'vtkColorTransferFunction']",
+      "match_explanation": "[\"Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys\", \"Query: 'Color Mapping — Apply a blue→white→red color map spanning the scalar range (min to max) using vtkColorTransferFunction;' (w=8.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageLabelOutline"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageMarchingCubes\\code.html",
+      "faiss_id": 875726136,
+      "description": "Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkSphere', 'vtk.Filters.General.vtkImageMarchingCubes', 'vtk.Imaging.Hybrid.vtkSampleFunction', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 22.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkImageMarchingCubes', 'vtkMapper', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Isosurface Generation — Generate an isosurface at the mid-value of the scalar range using vtkImageMarchingCubes;' (w=10.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageMarchingCubes"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-Calculator\\code.html",
+      "faiss_id": 1276004285,
+      "description": "This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkDataSet.FieldDataTypes', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 21.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkMapper', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-Calculator"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\IO-StickMapper\\code.html",
+      "faiss_id": 771311485,
+      "description": "Generates a plane and uses `vtkCalculator` to create custom point data ('orientation', 'temperature', 'pressure'), which `vtkStickMapper` could use for rendering (currently not fully connected).\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 21.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkMapper', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "IO-StickMapper"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-GlyphMapper\\code.html",
+      "faiss_id": 105009849,
+      "description": "Visualizes a 3D plane with glyphs (e.g., cones) whose scale and orientation are based on scalar and vector data, using `vtkGlyph3DMapper` and `vtkCalculator`.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkGlyph3DMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 21.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkMapper', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Rendering-GlyphMapper"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-StickMapper\\code.html",
+      "faiss_id": 1837944411,
+      "description": "Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.\n",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkStickMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 21.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkCalculator', 'vtkMapper', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Data Processing — Use vtkCalculator to compute velocity magnitude from arrays v02 and v03; if these arrays are not available, use 'prs' as the scalar field;' (w=9.0) -> Hit 1 keys\", \"Query: 'Surface Rendering — Set the isosurface to fully opaque with smooth shading using vtkMapper and vtkProperty;' (w=6.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkInteractorStyleTrackballCamera;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Rendering-StickMapper"
+    }
+  ],
+  "metadata": {
+    "keyword_aware_retrieval_time": 0.008250951766967773,
+    "retrieval_time_seconds": 0.01
+  }
 }

@@ -42,6 +42,7 @@
       <div class="center">
         <div class="preview">
           <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
+            :error-line="currentCase.errorLine" :error-message="currentCase.errorMessage"
             ref="generatedPreview" @console-output="handleConsoleOutput" @update:htmlContent="(val) => currentCase.generatedCode = val">
             <template #actions>
               <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
@@ -165,7 +166,10 @@ export default {
       retrievalResults: [],
       parsedEvaluation: null,  // New: Parsed evaluation data
       automatedExecutable: null,  // New: Automated check for executability
-      automatedValidOutput: null  // New: Automated check for valid output
+      automatedValidOutput: null,  // New: Automated check for valid output
+      // Error highlighting for editor
+      errorLine: null,  // Line number where error occurred
+      errorMessage: ''  // Error message to display
 
     })
     const resetCurrentCase = (obj) => {
@@ -176,6 +180,10 @@ export default {
       currentCase.manualEvaluation = obj['manual_evaluation']
       currentCase.options = obj['options']
       currentCase.evaluatorEvaluation = obj['evaluator_evaluation']
+      
+      // Clear error highlighting when switching cases
+      currentCase.errorLine = null;
+      currentCase.errorMessage = '';
       
       // Parse evaluation data if available
       if (obj['evaluator_evaluation']) {
@@ -200,6 +208,9 @@ export default {
         isGenerating.value = false;
         
         currentCase.consoleOutput = []
+        // Clear error highlighting when new code is generated
+        currentCase.errorLine = null;
+        currentCase.errorMessage = '';
 
         // Handle query expansion data - now it's structured data (array)
         if (res.analysis) {
@@ -298,6 +309,50 @@ export default {
           currentCase.consoleOutput.push(output);
         }
         console.log('Current console logs:', currentCase.consoleOutput);
+        
+        // 提取错误行号并高亮
+        const errorLogs = Array.isArray(output) ? output : [output];
+        errorLogs.forEach(log => {
+          if (log && log.type === 'error') {
+            let lineNumber = null;
+            
+            // 优先使用直接传递的行号
+            if (log.lineno && typeof log.lineno === 'number') {
+              lineNumber = log.lineno;
+              console.log('Using direct lineno:', lineNumber);
+            } else {
+              // 如果没有直接传递，尝试从错误消息中提取行号
+              // 多种格式支持:
+              // 1. "Error: ... (at http://localhost:5174/:26:42)"
+              // 2. "Error: ... at line 26"
+              // 3. "Uncaught TypeError: ... at <anonymous>:26:42"
+              
+              // 尝试匹配 URL 格式: :数字:数字)
+              const urlMatch = log.message.match(/:([0-9]+):([0-9]+)\)/);
+              if (urlMatch) {
+                lineNumber = parseInt(urlMatch[1], 10);
+              } else {
+                // 尝试匹配 "at <anonymous>:行号:列号" 格式
+                const anonymousMatch = log.message.match(/<anonymous>:([0-9]+):([0-9]+)/);
+                if (anonymousMatch) {
+                  lineNumber = parseInt(anonymousMatch[1], 10);
+                } else {
+                  // 尝试匹配 "at line 行号" 格式
+                  const lineMatch = log.message.match(/at line ([0-9]+)/);
+                  if (lineMatch) {
+                    lineNumber = parseInt(lineMatch[1], 10);
+                  }
+                }
+              }
+            }
+            
+            if (lineNumber) {
+              currentCase.errorLine = lineNumber;
+              currentCase.errorMessage = log.message;
+              console.log('Error detected at line:', lineNumber, 'Message:', log.message);
+            }
+          }
+        });
       });
     };
     const handleVisibilityChange = (value) => {
@@ -488,8 +543,8 @@ export default {
 .app-header {
   height: 50px;
   padding: 0 16px;
-  background-color: #6ba4e6;
-  border-bottom: 1px solid #5a94d4;
+  background-color: var(--primary-color);
+  border-bottom: 1px solid #2563eb;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -543,8 +598,8 @@ export default {
   width: 300px;
   min-width: 280px;
   max-width: 350px;
-  background-color: #fafafa;
-  border-right: 1px solid #e0e0e0;
+  background-color: var(--background-color);
+  border-right: 1px solid var(--border-color);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -570,8 +625,8 @@ export default {
 .scrollable {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid #ccc;
-  padding: 10px;
+  border: 1px solid var(--border-color);
+  padding: var(--spacing-sm);
   position: relative;
   min-width: 0;
 }
@@ -587,7 +642,7 @@ export default {
 
 .output {
   flex-shrink: 0;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color);
   overflow-y: auto;
   max-height: 30vh;
 }
@@ -595,7 +650,7 @@ export default {
 .output-container {
   position: relative;
   width: 100%;
-  padding: 10px;
+  padding: var(--spacing-sm);
 }
 
 /* Sidebar Right */
@@ -603,8 +658,8 @@ export default {
   width: 300px;
   min-width: 280px;
   max-width: 350px;
-  background-color: #fafafa;
-  border-left: 1px solid #e0e0e0;
+  background-color: var(--background-color);
+  border-left: 1px solid var(--border-color);
   overflow: hidden;
   flex-shrink: 0;
 }

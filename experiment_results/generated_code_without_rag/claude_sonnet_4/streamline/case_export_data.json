@@ -101,14 +101,68 @@
   ],
   "retrieval_results": [
     {
-      "id": 1619381550,
-      "title": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageStreamline\\code.html",
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageStreamline\\code.html",
+      "faiss_id": 1619381550,
       "description": "Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.\n",
-      "relevance": 10.0,
-      "matched_keywords": [
-        "vtkImageStreamline",
-        "vtkOutlineFilter"
-      ]
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkImageData', 'vtk.Filters.General.vtkImageStreamline', 'vtk.Filters.General.vtkOutlineFilter', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.Property', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkProperty.Representation', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance', 'vtk.macro']",
+      "rerank_score": 18.0,
+      "matched_keywords": "['vtkOutlineFilter', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Generation — Extract the outline of the dataset using vtkOutlineFilter;' (w=6.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 1 keys\"]",
+      "title": "Filter-ImageStreamline"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Rendering-ManyRenderers\\code.html",
+      "faiss_id": 215600877,
+      "description": "Displays multiple interactive 3D objects (cone, sphere, cube, cylinder) in separate, independently styled renderers with animation and layout adjustments.\n",
+      "vtkjs_modules": "['vtk.Filters.Sources.vtkConeSource', 'vtk.Filters.Sources.vtkCubeSource', 'vtk.Filters.Sources.vtkCylinderSource', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Interaction.Style.vtkInteractorStyleTrackballCamera', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Core.vtkRenderWindow', 'vtk.Rendering.Core.vtkRenderWindowInteractor', 'vtk.Rendering.Core.vtkRenderer', 'vtk.js', 'vtk.js已经通过某种方式被加载到全局变量vtk中']",
+      "rerank_score": 18.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkActor', 'vtkRenderer']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 3 keys\"]",
+      "title": "Rendering-ManyRenderers"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-Calculator\\code.html",
+      "faiss_id": 1276004285,
+      "description": "This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkDataSet.FieldDataTypes', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkCalculator', 'vtk.Filters.Sources.vtkPlaneSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 15.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-Calculator"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ContourTriangulator\\code.html",
+      "faiss_id": 600787990,
+      "description": "Generates a closed circular polyline from 16 points and triangulates it using `vtkContourTriangulator` for wireframe rendering.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkCellArray', 'vtk.Common.Core.vtkPoints', 'vtk.Common.DataModel.vtkPolyData', 'vtk.Filters.General.vtkContourTriangulator', 'vtk.Filters.Sources.vtkSphereSource', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkCamera', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 15.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ContourTriangulator"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageLabelOutline\\code.html",
+      "faiss_id": 144015752,
+      "description": "Displays a 2D image volume with an outlined labelmap. Specific regions (high/low values) are highlighted in red/green with transparent outlines.\n",
+      "vtkjs_modules": "['vtk.Common.Core.vtkDataArray', 'vtk.Common.DataModel.vtkDataSet.FieldAssociations', 'vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes', 'vtk.Common.DataModel.vtkImageData', 'vtk.Common.DataModel.vtkPiecewiseFunction', 'vtk.Filters.General.vtkCalculator', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkColorTransferFunction', 'vtk.Rendering.Core.vtkImageMapper', 'vtk.Rendering.Core.vtkImageSlice', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 15.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageLabelOutline"
+    },
+    {
+      "file_path": "data\\vtkjs-examples\\prompt-sample\\Filter-ImageMarchingCubes\\code.html",
+      "faiss_id": 875726136,
+      "description": "Visualizes a 3D sphere by generating a scalar field with `vtkSampleFunction` and extracting an isosurface using `vtkImageMarchingCubes`.",
+      "vtkjs_modules": "['vtk.Common.DataModel.vtkSphere', 'vtk.Filters.General.vtkImageMarchingCubes', 'vtk.Imaging.Hybrid.vtkSampleFunction', 'vtk.Rendering.Core.vtkActor', 'vtk.Rendering.Core.vtkMapper', 'vtk.Rendering.Misc.vtkFullScreenRenderWindow']",
+      "rerank_score": 15.0,
+      "matched_keywords": "['vtkRenderWindow', 'vtkActor']",
+      "match_explanation": "[\"Query: 'Streamline Visualization — Render streamlines in cyan ([0, 1, 1]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=5.0) -> Hit 1 keys\", \"Query: 'Outline Rendering — Render the dataset outline in red ([1, 0, 0]) with a specified line width using vtkPolyDataMapper and vtkActor;' (w=4.0) -> Hit 1 keys\", \"Query: 'Integrate all components and render the visualization using vtkRenderWindow, vtkRenderer, vtkActor, and vtkViewStream;' (w=3.0) -> Hit 2 keys\"]",
+      "title": "Filter-ImageMarchingCubes"
     }
-  ]
+  ],
+  "metadata": {
+    "keyword_aware_retrieval_time": 0.01240658760070801,
+    "retrieval_time_seconds": 0.01
+  }
 }
