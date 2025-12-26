@@ -1,0 +1,864 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the Isabel dataset with streamline rendering.
+
+Load the dataset from: http://127.0.0.1:5000/dataset/isabel.vti
+
+Use the "Velocity" array as the vector field for streamlines
+
+Generate seed points at the center of the dataset with sufficient density to cover the domain
+
+Compute streamlines following the velocity field
+
+Render streamlines in cyan ([0, 1, 1]) with a specified line width
+
+Render a dataset outline in red ([1, 0, 0]) with a specified line width
+
+Relevant VTK.js Examples:
+
+--------------------------------------------------------------------------------Example 1 (Score: 20.00, Matches: vtkImageStreamline, vtkMapper, vtkPlaneSource, vtkOutlineFilter):
+Description: Visualizes a 3D vector field using `vtkImageStreamline` for streamlines, `vtkOutlineFilter` for data bounds, and seed points, with interactive resolution controls.
+
+Modules: vtk.Common.Core.vtkDataArray, vtk.Common.DataModel.vtkImageData, vtk.Filters.General.vtkImageStreamline, vtk.Filters.General.vtkOutlineFilter, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.Property, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Core.vtkProperty.Representation, vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance, vtk.macro
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js ImageOutlineFilter</title>
+    <!-- <link rel="stylesheet" href="https://kit.fontawesome.com/419a5ebb56.css" crossorigin="anonymous"> -->
+</head>
+
+<body>
+    <div id="renderer"></div>
+
+    <script type="text/javascript" src="https://unpkg.com/@babel/polyfill@7.0.0/dist/polyfill.js"></script>
+
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkImageStreamline = vtk.Filters.General.vtkImageStreamline;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        console.log(vtk.Rendering.Core.Property);
+
+        const Representation = vtk.Rendering.Core.vtkProperty.Representation;
+        // const Representation = Constants.representation;
+        const vtkDataArray = vtk.Common.Core.vtkDataArray;
+        const vtkImageData = vtk.Common.DataModel.vtkImageData;
+        const macro = vtk.macro;
+
+        // Load control panel HTML
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>
+`
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        function addRepresentation(name, filter, props = {}) {
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(filter.getOutputPort());
+
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+            actor.getProperty().set(props);
+            renderer.addActor(actor);
+
+            window[`${name}Actor`] = actor;
+            window[`${name}Mapper`] = mapper;
+        }
+
+        // ----------------------------------------------------------------------------
+
+        const vecSource = macro.newInstance((publicAPI, model) => {
+            macro.obj(publicAPI, model); // make it an object
+            macro.algo(publicAPI, model, 0, 1); // mixin algorithm code 1 in, 1 out
+            publicAPI.requestData = (inData, outData) => {
+                // implement requestData
+                if (!outData[0]) {
+                    const id = vtkImageData.newInstance();
+                    id.setSpacing(0.1, 0.1, 0.1);
+                    id.setExtent(0, 9, 0, 9, 0, 9);
+                    const dims = [10, 10, 10];
+
+                    const newArray = new Float32Array(3 * dims[0] * dims[1] * dims[2]);
+
+                    let i = 0;
+                    for (let z = 0; z <= 9; z++) {
+                        for (let y = 0; y <= 9; y++) {
+                            for (let x = 0; x <= 9; x++) {
+                                newArray[i++] = 0.1 * x;
+                                const v = 0.1 * y;
+                                newArray[i++] = v * v;
+                                newArray[i++] = 0;
+                            }
+                        }
+                    }
+
+                    const da = vtkDataArray.newInstance({
+                        numberOfComponents: 3,
+                        values: newArray,
+                    });
+                    da.setName('vectors');
+
+                    const cpd = id.getPointData();
+                    cpd.setVectors(da);
+
+                    // Update output
+                    outData[0] = id;
+                }
+            };
+        })();
+
+        const planeSource = vtkPlaneSource.newInstance();
+        planeSource.setOrigin(0.05, 0.05, 0.05);
+        planeSource.setPoint1(0.05, 0.85, 0.05);
+        planeSource.setPoint2(0.05, 0.05, 0.85);
+
+        const sline = vtkImageStreamline.newInstance();
+        sline.setIntegrationStep(0.01);
+        sline.setInputConnection(vecSource.getOutputPort());
+        sline.setInputConnection(planeSource.getOutputPort(), 1);
+
+        const outlineFilter = vtkOutlineFilter.newInstance();
+        outlineFilter.setInputConnection(vecSource.getOutputPort());
+
+        addRepresentation('streamLine', sline, {
+            diffuseColor: [0, 1, 1],
+            lineWidth: 5,
+        });
+        addRepresentation('outline', outlineFilter, {
+            diffuseColor: [1, 0, 0],
+            lineWidth: 3,
+        });
+        addRepresentation('seed', planeSource, {
+            representation: Representation.POINTS,
+            pointSize: 10,
+        });
+
+        // -----------------------------------------------------------
+
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // ----------------------------------------------------------------------------
+        // UI control handling
+        // ----------------------------------------------------------------------------
+
+        fullScreenRenderer.addController(controlPanel);
+
+        ['xResolution', 'yResolution'].forEach((propertyName) => {
+            document.querySelector(`.${propertyName}`).addEventListener('input', (e) => {
+                const value = Number(e.target.value);
+                planeSource.set({ [propertyName]: value });
+                renderWindow.render();
+            });
+        });
+
+        // -----------------------------------------------------------
+        // Make some variables global so that you can inspect and
+        // modify objects in your browser's developer console:
+        // -----------------------------------------------------------
+
+        window.planeSource = planeSource;
+        window.sline = sline;
+        window.outlineFilter = outlineFilter;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+
+    </script>
+
+</body>
+
+</html>
+
+Example 2 (Score: 20.00, Matches: vtkCalculator, vtkMapper, vtkGlyph3DMapper, vtkPlaneSource):
+Description: Visualizes a 3D plane with glyphs (e.g., cones) whose scale and orientation are based on scalar and vector data, using `vtkGlyph3DMapper` and `vtkCalculator`.
+
+Modules: vtk.Common.DataModel.vtkDataSet.FieldAssociations, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Filters.General.vtkCalculator, vtk.Filters.Sources.vtkConeSource, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkGlyph3DMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtkjs- Rendering-GlyphMapper</title>
+</head>
+
+
+
+<body>
+
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // Assuming vtk object is properly imported and available in global environment, proceed with corresponding assignments
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkConeSource = vtk.Filters.Sources.vtkConeSource;
+        const vtkGlyph3DMapper = vtk.Rendering.Core.vtkGlyph3DMapper;
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>
+`
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        const planeSource = vtkPlaneSource.newInstance();
+        const simpleFilter = vtkCalculator.newInstance();
+        const mapper = vtkGlyph3DMapper.newInstance();
+        const actor = vtkActor.newInstance();
+
+        simpleFilter.setFormula({
+            getArrays: (inputDataSets) => ({
+                input: [{ location: FieldDataTypes.COORDINATE }], // Require point coordinates as input
+                output: [
+                    // Generate two output arrays:
+                    {
+                        location: FieldDataTypes.POINT, // This array will be point-data...
+                        name: 'pressure', //... with the given name...
+                        dataType: 'Float32Array', //... of this type...
+                        numberOfComponents: 3, //... with this many components...
+                    },
+                    {
+                        location: FieldDataTypes.POINT, // This array will be field data...
+                        name: 'temperature', //... with the given name...
+                        dataType: 'Float32Array', //... of this type...
+                        attribute: AttributeTypes.SCALARS, //... and will be marked as the default scalars.
+                        numberOfComponents: 1, //... with this many components...
+                    },
+                ],
+            }),
+            evaluate: (arraysIn, arraysOut) => {
+                // Convert in the input arrays of vtkDataArrays into variables
+                // referencing the underlying JavaScript typed-data arrays:
+                const [coords] = arraysIn.map((d) => d.getData());
+                const [press, temp] = arraysOut.map((d) => d.getData());
+
+                // Since we are passed coords as a 3-component array,
+                // loop over all the points and compute the point-data output:
+                for (let i = 0, sz = coords.length / 3; i < sz; ++i) {
+                    press[i * 3] = (coords[3 * i] - 0.5) * (coords[3 * i] - 0.5);
+                    press[i * 3 + 1] =
+                        ((coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5) + 0.125) * 0.1;
+                    press[i * 3 + 2] =
+                        ((coords[3 * i] - 0.5) * (coords[3 * i] - 0.5) +
+                            (coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5) +
+                            0.125) *
+                        0.1;
+                    temp[i] = coords[3 * i + 1] * 0.1;
+                }
+
+                // Mark the output vtkDataArray as modified
+                arraysOut.forEach((x) => x.modified());
+            },
+        });
+
+
+        // console.log("planeSource", planeSource.getOutputPort)
+        // The generated 'temperature' array will become the default scalars, so the plane mapper will color by 'temperature':
+        simpleFilter.setInputConnection(planeSource.getOutputPort());
+
+        mapper.setInputConnection(simpleFilter.getOutputPort(), 0);
+
+        const coneSource = vtkConeSource.newInstance();
+        coneSource.setResolution(12);
+        mapper.setInputConnection(coneSource.getOutputPort(), 1);
+        mapper.setOrientationArray('pressure');
+        mapper.setScalarRange(0.0, 0.1);
+
+        actor.setMapper(mapper);
+
+        renderer.addActor(actor);
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // -----------------------------------------------------------
+        // UI control handling
+        // -----------------------------------------------------------
+
+        fullScreenRenderer.addController(controlPanel);
+        ['xResolution', 'yResolution'].forEach((propertyName) => {
+            document.querySelector(`.${propertyName}`).addEventListener('input', (e) => {
+                const value = Number(e.target.value);
+                planeSource.set({ [propertyName]: value });
+                renderWindow.render();
+            });
+        });
+
+        // -----------------------------------------------------------
+        // Make some variables global so that you can inspect and
+        // modify objects in your browser's developer console:
+        // -----------------------------------------------------------
+
+        window.planeSource = planeSource;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+    </script>
+
+</body>
+
+</html>
+
+Example 3 (Score: 15.00, Matches: vtkCalculator, vtkMapper, vtkPlaneSource):
+Description: This code visualizes a 3D plane colored by a mathematical function, using `vtkCalculator` for scalar values and `vtkMapper` for coloring.
+
+Modules: vtk.Common.Core.vtkPoints, vtk.Common.DataModel.vtkDataSet.FieldDataTypes, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Common.DataModel.vtkPolyData, vtk.Filters.General.vtkCalculator, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        // using vtk namespace
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkPolyData = vtk.Common.DataModel.vtkPolyData;
+        const vtkPoints = vtk.Common.Core.vtkPoints;
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // setting vtkCalculator and set formula
+
+        const simpleFilter = vtkCalculator.newInstance();
+
+        simpleFilter.setFormulaSimple(
+            FieldDataTypes.POINT, // Generate an output array defined over points.
+            [], // We don't request any point-data arrays because point coordinates are made available by default.
+            'outputArray', // Name the output array 
+            (x) => (x[0] - 0.5) * (x[0] - 0.5) + (x[1] - 0.5) * (x[1] - 0.5) + 0.125
+        ); 
+
+        //using plane source to generate a poly data which can be rendered by vtkActor
+        const planeSource = vtkPlaneSource.newInstance({
+            xResolution: 25,
+            yResolution: 25,
+        });
+
+        const sourceData = planeSource.getOutputData();
+
+        simpleFilter.setInputData(sourceData);
+        const planeActor = vtkActor.newInstance();
+        const planeMapper = vtkMapper.newInstance();
+        planeMapper.setInputData(simpleFilter.getOutputData());
+        planeMapper.setColorByArrayName('outputArray'); 
+
+        planeMapper.setScalarModeToUsePointFieldData();   
+        planeActor.setMapper(planeMapper);
+        planeActor.getProperty().setEdgeVisibility(true);
+
+        renderer.addActor(planeActor);
+        renderer.resetCamera();
+        renderWindow.render();
+    </script>
+</body>
+
+</html>
+
+Example 4 (Score: 15.00, Matches: vtkCalculator, vtkMapper, vtkPlaneSource):
+Description: Generates a plane and uses `vtkCalculator` to create custom point data ('orientation', 'temperature', 'pressure'), which `vtkStickMapper` could use for rendering (currently not fully connected).
+
+Modules: vtk.Common.DataModel.vtkDataSet.FieldAssociations, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Filters.General.vtkCalculator, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkStickMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // Use vtk namespace to reference classes
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>`;
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        const planeSource = vtkPlaneSource.newInstance({
+            xResolution: 25,
+            yResolution: 25,
+        });
+
+
+        console.log(planeSource.getOutputData().toJSON());
+
+        const simpleFilter = vtkCalculator.newInstance();
+        const mapper = vtkStickMapper.newInstance();
+        const actor = vtkActor.newInstance();
+
+        simpleFilter.setFormula({
+            getArrays: (inputDataSets) => ({
+                input: [{ location: FieldDataTypes.COORDINATE }], // Require point coordinates as input
+                output: [
+                    // Generate two output arrays:
+                    {
+                        location: FieldDataTypes.POINT, // This array will be point-data ...
+                        name: 'orientation', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        numberOfComponents: 3, // ... with this many components ...
+                    },
+                    {
+                        location: FieldDataTypes.POINT, // This array will be field data ...
+                        name: 'temperature', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        attribute: AttributeTypes.SCALARS, // ... and will be marked as the default scalars.
+                        numberOfComponents: 1, // ... with this many components ...
+                    },
+                    {
+                        location: FieldDataTypes.POINT, // This array will be field data ...
+                        name: 'pressure', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        numberOfComponents: 2, // ... with this many components ...
+                    },
+                ],
+            }),
+            evaluate: (arraysIn, arraysOut) => {
+                // Convert in the input arrays of vtkDataArrays into variables
+                // referencing the underlying JavaScript typed-data arrays:
+                // array in is null here?
+                console.log("arraysIn:", arraysIn());
+                const [coords] = arraysIn.map((d) => d.getData());
+                const [orient, temp, press] = arraysOut.map((d) => d.getData());
+
+                // Since we are passed coords as a 3-component array,
+                // loop over all the points and compute the point-data output:
+                for (let i = 0, sz = coords.length / 3; i < sz; ++i) {
+                    orient[i * 3] =
+                        (coords[3 * i] - 0.5) * (coords[3 * i] - 0.5) +
+                        (coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5);
+                    orient[i * 3 + 1] =
+                        (coords[3 * i] - 0.5) * (coords[3 * i] - 0.5) +
+                        (coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5);
+                    orient[i * 3 + 2] = 1.0;
+
+                    temp[i] = coords[3 * i + 1];
+
+                    press[i * 2] =
+                        (coords[3 * i] * coords[3 * i] +
+                            coords[3 * i + 1] * coords[3 * i + 1]) *
+                        0.05 +
+                        0.05;
+                    press[i * 2 + 1] =
+                        (coords[3 * i] * coords[3 * i] +
+                            coords[3 * i + 1] * coords[3 * i + 1]) *
+                        0.01 +
+                        0.01;
+                }
+                // Mark the output vtkDataArray as modified
+                arraysOut.forEach((x) => x.modified());
+            },
+        });
+
+        // The generated 'temperature' array will become the default scalars
+        // so the plane mapper will color by 'temperature':
+        simpleFilter.setInputData(planeSource.getOutputData());
+        simpleFilter.update();
+        concole.log(simpleFilter.getOutputData());
+
+        //mapper.setInputConnection(simpleFilter.getOutputPort());
+
+        //mapper.setOrientationArray('orientation');
+        //mapper.setScaleArray('pressure');
+
+        //actor.setMapper(mapper);
+
+       // renderer.addActor(actor);
+       // renderer.resetCamera();
+        //renderWindow.render();
+
+        // -----------------------------------------------------------
+        // UI control handling
+        // -----------------------------------------------------------
+
+        // fullScreenRenderer.addController(controlPanel);
+        // ['xResolution', 'yResolution'].forEach((propertyName) => {
+        //     document.querySelector(`.${propertyName}`).addEventListener('input', (e) => {
+        //         const value = Number(e.target.value);
+        //         console.log("propertyName",propertyName);
+        //         console.log("value",value);
+        //         planeSource.set({ [propertyName]: value });
+        //         renderWindow.render();
+        //     });
+        // });
+
+        // -----------------------------------------------------------
+        // Make some variables global so that you can inspect and
+        // modify objects in your browser's developer console:
+        // -----------------------------------------------------------
+
+        window.planeSource = planeSource;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+</body>
+
+</html>
+
+Example 5 (Score: 15.00, Matches: vtkCalculator, vtkMapper, vtkPlaneSource):
+Description: Creates a 3D visualization where a plane is rendered using a `vtkStickMapper`. The plane's geometry is generated with a `vtkPlaneSource`, and `vtkCalculator` processes the data to generate custom point attributes ('orientation', 'temperature', 'pressure') which `vtkStickMapper` uses to control the orientation and scaling of the sticks. The visualization is displayed in a full-screen renderer with a dark background. Additionally, UI controls allow adjusting the X and Y resolution of the plane, which dynamically updates the visualization.
+
+Modules: vtk.Common.DataModel.vtkDataSet.FieldAssociations, vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes, vtk.Filters.General.vtkCalculator, vtk.Filters.Sources.vtkPlaneSource, vtk.Rendering.Core.vtkActor, vtk.Rendering.Core.vtkStickMapper, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vtk.js StickMapper</title>
+    <link rel="stylesheet" href="https://kit.fontawesome.com/419a5ebb56.css" crossorigin="anonymous">
+    <style>
+        #renderer {
+            width: 100%;
+            height: 600px;
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js/Sources/Rendering/Profiles/Geometry"></script>
+    <script src="https://unpkg.com/vtk.js/Sources/Rendering/Profiles/Molecule"></script>
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <script>
+        // Use vtk namespace to reference classes
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkPlaneSource = vtk.Filters.Sources.vtkPlaneSource;
+        const vtkStickMapper = vtk.Rendering.Core.vtkStickMapper;
+
+        const AttributeTypes = vtk.Common.DataModel.vtkDataSetAttributes.AttributeTypes;
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldAssociations;
+
+        const controlPanel = `<table>
+  <tr>
+    <td>X Resolution</td>
+    <td>
+      <input class='xResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+  <tr>
+    <td>Y Resolution</td>
+    <td>
+      <input class='yResolution' type="range" min="1" max="25" step="1" value="10" />
+    </td>
+  </tr>
+</table>`;
+
+        // ----------------------------------------------------------------------------
+        // Standard rendering code setup
+        // ----------------------------------------------------------------------------
+
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // ----------------------------------------------------------------------------
+        // Example code
+        // ----------------------------------------------------------------------------
+
+        const planeSource = vtkPlaneSource.newInstance();
+        const simpleFilter = vtkCalculator.newInstance();
+        const mapper = vtkStickMapper.newInstance();
+        const actor = vtkActor.newInstance();
+
+        simpleFilter.setFormula({
+            getArrays: (inputDataSets) => ({
+                input: [{ location: FieldDataTypes.COORDINATE }], // Require point coordinates as input
+                output: [
+                    // Generate two output arrays:
+                    {
+                        location: FieldDataTypes.POINT, // This array will be point-data ...
+                        name: 'orientation', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        numberOfComponents: 3, // ... with this many components ...
+                    },
+                    {
+                        location: FieldDataTypes.POINT, // This array will be field data ...
+                        name: 'temperature', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        attribute: AttributeTypes.SCALARS, // ... and will be marked as the default scalars.
+                        numberOfComponents: 1, // ... with this many components ...
+                    },
+                    {
+                        location: FieldDataTypes.POINT, // This array will be field data ...
+                        name: 'pressure', // ... with the given name ...
+                        dataType: 'Float32Array', // ... of this type ...
+                        numberOfComponents: 2, // ... with this many components ...
+                    },
+                ],
+            }),
+            evaluate: (arraysIn, arraysOut) => {
+                // Convert in the input arrays of vtkDataArrays into variables
+                // referencing the underlying JavaScript typed-data arrays:
+                const [coords] = arraysIn.map((d) => d.getData());
+                const [orient, temp, press] = arraysOut.map((d) => d.getData());
+
+                // Since we are passed coords as a 3-component array,
+                // loop over all the points and compute the point-data output:
+                for (let i = 0, sz = coords.length / 3; i < sz; ++i) {
+                    orient[i * 3] =
+                        (coords[3 * i] - 0.5) * (coords[3 * i] - 0.5) +
+                        (coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5);
+                    orient[i * 3 + 1] =
+                        (coords[3 * i] - 0.5) * (coords[3 * i] - 0.5) +
+                        (coords[3 * i + 1] - 0.5) * (coords[3 * i + 1] - 0.5);
+                    orient[i * 3 + 2] = 1.0;
+
+                    temp[i] = coords[3 * i + 1];
+
+                    press[i * 2] =
+                        (coords[3 * i] * coords[3 * i] +
+                            coords[3 * i + 1] * coords[3 * i + 1]) *
+                        0.05 +
+                        0.05;
+                    press[i * 2 + 1] =
+                        (coords[3 * i] * coords[3 * i] +
+                            coords[3 * i + 1] * coords[3 * i + 1]) *
+                        0.01 +
+                        0.01;
+                }
+                // Mark the output vtkDataArray as modified
+                arraysOut.forEach((x) => x.modified());
+            },
+        });
+
+        // The generated 'temperature' array will become the default scalars, so the plane mapper will color by 'temperature':
+        simpleFilter.setInputConnection(planeSource.getOutputPort());
+
+        mapper.setInputConnection(simpleFilter.getOutputPort());
+
+        mapper.setOrientationArray('orientation');
+        mapper.setScaleArray('pressure');
+
+        actor.setMapper(mapper);
+
+        renderer.addActor(actor);
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // -----------------------------------------------------------
+        // UI control handling
+        // -----------------------------------------------------------
+
+        fullScreenRenderer.addController(controlPanel);
+        ['xResolution', 'yResolution'].forEach((propertyName) => {
+            document.querySelector(`.${propertyName}`).addEventListener('input', (e) => {
+                const value = Number(e.target.value);
+                planeSource.set({ [propertyName]: value });
+                renderWindow.render();
+            });
+        });
+
+        // -----------------------------------------------------------
+        // Make some variables global so that you can inspect and
+        // modify objects in your browser's developer console:
+        // -----------------------------------------------------------
+
+        window.planeSource = planeSource;
+        window.mapper = mapper;
+        window.actor = actor;
+        window.renderer = renderer;
+        window.renderWindow = renderWindow;
+
+    </script>
+</body>
+
+</html>
+
+Example 6 (Score: 10.00, Matches: vtkHttpDataSetReader, vtkMapper):
+Description: Loads a 3D volume and displays three orthogonal image slices (I, J, K planes) at the 30th layer using `vtkHttpDataSetReader` and `vtkImageSlice`.
+
+Modules: vtk.IO.Core.vtkHttpDataSetReader, vtk.Rendering.Core.vtkImageMapper, vtk.Rendering.Core.vtkImageSlice, vtk.Rendering.Misc.vtkFullScreenRenderWindow
+Code:
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div id="renderer"></div>
+    <script src="https://unpkg.com/vtk.js"></script>
+    <script>
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
+        const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;
+        const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;
+        const dataPath = 'http://kitware.github.io/vtk-js/data/volume/headsq.vti';
+
+        const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        const renderWindow = fullScreenRenderWindow.getRenderWindow();
+        const renderer = fullScreenRenderWindow.getRenderer();
+
+        const imageActorI = vtkImageSlice.newInstance();
+        const imageActorJ = vtkImageSlice.newInstance();
+        const imageActorK = vtkImageSlice.newInstance();
+
+        renderer.addActor(imageActorK);
+        renderer.addActor(imageActorJ);
+        renderer.addActor(imageActorI);
+
+        const reader = vtkHttpDataSetReader.newInstance({
+            fetchGzip: true,
+        });
+        reader
+            .setUrl(dataPath, { loadData: true })
+            .then(() => {
+                const data = reader.getOutputData();
+                const dataRange = data.getPointData().getScalars().getRange();
+                const extent = data.getExtent();
+
+                const imageMapperK = vtkImageMapper.newInstance();
+                imageMapperK.setInputData(data);
+                imageMapperK.setKSlice(30);
+                imageActorK.setMapper(imageMapperK);
+
+                const imageMapperJ = vtkImageMapper.newInstance();
+                imageMapperJ.setInputData(data);
+                imageMapperJ.setJSlice(30);
+                imageActorJ.setMapper(imageMapperJ);
+
+                const imageMapperI = vtkImageMapper.newInstance();
+                imageMapperI.setInputData(data);
+                imageMapperI.setISlice(30);
+                imageActorI.setMapper(imageMapperI);
+
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+    </script>
+</body>
+
+</html>
+

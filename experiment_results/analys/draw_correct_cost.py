@@ -20,7 +20,7 @@ GLOBAL_DEFAULT_MODELS_WITHOUT_RAG = [ 'gpt_5_with_rag', 'qwen3_max_with_rag', 'q
 
 # 任务（子文件夹）配置 - 可手动指定读取顺序
 # 设置为 None 表示自动识别所有子文件夹
-GLOBAL_TASK_ORDER = ['slice', 'isosurface', 'stream_tracing', 'volume_rendering']  # 例如: ['slice', 'isosurface', 'stream_tracing', 'volume_rendering']
+GLOBAL_TASK_ORDER = ['slice', 'volume_rendering', 'mag-iso', 'streamline']  # 例如: ['slice', 'volume_rendering', 'mag-iso', 'streamline']
 
 # WITH-RAG 模型顺序和名称映射
 GLOBAL_MODEL_ORDER_WITH_RAG = ['gpt_5_with_rag', 'claude_sonnet_4', 'qwen3_max_with_rag', 'deepseek-v3']

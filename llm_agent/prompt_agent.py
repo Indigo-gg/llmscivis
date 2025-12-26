@@ -59,6 +59,17 @@ def analyze_query(query: str, model_name, system=None) -> list[dict]:
     5. Perform the core thinking process silently and do not output it. Only output the final JSON.
     """
 
+    '''
+    Data Loading (数据加载)
+
+Data Processing (数据处理)
+
+Visualization Setup (可视化设置)
+
+UI Configuration (UI 配置)
+
+Rendering and Interaction (渲染与交互)
+    '''
     # Construct the analysis prompt
     analysis_prompt = f"""Please analyze the following user query and construct a VTK.js visualization pipeline:
 

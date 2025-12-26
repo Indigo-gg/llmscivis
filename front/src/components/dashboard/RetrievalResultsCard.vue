@@ -1,5 +1,11 @@
 <template>
   <div class="retrieval-results-card">
+    <!-- Debug Info -->
+    <!-- <div style="padding: 8px; background: #f0f0f0; margin-bottom: 8px; font-size: 11px;">
+      Debug: Results count = {{ results ? results.length : 'null' }} | 
+      Filtered count = {{ filteredResults ? filteredResults.length : 'null' }}
+    </div> -->
+    
     <div v-if="filteredResults && filteredResults.length > 0" class="results-list">
       <div 
         v-for="(result, index) in filteredResults" 
@@ -22,7 +28,7 @@
             color="error"
             @click="rejectCorpus(index)"
             class="reject-btn"
-            title="驳回此语料"
+            title="Reject this corpus"
           ></v-btn>
         </div>
 
@@ -46,21 +52,8 @@
           </div>
         </div>
 
-        <!-- Footer with relevance score -->
+        <!-- Footer with matched keywords -->
         <div class="corpus-footer">
-          <div class="relevance-indicator">
-            <span class="relevance-label">相关度</span>
-            <div class="relevance-bar-wrapper">
-              <div 
-                class="relevance-bar-fill" 
-                :style="{ width: getRelevancePercent(result.relevance) + '%' }"
-                :class="getRelevanceClass(result.relevance)"
-              ></div>
-            </div>
-            <span class="relevance-value" :class="getRelevanceClass(result.relevance)">
-              {{ getRelevancePercent(result.relevance) }}%
-            </span>
-          </div>
           <div v-if="result.matched_keywords && result.matched_keywords.length > 0" class="matched-keywords">
             <v-icon size="12" color="grey">mdi-tag-multiple</v-icon>
             <span class="keywords-text">
@@ -74,14 +67,14 @@
     
     <div v-else class="empty-state">
       <v-icon size="48" color="grey-lighten-1">mdi-database-search</v-icon>
-      <p class="empty-text">暂无检索结果</p>
-      <p class="empty-hint">请先执行检索操作</p>
+      <p class="empty-text">No retrieval results</p>
+      <p class="empty-hint">Please perform retrieval first</p>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 
 export default {
@@ -98,37 +91,70 @@ export default {
     const rejectedIndices = ref(new Set());
     const imageErrors = ref(new Set());
     const imageCache = ref(new Map()); // 缓存已加载的图片
+    let isUnmounted = false; // 跟踪组件是否已卸载
+    let loadingAbortController = null; // 用于取消正在进行的加载
     
-    // Load images when results change
-    watch(() => props.results, async (newResults) => {
-      if (!newResults || newResults.length === 0) return;
-      
-      // 加载所有缩略图
-      for (const result of newResults) {
-        if (result.thumbnail_url && !imageCache.value.has(result.thumbnail_url)) {
-          await loadThumbnail(result.thumbnail_url);
+    // 异步加载所有缩略图（并行加载，有错误处理）
+    const loadAllThumbnails = async (results, signal) => {
+      try {
+        const loadPromises = results
+          .filter(result => result.thumbnail_url && !imageCache.value.has(result.thumbnail_url))
+          .map(result => loadThumbnail(result.thumbnail_url, signal));
+        
+        // 使用 allSettled 避免单个失败影响其他
+        await Promise.allSettled(loadPromises);
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Error loading thumbnails:', error);
         }
       }
-    }, { immediate: true });
+    };
     
     // Load thumbnail from backend
-    const loadThumbnail = async (thumbnailUrl) => {
+    const loadThumbnail = async (thumbnailUrl, signal) => {
+      if (isUnmounted) return;
+      if (signal?.aborted) return;
+      
       try {
         // 提取路径部分（移除 /get_image/ 前缀）
         const imagePath = thumbnailUrl.replace(/^\/get_image\//, '');
         
         // 请求后端获取 base64 图片
-        const response = await axios.get(`http://127.0.0.1:5001/get_image/${imagePath}`);
+        const response = await axios.get(`http://127.0.0.1:5001/get_image/${imagePath}`, {
+          signal: signal,
+          timeout: 10000 // 10秒超时
+        });
+        
+        if (isUnmounted) return;
         
         if (response.data && response.data.success) {
           // 缓存 base64 图片数据
           imageCache.value.set(thumbnailUrl, response.data.image_url);
         }
       } catch (error) {
+        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+          // 请求被取消，正常情况
+          return;
+        }
         console.error('Failed to load thumbnail:', thumbnailUrl, error);
         imageCache.value.set(thumbnailUrl, null); // 标记为加载失败
       }
     };
+    
+    // Load images when results change - 使用同步 watcher 调用异步函数
+    watch(() => props.results, (newResults) => {
+      if (!newResults || newResults.length === 0) return;
+      if (isUnmounted) return;
+      
+      // 取消之前的加载
+      if (loadingAbortController) {
+        loadingAbortController.abort();
+      }
+      loadingAbortController = new AbortController();
+      
+      // 异步加载缩略图（不阻塞 watcher）
+      loadAllThumbnails(newResults, loadingAbortController.signal);
+    }, { immediate: true });
     
     // Get cached image URL
     const getThumbnailSrc = (result) => {
@@ -200,6 +226,15 @@ export default {
       rejectedIndices.value.clear();
     });
 
+    // 组件卸载时清理
+    onBeforeUnmount(() => {
+      isUnmounted = true;
+      if (loadingAbortController) {
+        loadingAbortController.abort();
+        loadingAbortController = null;
+      }
+    });
+
     return {
       filteredResults,
       isRejected,
@@ -217,7 +252,7 @@ export default {
 <style scoped>
 .retrieval-results-card {
   width: 100%;
-  height: 70vh;
+  height: 80vh;
   overflow-y: scroll;
   padding: 4px;
 }

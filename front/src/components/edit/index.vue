@@ -8,7 +8,7 @@
           <span class="mac-dot yellow"></span>
           <span class="mac-dot green"></span>
         </div>
-        <h3 class="editor-title">Generated Code</h3>
+        <h3 class="editor-title">{{ editorTitle }}</h3>
       </div>
       <div class="title-actions">
         <!-- 插槽用于放置按钮 -->
@@ -58,6 +58,11 @@ export default {
       type: Boolean,
       default: false
     },
+    // 新增：编辑器标题
+    editorTitle: {
+      type: String,
+      default: 'Generated Code'
+    },
     // 新增：报错行号 (从1开始)
     errorLine: {
       type: Number,
@@ -76,6 +81,10 @@ export default {
 
     let editor = null;
     let decorationIds = []; // 用于存储高亮的ID，以便清除
+    let currentMessageHandler = null; // 存储当前的消息处理器引用，用于正确清理
+    const iframeId = `iframe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // 唯一标识符
+    let lastLoadedContent = null; // 防止重复加载相同内容
+    let isLoadingIframe = false; // 防止并发加载
 
     const hasContent = computed(() => {
       return props.htmlContent &&
@@ -214,6 +223,11 @@ export default {
 
     onBeforeUnmount(() => {
       destroyEditor();
+      // 清理消息监听器，防止内存泄漏
+      if (currentMessageHandler) {
+        window.removeEventListener('message', currentMessageHandler);
+        currentMessageHandler = null;
+      }
     });
 
     function extractHtmlCode(input) {
@@ -261,6 +275,21 @@ export default {
 
         const doc = iframe.contentDocument || iframe.contentWindow.document;
         let content = extractHtmlCode(props.htmlContent);
+        
+        // 防止重复加载相同内容
+        if (lastLoadedContent === content && !isLoadingIframe) {
+          console.log('Skipping duplicate iframe load for:', props.editorTitle);
+          return;
+        }
+        
+        // 防止并发加载
+        if (isLoadingIframe) {
+          console.log('Already loading iframe, skipping for:', props.editorTitle);
+          return;
+        }
+        
+        isLoadingIframe = true;
+        lastLoadedContent = content;
 
         // 1. 定义监控脚本
         const consoleScript = (
@@ -388,8 +417,26 @@ export default {
         console.log('Debug - scriptLinesCount:', scriptLinesCount);
         console.log('Debug - injectedLineOffset:', injectedLineOffset);
 
-        // 4. 消息监听与行号修正
+        // 4. 先清理旧的消息监听器（关键！防止内存泄漏）
+        if (currentMessageHandler) {
+          window.removeEventListener('message', currentMessageHandler);
+          currentMessageHandler = null;
+        }
+
+        // 5. 在 iframe 中注入标识符，用于区分消息来源
+        try {
+          iframe.contentWindow.__iframeId = iframeId;
+        } catch (e) {
+          console.warn('Failed to set iframe id:', e);
+        }
+
+        // 6. 消息监听与行号修正
         const messageHandler = (event) => {
+          // 只处理来自当前 iframe 的消息（通过检查 source）
+          if (event.source !== iframe.contentWindow) {
+            return; // 忽略其他 iframe 的消息
+          }
+
           if (event.data && event.data.type === 'console') {
             let actualLineno = event.data.lineno;
 
@@ -421,9 +468,14 @@ export default {
           }
         };
 
-        window.removeEventListener('message', messageHandler);
+        // 保存引用以便后续清理
+        currentMessageHandler = messageHandler;
         window.addEventListener('message', messageHandler);
+        
+        // 加载完成
+        isLoadingIframe = false;
       } catch (error) {
+        isLoadingIframe = false;
         console.error('Error in loadHtmlContentIntoIframe:', error);
         emit('error', { type: 'error', message: 'Failed to load iframe content: ' + error.message });
       }
@@ -432,6 +484,8 @@ export default {
     watch(() => props.isShowVis, (newValue) => {
       nextTick(() => {
         if (newValue) {
+          // 强制重新加载：切换到预览时重置防重复标记
+          lastLoadedContent = null;
           destroyEditor();
           loadHtmlContentIntoIframe();
         } else {
@@ -442,7 +496,12 @@ export default {
 
     watch(() => props.htmlContent, (newValue) => {
       if (props.isShowVis) {
-        loadHtmlContentIntoIframe(); // 预览模式下实时更新 iframe
+        // 防止与 isShowVis watch 重复触发
+        // 只有内容真正变化时才重新加载
+        const newContent = extractHtmlCode(newValue);
+        if (newContent !== lastLoadedContent) {
+          loadHtmlContentIntoIframe();
+        }
         return;
       }
 
@@ -493,50 +552,46 @@ export default {
 </style>
 
 <style scoped>
-/* 容器：圆角 + 阴影 + 背景 */
+/* 容器：简洁无圆角 */
 .preview-container {
   position: relative;
   width: 100%;
-  height: 70vh;
-  /* 或者由父级控制 */
-  border-radius: 12px;
+  height: 100%;
   overflow: hidden;
   background-color: #ffffff;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
+  border: none;
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
-/* 头部：类似 VSCode 或 Mac 窗口 */
+/* 头部：紧凑风格 */
 .editor-title-bar {
   background-color: #f8fafc;
-  /* 浅灰白背景 */
-  padding: 10px 16px;
+  padding: 6px 12px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 48px;
+  height: 36px;
   flex-shrink: 0;
 }
 
 .title-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* 模拟 Mac 窗口按钮 */
 .mac-buttons {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .mac-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
@@ -554,17 +609,17 @@ export default {
 
 .editor-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #475569;
   font-family: system-ui, -apple-system, sans-serif;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .title-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* 内容区域 */
@@ -605,22 +660,28 @@ export default {
 }
 
 .empty-icon-bg {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background-color: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.empty-icon-bg svg {
+  width: 32px;
+  height: 32px;
 }
 
 .empty-text {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  color: #94a3b8;
 }
 
-/* 可以在这里添加全屏样式 */
+/* 全屏样式 */
 .preview-container.fullscreen {
   position: fixed;
   top: 0;

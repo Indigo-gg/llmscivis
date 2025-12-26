@@ -103,20 +103,7 @@
         </div>
       </div>
 
-      <!-- Next Step Button -->
-      <div class="action-container">
-        <v-btn
-          color="primary"
-          size="large"
-          block
-          @click="handleNextStep"
-          :disabled="editingIndex !== null"
-          prepend-icon="mdi-arrow-right-circle"
-          class="next-step-btn"
-        >
-          Proceed to Retrieval
-        </v-btn>
-      </div>
+
     </div>
   </div>
 </template>
@@ -250,7 +237,7 @@ export default {
 <style scoped>
 .query-expansion-timeline {
   width: 100%;
-  height: 90vh;
+  height: 80vh;
   overflow-y: auto;
   padding: var(--spacing-md);
 }

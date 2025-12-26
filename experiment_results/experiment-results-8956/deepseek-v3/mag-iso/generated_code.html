@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK.js Deepwater Isosurface Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    <script>
+        // Force loading of required modules
+        vtk.Rendering.Core.vtkActor;
+        vtk.Rendering.Core.vtkMapper;
+        vtk.Filters.General.vtkCalculator;
+        vtk.Filters.Core.vtkContourFilter;
+        vtk.Rendering.Core.vtkColorTransferFunction;
+        vtk.Rendering.Core.vtkRenderer;
+        vtk.Rendering.Core.vtkRenderWindow;
+        vtk.Rendering.Core.vtkRenderWindowInteractor;
+        vtk.Interaction.Style.vtkInteractorStyleSwitch;
+        vtk.IO.XML.vtkXMLImageDataReader;
+        vtk.Rendering.Core.vtkOrientationMarkerWidget;
+
+        // Create renderer and render window
+        const container = document.querySelector('#container');
+        const renderWindow = vtk.Rendering.Core.vtkRenderWindow.newInstance();
+        const renderer = vtk.Rendering.Core.vtkRenderer.newInstance({ background: [0.1, 0.1, 0.1] });
+        renderWindow.addRenderer(renderer);
+        
+        const interactor = vtk.Rendering.Core.vtkRenderWindowInteractor.newInstance();
+        interactor.setView(renderWindow.getViews()[0]);
+        interactor.initialize();
+        interactor.bindEvents(container);
+        
+        // Set interactor style to 3D
+        const style = vtk.Interaction.Style.vtkInteractorStyleSwitch.newInstance();
+        style.setCurrentStyle('trackballCamera');
+        interactor.setInteractorStyle(style);
+
+        // Create reader for VTI file
+        const reader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+        reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+            const dataset = reader.getOutputData();
+
+            // Check available arrays and select scalar field
+            const pointData = dataset.getPointData();
+            let scalarArray;
+            if (pointData.getArrayByName('v02') && pointData.getArrayByName('v03')) {
+                // Create calculator to compute velocity magnitude from v02 and v03
+                const calculator = vtk.Filters.General.vtkCalculator.newInstance();
+                calculator.setInputData(dataset);
+                calculator.setFormula({
+                    getArrays: (inputDataSets) => ({
+                        input: [
+                            { location: 'point', name: 'v02', dataType: 'Float32Array' },
+                            { location: 'point', name: 'v03', dataType: 'Float32Array' }
+                        ],
+                        output: [
+                            {
+                                location: 'point',
+                                name: 'velocity',
+                                dataType: 'Float32Array'
+                            }
+                        ]
+                    }),
+                    evaluate: (arraysIn, arraysOut) => {
+                        const v02 = arraysIn[0];
+                        const v03 = arraysIn[1];
+                        const velocity = arraysOut[0];
+                        
+                        for (let i = 0; i < v02.length; i++) {
+                            velocity[i] = Math.sqrt(v02[i] * v02[i] + v03[i] * v03[i]);
+                        }
+                    }
+                });
+                calculator.update();
+                scalarArray = calculator.getOutputData().getPointData().getArrayByName('velocity');
+            } else if (pointData.getArrayByName('prs')) {
+                scalarArray = pointData.getArrayByName('prs');
+            } else {
+                throw new Error('No suitable scalar arrays found');
+            }
+
+            // Get scalar range for isosurface and colormap
+            const scalarRange = scalarArray.getRange();
+
+            // Create contour filter (isosurface)
+            const contour = vtk.Filters.Core.vtkContourFilter.newInstance();
+            contour.setInputData(dataset);
+            contour.setComputeNormals(true);
+            contour.setGenerateTriangles(true);
+            contour.setValue(0, (scalarRange[0] + scalarRange[1]) / 2); // Mid-value isosurface
+
+            // Create color transfer function (blue -> white -> red)
+            const colorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+            colorTransferFunction.addRGBPoint(scalarRange[0], 0, 0, 1); // Blue at min
+            colorTransferFunction.addRGBPoint((scalarRange[0] + scalarRange[1]) / 2, 1, 1, 1); // White at mid
+            colorTransferFunction.addRGBPoint(scalarRange[1], 1, 0, 0); // Red at max
+
+            // Create mapper and actor
+            const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+            mapper.setInputConnection(contour.getOutputPort());
+            mapper.setScalarModeToUsePointFieldData();
+            mapper.setScalarRange(scalarRange[0], scalarRange[1]);
+            mapper.setLookupTable(colorTransferFunction);
+            mapper.setUseLookupTableScalarRange(true);
+            mapper.setInterpolateScalarsBeforeMapping(true);
+
+            const actor = vtk.Rendering.Core.vtkActor.newInstance();
+            actor.setMapper(mapper);
+            actor.getProperty().setOpacity(1.0); // Fully opaque
+            actor.getProperty().setLighting(true); // Enable lighting
+            actor.getProperty().setDiffuse(1.0); // Smooth shading
+            actor.getProperty().setAmbient(0.2);
+            actor.getProperty().setSpecular(0.5);
+            actor.getProperty().setSpecularPower(20);
+
+            renderer.addActor(actor);
+
+            // Add orientation marker
+            const axes = vtk.Rendering.Core.vtkOrientationMarkerWidget.newInstance({
+                actor: vtk.Rendering.Core.vtkAxesActor.newInstance(),
+                interactor: interactor,
+            });
+            axes.setEnabled(true);
+            axes.setViewportCorner(vtk.Rendering.Core.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+            axes.setViewportSize(0.15);
+            axes.setMinPixelSize(100);
+            axes.setMaxPixelSize(300);
+
+            // Reset camera and render
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+    </script>
+</body>
+</html>

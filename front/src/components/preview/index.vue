@@ -24,7 +24,7 @@
 </template>
 
 <script>
-import { onMounted, nextTick, ref, watch, computed } from 'vue';
+import { onMounted, nextTick, ref, watch, computed, onBeforeUnmount } from 'vue';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css'; // Select a highlight theme
 
@@ -49,6 +49,7 @@ export default {
   },
   setup(props, { emit }) {
     const previewFrame = ref(null);
+    let currentMessageHandler = null; // 存储当前的消息处理器引用，用于正确清理
 
     function extractHtmlCode(input) {
       // Extract HTML code from markdown code block
@@ -78,6 +79,25 @@ export default {
       try {
         const content = extractHtmlCode(props.htmlContent);
         
+        // 🧹 在重新加载前，先彻底清理旧的监听器和内容
+        if (currentMessageHandler) {
+          window.removeEventListener('message', currentMessageHandler);
+          currentMessageHandler = null;
+        }
+        if (previewFrame.value && previewFrame.value._messageHandler) {
+          window.removeEventListener('message', previewFrame.value._messageHandler);
+          previewFrame.value._messageHandler = null;
+        }
+        
+        // 清理旧的 iframe 内容（释放内存）
+        if (iframe.contentWindow) {
+          try {
+            iframe.contentWindow.location.replace('about:blank');
+          } catch (e) {
+            console.warn('Failed to clear iframe:', e);
+          }
+        }
+        
         // 构建完整的 HTML（不注入任何监听脚本）
         let finalHtml = '';
         
@@ -102,11 +122,6 @@ ${content}
         const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
         const blobUrl = URL.createObjectURL(blob);
         
-        // 清理旧的事件监听
-        if (previewFrame.value && previewFrame.value._messageHandler) {
-          window.removeEventListener('message', previewFrame.value._messageHandler);
-        }
-        
         // 在 iframe 加载完成后，从 iframe 内部获取 window.onerror
         iframe.onload = () => {
           try {
@@ -115,6 +130,7 @@ ${content}
             if (iframeDoc && !iframeDoc.querySelector('script[data-error-handler]')) {
               const script = iframeDoc.createElement('script');
               script.setAttribute('data-error-handler', 'true');
+              // 🔧 优化：减少日志输出频率，只捕获关键错误
               script.textContent = `
 window.onerror = function(message, source, lineno, colno, error) {
   window.parent.postMessage({
@@ -138,19 +154,8 @@ window.addEventListener("unhandledrejection", function(event) {
     timestamp: new Date().toISOString()
   }, "*");
 });
-["log", "info", "warn", "error", "debug", "trace"].forEach(type => {
-  const originalConsole = console[type];
-  console[type] = function(...args) {
-    const processedArgs = args.map(arg => String(arg));
-    originalConsole.apply(this, args);
-    window.parent.postMessage({
-      type: "console",
-      logType: type,
-      message: processedArgs.join(" "),
-      timestamp: new Date().toISOString()
-    }, "*");
-  };
-});
+// 🚫 移除频繁的 console 拦截，只保留错误捕获
+// 这可以大幅减少消息传递和内存占用
 `;
               iframeDoc.head.appendChild(script);
             }
@@ -169,7 +174,13 @@ window.addEventListener("unhandledrejection", function(event) {
 
         // 消息监听（直接使用浏览器报告的行号）
         const messageHandler = (event) => {
-          if (event.data && event.data.type === 'console') {
+          // 只处理来自当前 iframe 的消息
+          if (event.source !== iframe.contentWindow) {
+            return; // 忽略其他 iframe 的消息
+          }
+          
+          // 🔧 优化：只处理错误消息，减少内存占用
+          if (event.data && event.data.type === 'console' && event.data.logType === 'error') {
             const logEntry = {
               type: event.data.logType,
               message: typeof event.data.message === 'string' ? event.data.message : String(event.data.message),
@@ -179,16 +190,13 @@ window.addEventListener("unhandledrejection", function(event) {
             };
 
             emit('console-output', [logEntry]);
-
-            if (event.data.logType === 'error') {
-              emit('error', logEntry);
-            }
+            emit('error', logEntry);
           }
         };
 
         // 保存事件监听器供后续清理
+        currentMessageHandler = messageHandler;
         previewFrame.value._messageHandler = messageHandler;
-        window.removeEventListener('message', messageHandler);
         window.addEventListener('message', messageHandler);
       } catch (error) {
         console.error('Error in loadHtmlContentIntoIframe:', error);
@@ -221,6 +229,18 @@ window.addEventListener("unhandledrejection", function(event) {
         nextTick(() => {
           loadHtmlContentIntoIframe();
         });
+      }
+    });
+
+    // 组件卸载时清理事件监听器
+    onBeforeUnmount(() => {
+      if (currentMessageHandler) {
+        window.removeEventListener('message', currentMessageHandler);
+        currentMessageHandler = null;
+      }
+      if (previewFrame.value && previewFrame.value._messageHandler) {
+        window.removeEventListener('message', previewFrame.value._messageHandler);
+        previewFrame.value._messageHandler = null;
       }
     });
 

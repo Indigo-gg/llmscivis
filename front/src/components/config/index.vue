@@ -116,6 +116,19 @@
         <v-icon left>mdi-play</v-icon>
         Generate
       </v-btn>
+      
+      <!-- Clear Saved Data Button -->
+      <v-btn 
+        color="#757575" 
+        block 
+        variant="outlined"
+        size="small"
+        @click="handleClearSavedData"
+        class="mt-2"
+      >
+        <v-icon left size="small">mdi-delete-sweep</v-icon>
+        清除缓存数据
+      </v-btn>
     </div>
 
     <!-- Snackbar for notifications -->
@@ -138,12 +151,13 @@
 </template>
 
 <script>
-import {onMounted,reactive, ref} from "vue";
+import {onMounted,reactive, ref, watch} from "vue";
 import workflow from "@/components/config/workflow.vue";
 import {appConfig} from "@/view/config.js";
 import {generateCode, getModels} from "@/api/api.js";
 import { getCaseList } from "../../api/api";
 import { VTreeview } from "vuetify/labs/VTreeview";
+import { saveConfig, loadConfig, clearAllSavedData } from "@/utils/persistence.js";
 export default {
   name: "index",
   components: {
@@ -395,10 +409,71 @@ export default {
       }
     };
 
+    // 清除保存的数据
+    const handleClearSavedData = () => {
+      if (confirm('确定要清除所有缓存的配置和结果数据吗?')) {
+        const success = clearAllSavedData();
+        if (success) {
+          info.message = '缓存数据已清除';
+          info.snackbar = true;
+        } else {
+          info.message = '清除失败,请重试';
+          info.snackbar = true;
+        }
+      }
+    };
+
+    // 恢复保存的配置
+    const restoreSavedConfig = () => {
+      const savedConfig = loadConfig();
+      if (savedConfig) {
+        console.log('Restoring saved config:', savedConfig);
+        if (savedConfig.prompt) newCase.value.prompt = savedConfig.prompt;
+        if (savedConfig.groundTruth) newCase.value.groundTruth = savedConfig.groundTruth;
+        if (savedConfig.generator) newCase.value.generator = savedConfig.generator;
+        if (savedConfig.evaluator) newCase.value.evaluator = savedConfig.evaluator;
+        if (savedConfig.workflow) {
+          newCase.value.workflow = savedConfig.workflow;
+          inquiryExpansionSelected.value = savedConfig.workflow.inquiryExpansion || false;
+          ragSelected.value = savedConfig.workflow.rag || false;
+        }
+        if (savedConfig.name) newCase.value.name = savedConfig.name;
+        if (savedConfig.path) newCase.value.path = savedConfig.path;
+        
+        info.message = '已恢复上次的配置';
+        info.snackbar = true;
+      }
+    };
+
+    // 监听配置变化，自动保存
+    watch(
+      () => ({
+        prompt: newCase.value.prompt,
+        groundTruth: newCase.value.groundTruth,
+        generator: newCase.value.generator,
+        evaluator: newCase.value.evaluator,
+        workflow: newCase.value.workflow,
+        name: newCase.value.name,
+        path: newCase.value.path
+      }),
+      (newVal) => {
+        // 防抖保存，避免频繁操作localStorage
+        if (saveConfig.timeout) clearTimeout(saveConfig.timeout);
+        saveConfig.timeout = setTimeout(() => {
+          saveConfig(newVal);
+          console.log('Config auto-saved');
+        }, 1000);
+      },
+      { deep: true }
+    );
 
     onMounted(()=>{
       fetchModels();
       fetchTreeData();
+      // 恢复保存的配置
+      setTimeout(() => {
+        restoreSavedConfig();
+      }, 500); // 等待数据加载完成后再恢复
     })
     
     return {
@@ -412,6 +487,7 @@ export default {
       isLoading,
       treeData,
       handleActiveChange,
+      handleClearSavedData,
     };
 
   }

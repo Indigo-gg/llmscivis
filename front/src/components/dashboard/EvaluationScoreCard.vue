@@ -44,97 +44,96 @@
 
     <!-- Manual Evaluation Section -->
     <div class="manual-evaluation-section">
-      <div class="section-subtitle">
-        <v-icon size="small" class="mr-1">mdi-account-edit</v-icon>
-        Manual Evaluation
-      </div>
-      
       <div class="manual-form">
           <!-- Correction Cost Slider -->
           <div class="slider-group">
-            <div class="slider-label">Correction Cost</div>
+            <div class="slider-header">
+              <span class="slider-label">Correction Cost</span>
+              <span class="slider-value">{{ manualCorrectionCost }}</span>
+            </div>
             <v-slider
               v-model="manualCorrectionCost"
               :min="0"
               :max="100"
               :step="1"
-              color="#546e7a"
-              density="compact"
-            >
-              <template v-slot:append>
-                <span class="slider-value">{{ manualCorrectionCost }}</span>
-              </template>
-            </v-slider>
+              color="#10b981"
+              track-color="#d1fae5"
+              thumb-size="14"
+              hide-details
+            ></v-slider>
             <div class="slider-hint">Modified Lines / Total Lines</div>
           </div>
 
           <!-- Functionality Rating Slider -->
           <div class="slider-group">
-            <div class="slider-label">Functionality Rating</div>
+            <div class="slider-header">
+              <span class="slider-label">Functionality Rating</span>
+              <span class="slider-value">{{ manualFunctionality }}</span>
+            </div>
             <v-slider
               v-model="manualFunctionality"
               :min="0"
               :max="100"
               :step="1"
-              color="#546e7a"
-              density="compact"
-            >
-              <template v-slot:append>
-                <span class="slider-value">{{ manualFunctionality }}</span>
-              </template>
-            </v-slider>
+              color="#3b82f6"
+              track-color="#dbeafe"
+              thumb-size="14"
+              hide-details
+            ></v-slider>
             <div class="slider-hint">Missing Features ← → Complete</div>
           </div>
 
           <!-- Visual Quality Rating Slider -->
           <div class="slider-group">
-            <div class="slider-label">Visual Quality Rating</div>
+            <div class="slider-header">
+              <span class="slider-label">Visual Quality Rating</span>
+              <span class="slider-value">{{ manualVisualQuality }}</span>
+            </div>
             <v-slider
               v-model="manualVisualQuality"
               :min="0"
               :max="100"
               :step="1"
-              color="#546e7a"
-              density="compact"
-            >
-              <template v-slot:append>
-                <span class="slider-value">{{ manualVisualQuality }}</span>
-              </template>
-            </v-slider>
+              color="#8b5cf6"
+              track-color="#ede9fe"
+              thumb-size="14"
+              hide-details
+            ></v-slider>
             <div class="slider-hint">Needs Improvement ← → Excellent</div>
           </div>
 
           <!-- Code Quality Rating Slider -->
           <div class="slider-group">
-            <div class="slider-label">Code Quality Rating</div>
+            <div class="slider-header">
+              <span class="slider-label">Code Quality Rating</span>
+              <span class="slider-value">{{ manualCodeQuality }}</span>
+            </div>
             <v-slider
               v-model="manualCodeQuality"
               :min="0"
               :max="100"
               :step="1"
-              color="primary"
-              density="compact"
-            >
-              <template v-slot:append>
-                <span class="slider-value">{{ manualCodeQuality }}</span>
-              </template>
-            </v-slider>
+              color="#f59e0b"
+              track-color="#fef3c7"
+              thumb-size="14"
+              hide-details
+            ></v-slider>
             <div class="slider-hint">Obfuscated ← → Readable</div>
           </div>
         </div>
       </div>
 
-    <!-- Save Button -->
+    <!-- Export Button -->
     <v-btn
-      variant="tonal"
-      color="primary"
-      :loading="isManualSubmitting"
+      variant="flat"
+      color="#3b82f6"
+      :loading="isExporting"
       block
-      @click="submitManualEvaluation"
-      class="mt-4"
+      @click="handleExportResults"
+      class="mt-4 export-btn"
     >
-      <v-icon start>mdi-account-check</v-icon>
-      Save Human Evaluation
+      <v-icon start>mdi-download</v-icon>
+      Export Results
     </v-btn>
   </div>
 </template>
@@ -185,7 +184,7 @@ export default {
       default: false
     }
   },
-  emits: ['trigger-evaluation', 'submit-manual-evaluation', 'export-results'],
+  emits: ['export-results'],
   setup(props, { emit }) {
 
     // Check status management
@@ -233,27 +232,6 @@ export default {
     });
 
     // Methods
-
-
-    const submitManualEvaluation = () => {
-      isManualSubmitting.value = true;
-      
-      const manualData = {
-        evalId: props.evalId,
-        correctionCost: manualCorrectionCost.value,
-        functionality: manualFunctionality.value,
-        visualQuality: manualVisualQuality.value,
-        codeQuality: manualCodeQuality.value,
-        timestamp: new Date().toISOString()
-      };
-
-      emit('submit-manual-evaluation', manualData);
-      
-      setTimeout(() => {
-        isManualSubmitting.value = false;
-      }, 500);
-    };
-
     const handleExportResults = () => {
       isExporting.value = true;
       emit('export-results');
@@ -294,14 +272,12 @@ export default {
       manualFunctionality,
       manualVisualQuality,
       manualCodeQuality,
-      isManualSubmitting,
       isExporting,
       hasScore,
       hasParsedEvaluation,
       displayOverallScore,
       overallScoreColor,
       scoreLevel,
-      submitManualEvaluation,
       handleExportResults
     };
   }
@@ -344,8 +320,9 @@ export default {
 
 .score-label {
   font-size: 13px;
-  color: #666;
+  color: #64748b;
   margin-bottom: 10px;
+  font-weight: 500;
 }
 
 .badges-container {
@@ -371,49 +348,46 @@ export default {
 }
 
 .manual-evaluation-section {
-  padding: 12px 0;
-  margin-top: 12px;
-}
-
-.section-subtitle {
-  display: flex;
-  align-items: center;
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 12px;
-  color: #37474f;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.manual-form {
+  padding: 8px 0;
   margin-top: 8px;
 }
 
+.manual-form {
+  margin-top: 0;
+}
+
 .slider-group {
-  margin-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
 }
 
 .slider-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
+  color: #1e293b;
+  letter-spacing: 0.2px;
 }
 
 .slider-value {
-  min-width: 35px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 30px;
   text-align: right;
-  font-weight: 500;
-  font-size: 14px;
-  color: #546e7a;
 }
 
 .slider-hint {
-  font-size: 11px;
-  color: #999;
-  margin-top: -8px;
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 4px;
   text-align: center;
+  letter-spacing: 0.3px;
 }
 
 .mb-3 {
@@ -434,5 +408,16 @@ export default {
   font-size: 14px;
   color: #666;
   font-weight: 500;
+}
+
+.export-btn {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  box-shadow: none !important;
+}
+
+.export-btn:hover {
+  background-color: #2563eb !important;
 }
 </style>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VTK.js Rotor Pressure Slice Visualization</title>
+  <!-- Requirement: Use VTK.js from CDN (Guideline #2) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    /* Ensure the visualization fills the page and no extra UI is shown (Guideline #5) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #101010; /* dark background for better contrast */
+    }
+    #container {
+      position: absolute;
+      inset: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Rendering container -->
+  <div id="container"></div>
+  <script>
+    // Create a full-screen render window with no GUI controls (Requirement: No interactive GUI controls)
+    const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+      rootContainer: document.body,
+      containerStyle: { position: 'absolute', inset: 0 },
+      background: [0.1, 0.1, 0.1],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Orientation marker with XYZ axes in bottom-right corner (Requirement)
+    const axesActor = vtk.Rendering.Core.vtkAxesActor.newInstance();
+    const orientationMarker = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({
+      actor: axesActor,
+      interactor: renderWindow.getInteractor()
+    });
+    orientationMarker.setEnabled(true);
+    orientationMarker.setViewportCorner(
+      vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT
+    );
+    orientationMarker.setViewportSize(0.15);
+
+    // Reader for VTI (Requirement: vti format; use vtkXMLImageDataReader, not HttpDataSetReader - Guideline #7)
+    const reader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+
+    // Requirement: Load the dataset from the provided URL
+    const dataURL = 'http://127.0.0.1:5000/dataset/rotor.vti';
+
+    // Fetch the VTI file as ArrayBuffer and parse it with the XML reader
+    fetch(dataURL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch VTI: ${res.status} ${res.statusText}`);
+        return res.arrayBuffer();
+      })
+      .then((buffer) => {
+        reader.parseAsArrayBuffer(buffer);
+
+        // Get the resulting ImageData
+        const imageData = reader.getOutputData(0);
+
+        // Requirement: Set the active scalar array to "Pressure"
+        const pointData = imageData.getPointData();
+        const pressureArray = pointData.getArrayByName('Pressure');
+        if (pressureArray) {
+          pointData.setActiveScalars('Pressure');
+        } else {
+          console.warn('Pressure array not found. Using the current active scalars.');
+        }
+
+        // Create image slice actor and mapper for slicing by index (Requirement: Apply a slice along Y axis)
+        const imageActor = vtk.Rendering.Core.vtkImageSlice.newInstance();
+        const imageMapper = vtk.Rendering.Core.vtkImageMapper.newInstance();
+        imageMapper.setInputData(imageData);
+
+
+        const extent = imageData.getExtent(); // [xmin, xmax, ymin, ymax, zmin, zmax]
+        const yMin = extent[2];
+        const yMax = extent[3];
+        const ySliceIndex = Math.round(yMin + 0.95 * (yMax - yMin)); // 95% position converted to slice index
+        imageMapper.setInputData(imageData);
+        imageMapper.setJSlice(ySliceIndex); // Slice along Y axis
+
+        // Connect mapper to actor
+        imageActor.setMapper(imageMapper);
+
+        // Requirement: Use blue → white → red color map spanning the scalar range
+        // Create a color transfer function with 3 control points: min=blue, mid=white, max=red
+        const ctf = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+        const activeArray = pressureArray || pointData.getScalars();
+        const range = activeArray.getRange();
+        const min = range[0];
+        const max = range[1];
+        const mid = (min + max) / 2;
+
+        // Blue at min
+        ctf.addRGBPoint(min, 0.0, 0.0, 1.0);
+        // White at mid
+        ctf.addRGBPoint(mid, 1.0, 1.0, 1.0);
+        // Red at max
+        ctf.addRGBPoint(max, 1.0, 0.0, 0.0);
+
+        // Attach color map to the image actor's property
+        const imageProp = imageActor.getProperty();
+
+        // Independent components ensures scalar to RGB mapping via the transfer function
+        imageProp.setIndependentComponents(true);
+
+        // Map scalars using the transfer function for component 0
+        // This applies the blue → white → red map to our "Pressure" scalars (Requirement)
+        imageProp.setRGBTransferFunction(0, ctf);
+
+        // Requirement: Set opacity to fully opaque (no transparency variation)
+        // Use a piecewise function with constant opacity of 1.0 across the full range
+        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(min, 1.0);
+        ofun.addPoint(max, 1.0);
+        imageProp.setScalarOpacity(0, ofun);
+        imageProp.setOpacity(1.0);
+
+        // Set window/level to span the scalar range to ensure full range coverage
+        imageProp.setColorWindow(max - min);
+        imageProp.setColorLevel(mid);
+
+        // Add actor and render
+        renderer.addActor(imageActor);
+        renderer.resetCamera();
+        const camera = renderer.getActiveCamera();
+        const center = imageData.getCenter(); // World-space center of the data
+        const dist = camera.getDistance(); // Use current distance for a good framing
+        camera.setFocalPoint(center[0], center[1], center[2]);
+        camera.setPosition(center[0], center[1] + dist, center[2]); // Look along +Y towards the center
+        camera.setViewUp(0, 0, 1);
+        renderer.resetCameraClippingRange();
+        renderWindow.render();
+
+        // Detailed highlight of how each requirement is implemented:
+        // - Load dataset from URL: fetch() + vtkXMLImageDataReader.parseAsArrayBuffer(buffer) (Requirement)
+        // - Active scalar "Pressure": pointData.setActiveScalars('Pressure') (Requirement)
+        // - Y-axis slice at 95%: compute yIndex from extent and set via mapper.setJSlice(yIndex) (Requirement)
+        // - Blue→White→Red: vtkColorTransferFunction with points at min/mid/max; assigned via imageProp.setRGBTransferFunction(0, ctf) (Requirement)
+        // - Fully opaque: piecewise function set to 1 across range + imageProp.setOpacity(1.0) (Requirement)
+        // - Orientation marker bottom-right: vtkOrientationMarkerWidget configured with axes and setViewportCorner(BOTTOM_RIGHT) (Requirement)
+        // - No GUI controls: FullScreenRenderWindow used without adding any control panels; orientation marker set non-interactive (Requirement)
+      })
+      .catch((err) => {
+        console.error('Error loading or rendering VTI:', err);
+      });
+  </script>
+</body>
+</html>

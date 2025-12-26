@@ -1,0 +1,98 @@
+<!DOCTYPE html>_x000D_
+<html lang="en">_x000D_
+_x000D_
+<head>_x000D_
+<meta charset="UTF-8">_x000D_
+<meta name="viewport" content="width=device-width, initial-scale=1.0">_x000D_
+<title>Isosurface Rendering for Isabel Dataset</title>_x000D_
+</head>_x000D_
+_x000D_
+<body>_x000D_
+<!-- Renderer container -->_x000D_
+<div id="renderer"></div>_x000D_
+<!-- Load VTK.js library -->_x000D_
+<script src="https://unpkg.com/vtk.js"></script>_x000D_
+<script>_x000D_
+// Import required VTK.js classes_x000D_
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;_x000D_
+const vtkActor = vtk.Rendering.Core.vtkActor;_x000D_
+const vtkMapper = vtk.Rendering.Core.vtkMapper;_x000D_
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;_x000D_
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;_x000D_
+const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;_x000D_
+_x000D_
+// Initialize render window, set background color to black_x000D_
+const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({_x000D_
+background: [0.1, 0.1, 0.1],_x000D_
+});_x000D_
+const renderWindow = fullScreenRenderWindow.getRenderWindow();_x000D_
+const renderer = fullScreenRenderWindow.getRenderer();_x000D_
+_x000D_
+// Create XML image data reader instance_x000D_
+const reader = vtkXMLImageDataReader.newInstance();_x000D_
+_x000D_
+// Set data file URL and load data_x000D_
+reader.setUrl('..\\..\\..\\vtkjs-benchmark-datasets\\isabel.vti').then(() => {_x000D_
+// After data URL is set successfully, load data_x000D_
+reader.loadData().then(() => {_x000D_
+// Get loaded image data_x000D_
+const imageData = reader.getOutputData(0);_x000D_
+_x000D_
+// Get velocity vector field from data_x000D_
+const velocityArray = imageData.getPointData().getArrayByName('Velocity');_x000D_
+// Get total number of data points_x000D_
+const numPoints = imageData.getNumberOfPoints();_x000D_
+// Create new array to store velocity magnitude_x000D_
+const magnitudeData = new Float64Array(numPoints);_x000D_
+_x000D_
+// Calculate velocity magnitude (norm of velocity vector) for each point_x000D_
+for (let i = 0; i < numPoints; i++) {_x000D_
+// Get three components of velocity_x000D_
+const vx = velocityArray.getData()[3 * i + 0]; // x component_x000D_
+const vy = velocityArray.getData()[3 * i + 1]; // y component_x000D_
+const vz = velocityArray.getData()[3 * i + 2]; // z component_x000D_
+// Calculate velocity magnitude (Euclidean norm)_x000D_
+magnitudeData[i] = Math.sqrt(vx * vx + vy * vy + vz * vz);_x000D_
+}_x000D_
+_x000D_
+// Create VTK data array class_x000D_
+const vtkDataArray = vtk.Common.Core.vtkDataArray;_x000D_
+// Create VTK array for velocity magnitude_x000D_
+const magnitudeVtkArray = vtkDataArray.newInstance({_x000D_
+numberOfComponents: 1, // Scalar data, only one component_x000D_
+values: magnitudeData, // Data values_x000D_
+name: 'velocityMagnitude', // Array name_x000D_
+});_x000D_
+imageData.getPointData().addArray(magnitudeVtkArray);_x000D_
+_x000D_
+imageData.getPointData().setActiveScalars('velocityMagnitude');_x000D_
+imageData.setSpacing(2.5, 2.5, 1.0);_x000D_
+_x000D_
+const newRange = magnitudeVtkArray.getRange();_x000D_
+console.log('Velocity magnitude range:', newRange);_x000D_
+const [minV, maxV] = newRange;_x000D_
+_x000D_
+const marchingCube = vtkImageMarchingCubes.newInstance({_x000D_
+contourValue: minV + 0.5 * (maxV - minV), // Set isosurface value to middle of data range_x000D_
+computeNormals: true, // Compute normals for lighting effects_x000D_
+mergePoints: true // Merge duplicate points to reduce data size_x000D_
+});_x000D_
+_x000D_
+marchingCube.setInputData(imageData);_x000D_
+_x000D_
+const mapper = vtkMapper.newInstance();_x000D_
+mapper.setInputConnection(marchingCube.getOutputPort());_x000D_
+_x000D_
+const actor = vtkActor.newInstance();_x000D_
+actor.setMapper(mapper);_x000D_
+renderer.addActor(actor);_x000D_
+const camera = renderer.getActiveCamera();_x000D_
+renderer.resetCameraClippingRange();_x000D_
+renderer.resetCamera();_x000D_
+renderWindow.render();_x000D_
+});_x000D_
+});_x000D_
+</script>_x000D_
+</body>_x000D_
+_x000D_
+</html>

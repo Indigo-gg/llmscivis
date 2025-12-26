@@ -16,13 +16,8 @@
 
     <!-- Main Header -->
     <div class="app-header">
-      <span class="app-title">Rawsiv</span>
+      <span class="app-title">SivPilot</span>
       <div class="header-actions">
-        <div class="showVis">
-          <v-switch v-model="isShowVis" :title="isShowVis ? 'Show Preview' : 'Hide Preview'" true-icon="mdi-eye" false-icon="mdi-eye-off"
-            color="primary" size="x-small" density="compact" hide-details inset class="mini-switch"
-            @change="handleVisibilityChange"></v-switch>
-        </div>
       </div>
     </div>
 
@@ -43,17 +38,16 @@
         <div class="preview">
           <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.generatedCode"
             :error-line="currentCase.errorLine" :error-message="currentCase.errorMessage"
+            :editor-title="'Generated Code'"
             ref="generatedPreview" @console-output="handleConsoleOutput" @update:htmlContent="(val) => currentCase.generatedCode = val">
-            <template #actions>
-              <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
-                variant="text" @click="toggleFullScreen('generated')" class="fullscreen-btn"></v-btn>
-            </template>
           </edit>
           <edit class="scrollable" :is-show-vis="isShowVis" :htmlContent="currentCase.groundTruth"
+            :editor-title="'Ground Truth'"
             ref="truthPreview" @console-output="handleConsoleOutput" @update:htmlContent="(val) => currentCase.groundTruth = val">
             <template #actions>
-              <v-btn v-if="isShowVis" :icon="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" size="small"
-                variant="text" @click="toggleFullScreen('truth')" class="fullscreen-btn"></v-btn>
+              <v-switch v-model="isShowVis" :title="isShowVis ? 'Show Preview' : 'Hide Preview'" true-icon="mdi-eye" false-icon="mdi-eye-off"
+                color="primary" density="compact" hide-details inset class="mini-switch"
+                @change="handleVisibilityChange"></v-switch>
             </template>
           </edit>
         </div>
@@ -82,7 +76,6 @@
           :is-loading="isEvaluating"
           :is-generating="isGenerating"
           @trigger-evaluation="triggerEvaluation"
-          @submit-manual-evaluation="handleManualEvaluation"
           @export-results="exportResults"
         />
       </div>
@@ -111,13 +104,14 @@ import output from "@/components/output/index.vue"
 import LeftSidebar from "@/components/sidebar/LeftSidebar.vue";
 import RightSidebar from "@/components/sidebar/RightSidebar.vue";
 import axios from "axios";
-import { nextTick, onMounted, reactive, ref, computed } from "vue";
+import { nextTick, onMounted, reactive, ref, computed, watch } from "vue";
 import { getAllCase, getEvalResult, generateCode } from "@/api/api.js";
 import { appConfig } from "@/view/config.js";
 import { parseEvaluation } from "@/utils/scoreUtils.js";
 import html2canvas from 'html2canvas';  // 需要安装这个包
 import { ExportUtils } from '@/utils/export';
 import { useRouter } from 'vue-router'; // 导入useRouter
+import { saveCurrentCase, loadCurrentCase } from '@/utils/persistence.js';
 
 export default {
   name: "home",
@@ -199,6 +193,9 @@ export default {
       if (obj['automated_valid_output'] !== undefined) {
         currentCase.automatedValidOutput = obj['automated_valid_output'];
       }
+      
+      // 自动保存当前案例数据
+      saveCurrentCase(currentCase);
     }
 
 
@@ -207,7 +204,8 @@ export default {
         // Hide loading overlay
         isGenerating.value = false;
         
-        currentCase.consoleOutput = []
+        // 🧹 清空日志并释放内存
+        currentCase.consoleOutput.length = 0; // 更高效的清空方式
         // Clear error highlighting when new code is generated
         currentCase.errorLine = null;
         currentCase.errorMessage = '';
@@ -256,7 +254,7 @@ export default {
             triggerEvaluation();
           }, 1000);
         } else {
-          info.message = '生成代码失败或为空，请检查';
+          info.message = 'Code generation failed or is empty, please check';
           info.snackbar = true;
         }
       } catch (error) {
@@ -284,31 +282,44 @@ export default {
 
     // 处理检索完成事件
     const handleRetrievalComplete = (data) => {
-      console.log('Retrieval completed with data:', data);
+      console.log('[Home] Retrieval completed with data:', data);
       
       // data 可能是数组或对象
       if (Array.isArray(data)) {
         // 简单数组格式
         currentCase.retrievalResults = data;
+        console.log('[Home] Set retrievalResults (array):', data.length);
       } else if (data && typeof data === 'object') {
         // 对象格式，包含 retrieval_results 和 final_prompt
         currentCase.retrievalResults = data.retrieval_results || [];
+        console.log('[Home] Set retrievalResults (object):', currentCase.retrievalResults.length);
         if (data.final_prompt) {
           currentCase.final_prompt = data.final_prompt;
         }
       }
+      
+      console.log('[Home] currentCase.retrievalResults:', currentCase.retrievalResults);
     }
 
 
     const handleConsoleOutput = (output) => {
       nextTick(() => {
-        // 累积日志而不是替换
+        // 累积日志但限制最大数量，防止内存泄漏
+        const MAX_CONSOLE_LOGS = 100; // 🔧 减少到 100 条，降低内存占用
+        
         if (Array.isArray(output)) {
           currentCase.consoleOutput.push(...output);
         } else if (output) {
           currentCase.consoleOutput.push(output);
         }
-        console.log('Current console logs:', currentCase.consoleOutput);
+        
+        // 如果超过限制，删除旧的日志（批量删除更高效）
+        if (currentCase.consoleOutput.length > MAX_CONSOLE_LOGS) {
+          const removeCount = currentCase.consoleOutput.length - MAX_CONSOLE_LOGS;
+          currentCase.consoleOutput.splice(0, removeCount);
+        }
+        
+        console.log('Current console logs count:', currentCase.consoleOutput.length);
         
         // 提取错误行号并高亮
         const errorLogs = Array.isArray(output) ? output : [output];
@@ -424,16 +435,29 @@ export default {
 
     const triggerEvaluation = async () => {
       if (!currentCase.generatedCode || currentCase.generatedCode === 'Generated Code:' || currentCase.generatedCode === null || currentCase.generatedCode.trim() === '') {
-        info.message = '没有可评估的生成代码，请先生成代码';
+        info.message = 'No generated code to evaluate, please generate code first';
         info.snackbar = true;
         console.warn('Cannot evaluate: no generated code available');
         return;
       }
       isEvaluating.value = true;
-      info.message = '正在评估...';
+      info.message = 'Evaluating...';
       info.snackbar = true;
       try {
-        const evalRes = await getEvalResult(currentCase);
+        // ⚠️ 只传递评估所需的最小数据集，避免传递大量日志和检索结果
+        const evalData = {
+          evalId: currentCase.evalId,
+          generatedCode: currentCase.generatedCode,
+          groundTruth: currentCase.groundTruth,
+          evaluatorPrompt: currentCase.evaluatorPrompt,
+          evaluator: currentCase.evaluator,
+          generator: currentCase.generator,
+          prompt: currentCase.prompt,
+          workflow: currentCase.workflow,
+          evalUser: currentCase.evalUser
+          // 🚫 不传递 consoleOutput, retrievalResults, queryExpansion
+        };
+        const evalRes = await getEvalResult(evalData);
         console.log('evaluation', evalRes.data);
         currentCase.score = evalRes.data['score'];
         currentCase.evaluatorEvaluation = evalRes.data['evaluator_evaluation'];
@@ -449,12 +473,12 @@ export default {
           currentCase.automatedValidOutput = evalRes.data['automated_valid_output'];
         }
         
-        info.message = '评估完成';
+        info.message = 'Evaluation completed';
         info.snackbar = true;
       } catch (error) {
-        console.error('评估失败:', error);
-        const errorMessage = error.response?.data?.detail || error.response?.data?.error || error.message || '未知错误';
-        info.message = '评估失败: ' + errorMessage;
+        console.error('Evaluation failed:', error);
+        const errorMessage = error.response?.data?.detail || error.response?.data?.error || error.message || 'Unknown error';
+        info.message = 'Evaluation failed: ' + errorMessage;
         info.snackbar = true;
       } finally {
         isEvaluating.value = false;
@@ -470,41 +494,107 @@ export default {
       };
     });
 
-    // Handle manual evaluation submission
-    const handleManualEvaluation = async (manualData) => {
-      try {
-        console.log('Manual evaluation submitted:', manualData);
+    // 恢复保存的案例数据
+    const restoreSavedCase = () => {
+      const savedCase = loadCurrentCase();
+      if (savedCase) {
+        console.log('Restoring saved case:', savedCase);
         
-        // Update local state
-        currentCase.manualEvaluation = manualData;
+        // 使用 Object.assign 批量更新，减少触发次数
+        // 先恢复非视觉相关的数据
+        if (savedCase.evalId !== undefined) currentCase.evalId = savedCase.evalId;
+        if (savedCase.prompt) currentCase.prompt = savedCase.prompt;
+        if (savedCase.generator) currentCase.generator = savedCase.generator;
+        if (savedCase.evaluator) currentCase.evaluator = savedCase.evaluator;
+        if (savedCase.evaluatorEvaluation) currentCase.evaluatorEvaluation = savedCase.evaluatorEvaluation;
+        if (savedCase.parsedEvaluation) currentCase.parsedEvaluation = savedCase.parsedEvaluation;
+        if (savedCase.score) currentCase.score = savedCase.score;
+        if (savedCase.workflow) currentCase.workflow = savedCase.workflow;
+        if (savedCase.manualEvaluation) currentCase.manualEvaluation = savedCase.manualEvaluation;
+        if (savedCase.automatedExecutable !== undefined) currentCase.automatedExecutable = savedCase.automatedExecutable;
+        if (savedCase.automatedValidOutput !== undefined) currentCase.automatedValidOutput = savedCase.automatedValidOutput;
         
-        // Send to backend API
-        const response = await axios.post(`${appConfig.api_base_url}/update_manual_evaluation`, {
-          eval_id: currentCase.evalId,
-          manual_evaluation: manualData
-        });
-        
-        if (response.data.success) {
-          info.message = '人工评估已保存';
-          info.snackbar = true;
+        // consoleOutput 需要限制大小
+        if (savedCase.consoleOutput && Array.isArray(savedCase.consoleOutput)) {
+          const MAX_CONSOLE_LOGS = 200;
+          currentCase.consoleOutput = savedCase.consoleOutput.slice(-MAX_CONSOLE_LOGS);
         }
-      } catch (error) {
-        console.error('Failed to save manual evaluation:', error);
-        info.message = '保存人工评估失败: ' + (error.message || '未知错误');
-        info.snackbar = true;
+        
+        // 延迟恢复可能触发大量渲染的数据
+        nextTick(() => {
+          // 恢复 queryExpansion 和 retrievalResults
+          if (savedCase.queryExpansion) currentCase.queryExpansion = savedCase.queryExpansion;
+          if (savedCase.retrievalResults) currentCase.retrievalResults = savedCase.retrievalResults;
+          
+          // 再延迟恢复代码内容和预览状态
+          nextTick(() => {
+            if (savedCase.groundTruth) currentCase.groundTruth = savedCase.groundTruth;
+            if (savedCase.generatedCode) currentCase.generatedCode = savedCase.generatedCode;
+            
+            // 最后设置预览状态
+            if (savedCase.generatedCode && savedCase.generatedCode !== 'Generated Code:') {
+              nextTick(() => {
+                isShowVis.value = true;
+              });
+            }
+            
+            info.message = 'Previous session recovered';
+            info.snackbar = true;
+          });
+        });
       }
     };
+
+    // 监听currentCase变化，自动保存（排除 consoleOutput 避免频繁触发）
+    watch(
+      () => ({
+        evalId: currentCase.evalId,
+        prompt: currentCase.prompt,
+        groundTruth: currentCase.groundTruth,
+        generatedCode: currentCase.generatedCode,
+        generator: currentCase.generator,
+        evaluator: currentCase.evaluator,
+        evaluatorEvaluation: currentCase.evaluatorEvaluation,
+        score: currentCase.score,
+        workflow: currentCase.workflow,
+        queryExpansion: currentCase.queryExpansion,
+        retrievalResults: currentCase.retrievalResults,
+        parsedEvaluation: currentCase.parsedEvaluation,
+        manualEvaluation: currentCase.manualEvaluation
+        // 注意：故意排除 consoleOutput，避免频繁触发保存
+      }),
+      () => {
+        // 🛡️ 在评估期间暂停自动保存，避免内存压力
+        if (isEvaluating.value) {
+          console.log('Skipping auto-save during evaluation');
+          return;
+        }
+        
+        // 防抖保存
+        if (saveCurrentCase.timeout) clearTimeout(saveCurrentCase.timeout);
+        saveCurrentCase.timeout = setTimeout(() => {
+          saveCurrentCase(currentCase);
+          console.log('Current case auto-saved');
+        }, 3000); // 🔧 进一步增加延迟到 3 秒
+      },
+      { deep: true }
+    );
 
     // 监听全屏变化
     onMounted(() => {
       document.addEventListener('fullscreenchange', () => {
         isFullScreen.value = !!document.fullscreenElement;
       });
+      
+      // 页面加载时恢复保存的数据 (temporarily disabled)
+      // setTimeout(() => {
+      //   restoreSavedCase();
+      // }, 500);
     });
 
     // Return all reactive variables and methods
     return {
-      title: 'Rawsiv',
+      title: 'SivPilot',
       handleSeGenEnd,
       setCurrentCase,
       handleRetrievalComplete,
@@ -524,7 +614,6 @@ export default {
       isEvaluating,
       isGenerating, // Global loading state
       automatedEvaluationChecks,  // New: Automated checks computed property
-      handleManualEvaluation,  // New: Manual evaluation handler
     };
   }
 }
@@ -537,14 +626,14 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  background-color: #f8fafc;
 }
 
-/* App Header */
+/* App Header - Compact */
 .app-header {
-  height: 50px;
-  padding: 0 16px;
-  background-color: var(--primary-color);
-  border-bottom: 1px solid #2563eb;
+  height: 36px;
+  padding: 0 12px;
+  background-color: #1e293b;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -552,9 +641,10 @@ export default {
 }
 
 .app-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
 }
 
 .header-actions {
@@ -564,102 +654,108 @@ export default {
 }
 
 .showVis {
-  height: 2em;
+  height: 1.5em;
 }
 
 .mini-switch {
-  transform: scale(0.85);
+  transform: scale(0.75);
   transform-origin: right center;
-  margin-right: -8px;
+  margin-right: -4px;
 }
 
 .mini-switch :deep(.v-label) {
-  font-size: 14px;
+  font-size: 12px;
   white-space: nowrap;
-  margin-inline-start: 8px;
+  margin-inline-start: 4px;
 }
 
 .mini-switch :deep(.v-switch__thumb .v-icon) {
-  font-size: 12px;
+  font-size: 10px;
   color: #fff;
 }
 
-/* Main Container */
+/* Main Container - No gaps */
 .container-main {
   flex: 1;
   display: flex;
   overflow: hidden;
   gap: 0;
   padding: 0;
+  background-color: #f8fafc;
 }
 
-/* Sidebar Left */
+/* Sidebar Left - Seamless */
 .sidebar-left {
-  width: 300px;
-  min-width: 280px;
-  max-width: 350px;
-  background-color: var(--background-color);
-  border-right: 1px solid var(--border-color);
+  width: 280px;
+  min-width: 260px;
+  max-width: 320px;
+  background-color: #ffffff;
+  border-right: 1px solid #e2e8f0;
   overflow: hidden;
   flex-shrink: 0;
 }
 
-/* Center Area */
+/* Center Area - Fill space */
 .center {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  background-color: #f8fafc;
 }
 
 .preview {
   flex: 1;
   display: flex;
   flex-direction: row;
-  justify-content: space-around;
+  gap: 1px;
   position: relative;
   overflow: hidden;
+  background-color: #e2e8f0;
 }
 
 .scrollable {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid var(--border-color);
-  padding: var(--spacing-sm);
+  border: none;
+  padding: 0;
   position: relative;
   min-width: 0;
+  background-color: #ffffff;
 }
 
 .fullscreen-btn {
   position: absolute !important;
-  top: 8px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
   backdrop-filter: blur(4px);
 }
 
+/* Output - Minimal */
 .output {
   flex-shrink: 0;
-  border-top: 1px solid var(--border-color);
+  background-color: #ffffff;
   overflow-y: auto;
-  max-height: 30vh;
+  max-height: 25vh;
+  border-top: 1px solid #e2e8f0;
 }
 
 .output-container {
   position: relative;
   width: 100%;
-  padding: var(--spacing-sm);
+  padding: 0;
 }
 
-/* Sidebar Right */
+/* Sidebar Right - Seamless */
 .sidebar-right {
-  width: 300px;
-  min-width: 280px;
-  max-width: 350px;
-  background-color: var(--background-color);
-  border-left: 1px solid var(--border-color);
+  width: 280px;
+  min-width: 260px;
+  max-width: 320px;
+  background-color: #ffffff;
+  border-left: 1px solid #e2e8f0;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -676,9 +772,9 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 48px;
+  gap: 16px;
+  background-color: rgba(30, 41, 59, 0.85);
+  padding: 32px 48px;
   border-radius: 8px;
   position: fixed;
   top: 50%;
@@ -688,10 +784,10 @@ export default {
 }
 
 .loading-text {
-  color: #ffffff;
-  font-size: 18px;
+  color: #f1f5f9;
+  font-size: 14px;
   font-weight: 500;
   margin: 0;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 </style>

@@ -6,6 +6,7 @@
       bg-color="white"
       color="primary"
       density="compact"
+      centered
       class="tabs-header"
     >
       <v-tab value="config" class="tab-item">
@@ -63,30 +64,18 @@
         <div class="sidebar-content config-content">
       <!-- Prompt Configuration Section -->
       <div class="config-section prompt-section">
-        <h4 class="section-header">Prompt Configuration</h4>
         <v-textarea
           label="Prompt" 
-          rows="3"
+          rows="15"
           v-model="newCase.prompt"
           density="compact"
           variant="outlined"
           hide-details="auto"
         ></v-textarea>
-        <v-textarea
-          label="Ground Truth"
-          v-model="newCase.groundTruth"
-          outlined
-          rows="6"
-          density="compact"
-          variant="outlined"
-          hide-details="auto"
-          class="mt-2"
-        ></v-textarea>
       </div>
 
       <!-- Model Settings Section -->
       <div class="config-section model-section">
-        <h4 class="section-header">Model Settings</h4>
         <v-select
           v-model="newCase.generator"
           :items="models"
@@ -108,7 +97,6 @@
 
       <!-- Workflow Options Section -->
       <div class="config-section workflow-section">
-        <h4 class="section-header">Workflow Options</h4>
         <v-checkbox 
           v-model="inquiryExpansionSelected"
           label="Inquiry Expansion"
@@ -202,7 +190,6 @@
             prepend-icon="mdi-database-search"
             class="retrieval-btn"
           >
-            <v-icon start>mdi-database-search</v-icon>
             Go to Retrieval Module
           </v-btn>
         </div>
@@ -261,7 +248,7 @@
 </template>
 
 <script>
-import { onMounted, reactive, ref, computed, watch } from "vue";
+import { onMounted, reactive, ref, computed, watch, nextTick } from "vue";
 import QueryExpansionTimeline from "@/components/dashboard/QueryExpansionTimeline.vue";
 import RetrievalResultsCard from "@/components/dashboard/RetrievalResultsCard.vue";
 import { appConfig } from "@/view/config.js";
@@ -313,9 +300,11 @@ export default {
           if (Array.isArray(newVal) && newVal.length > 0) {
             workflowState.value = 'expanded';
             tabStatus.expansion = 'completed';
-            // 自动切换到 expansion 标签页
-            currentTab.value = 'expansion';
             isExpanding.value = false; // 拓展完成，关闭加载状态
+            // 延迟切换到 expansion 标签页，避免 transition 期间的状态冲突
+            nextTick(() => {
+              currentTab.value = 'expansion';
+            });
           }
         }
       },
@@ -326,12 +315,16 @@ export default {
     watch(
       () => props.retrievalResults,
       (newVal) => {
+        console.log('[LeftSidebar] retrievalResults changed:', newVal);
+        console.log('[LeftSidebar] retrievalResults length:', newVal ? newVal.length : 'null');
         if (newVal && newVal.length > 0) {
           workflowState.value = 'retrieved';
           tabStatus.retrieval = 'completed';
-          // 自动切换到 retrieval 标签页
-          currentTab.value = 'retrieval';
           isRetrieving.value = false; // 检索完成，关闭加载状态
+          // 延迟切换到 retrieval 标签页，避免 transition 期间的状态冲突
+          nextTick(() => {
+            currentTab.value = 'retrieval';
+          });
         }
       },
       { deep: true }
@@ -540,13 +533,13 @@ export default {
           info.snackbar = true;
           context.emit('end', res.data);
         } else {
-          info.message = '代码生成失败：返回的代码为空';
+          info.message = 'Code generation failed or is empty, please check';
           info.snackbar = true;
           console.error('Generated code is empty:', res.data);
           context.emit('end', res.data);
         }
       }).catch(error => {
-        info.message = '代码生成失败: ' + (error.response?.data?.detail || error.message);
+        info.message = 'Code generation failed: ' + (error.response?.data?.detail || error.message);
         info.snackbar = true;
         console.error('Generation failed:', error);
       }).finally(() => {
@@ -605,24 +598,26 @@ export default {
         return;
       }
 
-      // 标记配置标签页完成
+      // Mark config tab complete
       tabStatus.config = 'completed';
 
-      // 如果启用了提示词拓展，先执行拓展
+      // If query expansion enabled, execute expansion first
       if (newCase.value.workflow.inquiryExpansion) {
         try {
-          info.message = '正在拓展查询...';
+          info.message = 'Expanding query...';
           info.snackbar = true;
           isExpanding.value = true;
           isLoading.value = true;
           tabStatus.expansion = 'loading';
           
-          // 切换到 expansion 标签页
-          currentTab.value = 'expansion';
+          // Switch to expansion tab (use nextTick to avoid transition conflicts)
+          nextTick(() => {
+            currentTab.value = 'expansion';
+          });
           workflowState.value = 'idle';
-          queryExpansionData.value = []; // 清空旧数据
+          queryExpansionData.value = []; // Clear old data
           
-          // 调用拓展 API
+          // Call expansion API
           const response = await axios.post('http://127.0.0.1:5001/expand', {
             prompt: prompt
           });
@@ -630,17 +625,17 @@ export default {
           if (response.data && response.data.success) {
             queryExpansionData.value = response.data.analysis;
             workflowState.value = 'expanded';
-            info.message = `拓展完成，生成 ${response.data.analysis.length} 个步骤`;
+            info.message = `Expansion completed, generated ${response.data.analysis.length} steps`;
             info.snackbar = true;
             
-            // 通知父组件
+            // Notify parent component
             context.emit('expansion-complete', response.data.analysis);
           } else {
-            throw new Error(response.data.error || '拓展失败');
+            throw new Error(response.data.error || 'Expansion failed');
           }
         } catch (error) {
           console.error('Expansion failed:', error);
-          info.message = '拓展失败: ' + (error.response?.data?.detail || error.message);
+          info.message = 'Expansion failed: ' + (error.response?.data?.detail || error.message);
           info.snackbar = true;
           workflowState.value = 'idle';
         } finally {
@@ -648,7 +643,7 @@ export default {
           isLoading.value = false;
         }
       } else {
-        // 如果没启用拓展，直接进入生成流程
+        // If expansion not enabled, proceed directly to generation
         handleDirectGeneration();
       }
     };
@@ -658,37 +653,39 @@ export default {
       console.log('Proceeding to retrieval with data:', expansionData);
       
       try {
-        info.message = '正在检索相关示例...';
+        info.message = 'Retrieving relevant examples...';
         info.snackbar = true;
         isRetrieving.value = true;
         isLoading.value = true;
         tabStatus.retrieval = 'loading';
-        // 切换到检索标签页
-        currentTab.value = 'retrieval';
+        // Switch to retrieval tab (use nextTick to avoid transition conflicts)
+        nextTick(() => {
+          currentTab.value = 'retrieval';
+        });
 
-        // 调用后端 RAG 检索 API
+        // Call backend RAG retrieval API
         const response = await axios.post('http://127.0.0.1:5001/retrieval', {
           analysis: expansionData,
           prompt: newCase.value.prompt
         });
 
         if (response.data && response.data.success) {
-          // 保存检索后的 final_prompt
+          // Save final prompt after retrieval
           finalPrompt.value = response.data.final_prompt;
           
-          // 更新检索结果（通过 emit 通知父组件）
+          // Update retrieval results (notify parent component via emit)
           context.emit('retrieval-complete', {
             retrieval_results: response.data.retrieval_results,
             final_prompt: response.data.final_prompt
           });
           
           workflowState.value = 'retrieved';
-          info.message = `检索完成，找到 ${response.data.retrieval_results.length} 个相关示例`;
+          info.message = `Retrieval completed, found ${response.data.retrieval_results.length} relevant examples`;
           info.snackbar = true;
         }
       } catch (error) {
         console.error('Retrieval failed:', error);
-        info.message = '检索失败: ' + (error.response?.data?.detail || error.message);
+        info.message = 'Retrieval failed: ' + (error.response?.data?.detail || error.message);
         info.snackbar = true;
       } finally {
         isRetrieving.value = false;
@@ -701,38 +698,38 @@ export default {
       console.log('Proceeding to generation...');
       
       try {
-        info.message = '正在生成代码...';
+        info.message = 'Generating code...';
         info.snackbar = true;
         isGenerating.value = true;
         isLoading.value = true;
         
-        // 使用更新后的拓展数据执行生成
+        // Use updated expansion data for generation
         const finalExpansionData = updatedExpansionData.value || queryExpansionData.value;
         
-        // 构造请求数据
+        // Construct request data
         const payload = {
           ...newCase.value,
           expansionData: finalExpansionData,
-          finalPrompt: finalPrompt.value // 使用检索后的 prompt
+          finalPrompt: finalPrompt.value // Use final prompt from retrieval
         };
         
-        // 调用生成 API
+        // Call generation API
         const response = await generateCode(payload);
         
         if (response.data && response.data.generated_code && response.data.generated_code.trim() !== '') {
-          info.message = '代码生成成功';
+          info.message = 'Code generation successful';
           info.snackbar = true;
           workflowState.value = 'generated';
           context.emit('end', response.data);
         } else {
-          info.message = '代码生成失败：返回的代码为空';
+          info.message = 'Code generation failed: returned code is empty';
           info.snackbar = true;
           console.error('Generated code is empty:', response.data);
           context.emit('end', response.data);
         }
       } catch (error) {
         console.error('Generation failed:', error);
-        info.message = '代码生成失败: ' + (error.response?.data?.detail || error.message);
+        info.message = 'Code generation failed: ' + (error.response?.data?.detail || error.message);
         info.snackbar = true;
       } finally {
         isGenerating.value = false;
@@ -745,25 +742,25 @@ export default {
     // 直接生成（未启用拓展和检索）
     const handleDirectGeneration = async () => {
       try {
-        info.message = '正在生成代码...';
+        info.message = 'Generating code...';
         info.snackbar = true;
         isLoading.value = true;
         
         const response = await generateCode(newCase.value);
         
         if (response.data && response.data.generated_code && response.data.generated_code.trim() !== '') {
-          info.message = '代码生成成功';
+          info.message = 'Code generation successful';
           info.snackbar = true;
           context.emit('end', response.data);
         } else {
-          info.message = '代码生成失败：返回的代码为空';
+          info.message = 'Code generation failed: returned code is empty';
           info.snackbar = true;
           console.error('Generated code is empty:', response.data);
           context.emit('end', response.data);
         }
       } catch (error) {
         console.error('Generation failed:', error);
-        info.message = '代码生成失败: ' + (error.response?.data?.detail || error.message);
+        info.message = 'Code generation failed: ' + (error.response?.data?.detail || error.message);
         info.snackbar = true;
       } finally {
         isLoading.value = false;
@@ -783,6 +780,7 @@ export default {
       workflowState,
       workflowStateText,
       queryExpansionData,
+      retrievalResults: computed(() => props.retrievalResults),
       updatedExpansionData,
       isExpanding,
       isRetrieving,
@@ -822,6 +820,14 @@ export default {
 .tabs-header {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border-color);
+}
+
+.tabs-header :deep(.v-slide-group__content) {
+  justify-content: center;
+}
+
+.tabs-header :deep(.v-tabs) {
+  width: 100%;
 }
 
 .tab-item {

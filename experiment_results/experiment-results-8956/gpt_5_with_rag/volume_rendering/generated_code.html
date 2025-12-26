@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VTK.js Volume Rendering - Redsea Velocity Magnitude</title>
+  <style>
+    /* Ensure the canvas fills the entire screen and no extra UI is shown (Requirement: visualization displayed properly without UI controls) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <!-- Use VTK.js from the specified CDN version (Guideline #2) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <script>
+    // Bring required vtk modules into scope
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkVolume = vtk.Rendering.Core.vtkVolume;
+    const vtkVolumeMapper = vtk.Rendering.Core.vtkVolumeMapper;
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+    const vtkDataArray = vtk.Common.Core.vtkDataArray;
+
+    // ----------------------------------------------------------------------------
+    // Rendering setup (no UI controls, full-screen)
+    // ----------------------------------------------------------------------------
+    const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({
+      background: [0.05, 0.05, 0.08], // dark background for contrast
+    });
+    const renderer = fullScreenRenderWindow.getRenderer();
+    const renderWindow = fullScreenRenderWindow.getRenderWindow();
+
+    // ----------------------------------------------------------------------------
+    // Requirement: Load the dataset from the provided URL using the correct IO module (vtkXMLImageDataReader for .vti)
+    // IMPORTANT: We use fetch + vtkXMLImageDataReader.parseAsArrayBuffer, NOT vtkHttpDataSetReader (per guidelines).
+    // ----------------------------------------------------------------------------
+    const dataUrl = 'http://127.0.0.1:5000/dataset/redsea.vti';
+
+    fetch(dataUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load dataset: ${response.status} ${response.statusText}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((arrayBuffer) => {
+        // Parse .vti using the XML reader (Guideline #7)
+        const reader = vtkXMLImageDataReader.newInstance();
+        reader.parseAsArrayBuffer(arrayBuffer);
+
+        const imageData = reader.getOutputData(0);
+
+        // ----------------------------------------------------------------------------
+        // Requirement: Compute velocity magnitude from the "velocity" array and set it as the active scalar
+        // ----------------------------------------------------------------------------
+        const pointData = imageData.getPointData();
+
+        // Try to get the "velocity" vector array by name.
+        let velocityArray = pointData.getArrayByName('velocity');
+        // If not found by name, try using the default vectors (fallback)
+        if (!velocityArray) {
+          velocityArray = pointData.getVectors ? pointData.getVectors() : null;
+        }
+
+        if (!velocityArray) {
+          console.warn('Velocity array named "velocity" not found. Volume rendering will proceed without computed magnitude.');
+        } else {
+          const numTuples = velocityArray.getNumberOfTuples();
+          const numComps = velocityArray.getNumberOfComponents();
+
+          if (numComps < 3) {
+            console.warn(`Expected a 3-component "velocity" array, but found ${numComps} component(s). Magnitude computation may be incorrect.`);
+          }
+
+          // Compute magnitude per point
+          const vData = velocityArray.getData();
+          const magValues = new Float32Array(numTuples);
+          for (let i = 0; i < numTuples; i++) {
+            const idx = i * numComps;
+            const vx = vData[idx] || 0;
+            const vy = vData[idx + 1] || 0;
+            const vz = vData[idx + 2] || 0;
+            magValues[i] = Math.hypot(vx, vy, vz);
+          }
+
+          // Create a VTK scalar array for the magnitudes
+          const magArray = vtkDataArray.newInstance({
+            name: 'velocity_magnitude',
+            numberOfComponents: 1,
+            values: magValues,
+          });
+
+          // Set the magnitude array as the active scalars (Requirement: set as active scalar)
+          pointData.setScalars(magArray);
+        }
+
+        // Determine scalar range for transfer functions (if our computed magnitudes are present)
+        const scalars = pointData.getScalars();
+        const range = scalars ? scalars.getRange() : [0, 1];
+        const [sMin, sMax] = range;
+        const sMid = 0.5 * (sMin + sMax);
+
+        // ----------------------------------------------------------------------------
+        // Requirement: Apply volume rendering with a blue → white → red color map spanning min to max
+        // ----------------------------------------------------------------------------
+        const cfun = vtkColorTransferFunction.newInstance();
+        // Map scalar min -> blue, mid -> white, max -> red
+        cfun.addRGBPoint(sMin, 0.0, 0.0, 1.0); // blue at minimum
+        cfun.addRGBPoint(sMid, 1.0, 1.0, 1.0); // white at middle
+        cfun.addRGBPoint(sMax, 1.0, 0.0, 0.0); // red at maximum
+
+        // ----------------------------------------------------------------------------
+        // Requirement: Apply a piecewise opacity function to control transparency across scalar values
+        // We gradually increase opacity from near 0 at min to 1.0 at max
+        // ----------------------------------------------------------------------------
+        const ofun = vtkPiecewiseFunction.newInstance();
+        // A smooth opacity ramp across the scalar range
+        ofun.addPoint(sMin, 0.00);
+        ofun.addPoint(sMin + 0.2 * (sMax - sMin), 0.05);
+        ofun.addPoint(sMid, 0.20);
+        ofun.addPoint(sMin + 0.8 * (sMax - sMin), 0.60);
+        ofun.addPoint(sMax, 1.00);
+
+        // ----------------------------------------------------------------------------
+        // Volume pipeline: mapper + actor
+        // ----------------------------------------------------------------------------
+        const mapper = vtkVolumeMapper.newInstance();
+        mapper.setInputData(imageData);
+
+        // Use a reasonable sample distance based on voxel spacing
+        const spacing = imageData.getSpacing();
+        const minSpacing = Math.min(spacing[0], spacing[1], spacing[2]);
+        mapper.setSampleDistance(0.7 * minSpacing); // finer sampling for better quality
+        mapper.setComputeNormalFromOpacity(true); // helps shading when using opacity
+
+        const actor = vtkVolume.newInstance();
+        actor.setMapper(mapper);
+
+        // ----------------------------------------------------------------------------
+        // Requirement: Set shading, ambient, diffuse, and specular properties for realistic volume appearance
+        // ----------------------------------------------------------------------------
+        const prop = actor.getProperty();
+        prop.setRGBTransferFunction(0, cfun);
+        prop.setScalarOpacity(0, ofun);
+        prop.setInterpolationTypeToLinear();
+
+        // Scale for opacity computation per voxel distance; use voxel diagonal as a heuristic
+        const unitDistance = Math.sqrt(
+          spacing[0] * spacing[0] + spacing[1] * spacing[1] + spacing[2] * spacing[2]
+        );
+        prop.setScalarOpacityUnitDistance(0, unitDistance);
+
+        // Enable shading and tune lighting components
+        prop.setShade(true);
+        prop.setAmbient(0.2);     // ambient contribution
+        prop.setDiffuse(0.8);     // diffuse lighting
+        prop.setSpecular(0.3);    // specular highlight strength
+        prop.setSpecularPower(20); // shininess
+
+        // Ensure the transfer function uses its full range
+        if (prop.setUseLookupTableScalarRange) {
+          prop.setUseLookupTableScalarRange(true);
+        }
+
+        // ----------------------------------------------------------------------------
+        // Add to scene and render
+        // ----------------------------------------------------------------------------
+        renderer.addVolume(actor);
+
+        // ----------------------------------------------------------------------------
+        // Requirement: Adjust the camera to look along +Z and center on the dataset
+        // We position the camera at center - k*Z, focal point at center, so the view direction is +Z.
+        // ----------------------------------------------------------------------------
+        const bounds = imageData.getBounds(); // [xmin, xmax, ymin, ymax, zmin, zmax]
+        const center = [
+          0.5 * (bounds[0] + bounds[1]),
+          0.5 * (bounds[2] + bounds[3]),
+          0.5 * (bounds[4] + bounds[5]),
+        ];
+        const diag = Math.sqrt(
+          (bounds[1] - bounds[0]) ** 2 +
+          (bounds[3] - bounds[2]) ** 2 +
+          (bounds[5] - bounds[4]) ** 2
+        );
+
+        // Reset camera to get reasonable clipping range, then override position/orientation
+        renderer.resetCamera();
+        const camera = renderer.getActiveCamera();
+        camera.setFocalPoint(center[0], center[1], center[2]);
+        camera.setPosition(center[0], center[1], center[2] - 1.2 * diag); // place camera along -Z
+        camera.setViewUp(0, 1, 0); // standard up direction
+        renderer.resetCameraClippingRange();
+
+        renderWindow.render();
+      })
+      .catch((err) => {
+        console.error('Error loading or rendering the dataset:', err);
+      });
+
+    // Notes in code comments explicitly reference how each user requirement is implemented.
+  </script>
+</body>
+</html>

@@ -74,11 +74,36 @@ class RAGAgent:
     def _get_thumbnail_url(self, file_path: str) -> str:
         """
         根据文件路径生成缩略图 URL
-        临时使用测试图片路径
+        自动查找语料文件夹中的 .png 图片
         """
-        # 临时测试：使用固定的测试图片
-        test_image_path = "vtkjs-examples/benchmark/data/dataset/test.png"
-        return f"/get_image/{test_image_path}"
+        import os
+        import glob
+        from RAG.vtk_code_meta_extract import get_project_root
+            
+        if not file_path:
+            return ""
+            
+        # 获取语料所在目录的绝对路径
+        project_root = get_project_root()
+        corpus_dir = os.path.join(project_root, os.path.dirname(file_path))
+            
+        # 查找该目录下的所有 .png 文件
+        png_files = glob.glob(os.path.join(corpus_dir, "*.png"))
+            
+        if png_files:
+            # 使用第一个找到的 .png 文件
+            png_file = png_files[0]
+            # 计算相对于项目根目录的相对路径
+            rel_path = os.path.relpath(png_file, project_root)
+            # 转换路径分隔符为 /
+            rel_path = rel_path.replace("\\", "/")
+            # 移除 data/ 前缀（因为后端会自动添加）
+            if rel_path.startswith("data/"):
+                rel_path = rel_path[5:]  # 移除 "data/" (5个字符)
+            return f"/get_image/{rel_path}"
+            
+        # 如果没有找到图片,返回空字符串(前端会处理)
+        return ""
     
     def _extract_metadata_from_v3(self):
         """

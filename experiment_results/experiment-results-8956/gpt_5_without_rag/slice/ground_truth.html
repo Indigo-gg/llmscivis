@@ -1,0 +1,98 @@
+<!DOCTYPE html>_x000D_
+<html lang="en">_x000D_
+_x000D_
+<head>_x000D_
+<meta charset="UTF-8">_x000D_
+<meta name="viewport" content="width=device-width, initial-scale=1.0">_x000D_
+<title>Rotor Dataset Cutting Rendering</title>_x000D_
+<style>_x000D_
+body,_x000D_
+html {_x000D_
+margin: 0;_x000D_
+padding: 0;_x000D_
+width: 100%;_x000D_
+height: 100%;_x000D_
+overflow: hidden;_x000D_
+}_x000D_
+_x000D_
+#renderer {_x000D_
+width: 100%;_x000D_
+height: 100%;_x000D_
+}_x000D_
+</style>_x000D_
+</head>_x000D_
+_x000D_
+<body>_x000D_
+<div id="renderer"></div>_x000D_
+<script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>_x000D_
+<script>_x000D_
+const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;_x000D_
+const vtkActor = vtk.Rendering.Core.vtkActor;_x000D_
+const vtkMapper = vtk.Rendering.Core.vtkMapper;_x000D_
+const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;_x000D_
+const vtkPlane = vtk.Common.DataModel.vtkPlane;_x000D_
+const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;_x000D_
+_x000D_
+const fullScreenRenderWindow = vtkFullScreenRenderWindow.newInstance({_x000D_
+background: [1, 1, 1],_x000D_
+});_x000D_
+const renderWindow = fullScreenRenderWindow.getRenderWindow();_x000D_
+const renderer = fullScreenRenderWindow.getRenderer();_x000D_
+_x000D_
+const reader = vtkXMLImageDataReader.newInstance();_x000D_
+reader.setUrl('http://127.0.0.1:5000/dataset/rotor_simplified.vti').then(() => {_x000D_
+reader.loadData().then(() => {_x000D_
+const imageData = reader.getOutputData(0);_x000D_
+imageData.getPointData().setActiveScalars('Pressure');_x000D_
+_x000D_
+const vtkImageSlice = vtk.Rendering.Core.vtkImageSlice;_x000D_
+const vtkImageMapper = vtk.Rendering.Core.vtkImageMapper;_x000D_
+_x000D_
+const imageMapper = vtkImageMapper.newInstance();_x000D_
+imageMapper.setInputData(imageData);_x000D_
+const dims = imageData.getDimensions();_x000D_
+imageMapper.setSlice(dims[1] * 0.95);_x000D_
+imageMapper.setSlicingMode(1); //(0:X, 1:Y, 2:Z)_x000D_
+_x000D_
+const pressureArray = imageData.getPointData().getArrayByName('Pressure');_x000D_
+const [pMin, pMax] = pressureArray.getRange();_x000D_
+const colorTransferFunction = vtkColorTransferFunction.newInstance();_x000D_
+colorTransferFunction.addRGBPoint(pMin, 0.0, 0.0, 0.8);_x000D_
+colorTransferFunction.addRGBPoint((pMin + pMax) / 2, 1.0, 1.0, 1.0);_x000D_
+colorTransferFunction.addRGBPoint(pMax, 0.8, 0.0, 0.0);_x000D_
+_x000D_
+// Add opacity transfer function_x000D_
+const vtkPiecewiseFunction = vtk.Common.DataModel.vtkPiecewiseFunction;_x000D_
+const opacityFunction = vtkPiecewiseFunction.newInstance();_x000D_
+opacityFunction.addPoint(pMin, 1.0);_x000D_
+opacityFunction.addPoint(pMax, 1.0);_x000D_
+_x000D_
+const imageSlice = vtkImageSlice.newInstance();_x000D_
+imageSlice.setMapper(imageMapper);_x000D_
+imageSlice.getProperty().setRGBTransferFunction(0, colorTransferFunction);_x000D_
+imageSlice.getProperty().setPiecewiseFunction(0, opacityFunction); // Set opacity function_x000D_
+imageSlice.getProperty().setScalarOpacity(0, opacityFunction); // Set scalar opacity_x000D_
+imageSlice.getProperty().setUseLookupTableScalarRange(true);_x000D_
+_x000D_
+renderer.addActor(imageSlice);_x000D_
+_x000D_
+const axes = vtk.Rendering.Core.vtkAxesActor.newInstance();_x000D_
+const widget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget.newInstance({_x000D_
+actor: axes,_x000D_
+interactor: renderWindow.getInteractor(),_x000D_
+});_x000D_
+widget.setEnabled(true);_x000D_
+widget.setViewportCorner(_x000D_
+vtk.Interaction.Widgets.vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT_x000D_
+);_x000D_
+widget.setViewportSize(0.15);_x000D_
+_x000D_
+renderer.resetCamera();_x000D_
+renderer.resetCameraClippingRange();_x000D_
+renderWindow.render();_x000D_
+});_x000D_
+});_x000D_
+</script>_x000D_
+</body>_x000D_
+_x000D_
+</html>

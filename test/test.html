@@ -1,112 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>VTK Stream Tracer Visualization (Global CDN)</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-    }
-    #container {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepwater Isosurface Visualization</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        #renderContainer { width: 100vw; height: 100vh; }
+    </style>
 </head>
 <body>
-  <div id="container"></div>
+    <div id="renderContainer"></div>
+    
+    <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+    
+    <script>
+        const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+        const vtkActor = vtk.Rendering.Core.vtkActor;
+        const vtkMapper = vtk.Rendering.Core.vtkMapper;
+        const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;
+        const vtkCalculator = vtk.Filters.General.vtkCalculator;
+        const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+        const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
+        const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+        const vtkAnnotatedCubeActor = vtk.Rendering.Core.vtkAnnotatedCubeActor;
+        const vtkInteractorStyleTrackballCamera = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera;
+        
+        const FieldDataTypes = vtk.Common.DataModel.vtkDataSet.FieldDataTypes;
 
-  <!-- 全局引入vtk.js -->
-  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
-  
-  <script>
-    // 从全局vtk对象获取所需模块
-    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
-    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;
-    const vtkHttpDataSetReader = vtk.IO.Core.vtkHttpDataSetReader;
-    const vtkStreamTracer = vtk.Filters.General.vtkStreamTracer;
-    const vtkLineSource = vtk.Filters.Sources.vtkLineSource;
-    const vtkTubeFilter = vtk.Filters.General.vtkTubeFilter;
-    const vtkMapper = vtk.Rendering.Core.vtkMapper;
-    const vtkActor = vtk.Rendering.Core.vtkActor;
-    const vtkOutlineFilter = vtk.Filters.General.vtkOutlineFilter;
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            background: [0.2, 0.2, 0.2]
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+        const interactor = renderWindow.getInteractor();
+        
+        const interactorStyle = vtkInteractorStyleTrackballCamera.newInstance();
+        interactor.setInteractorStyle(interactorStyle);
 
-    // 初始化渲染窗口
-    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
-      rootContainer: document.getElementById('container'),
-      background: [0.1, 0.1, 0.1],
-    });
-    const renderer = fullScreenRenderer.getRenderer();
-    const renderWindow = fullScreenRenderer.getRenderWindow();
+        const reader = vtkXMLImageDataReader.newInstance();
+        
+        // 注意：请确保本地服务已开启且允许跨域，或者文件路径正确
+        reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
+            
+            const imageData = reader.getOutputData();
+            const pointData = imageData.getPointData();
+            const calculator = vtkCalculator.newInstance();
+            
+            // 检查数组是否存在
+            const v02Array = pointData.getArrayByName('v02');
+            const v03Array = pointData.getArrayByName('v03');
+            const prsArray = pointData.getArrayByName('prs');
+            
+            let scalarName = '';
 
-    // 加载数据
-    const reader = vtkXMLImageDataReader.newInstance();
-    // 替换为你的数据URL
-    reader.setUrl('http://127.0.0.1:5000/dataset/deepwater.vti').then(() => {
-      reader.update();
-      const imageData = reader.getOutputData(0);
-      
-      // 创建轮廓过滤器（显示数据边界）
-      const outlineFilter = vtkOutlineFilter.newInstance();
-      outlineFilter.setInputData(imageData);
-      
-      const outlineMapper = vtkMapper.newInstance();
-      outlineMapper.setInputConnection(outlineFilter.getOutputPort());
-      
-      const outlineActor = vtkActor.newInstance();
-      outlineActor.setMapper(outlineMapper);
-      outlineActor.getProperty().setColor(1, 1, 1); // 白色轮廓
-      
-      // 创建流线追踪器
-      const streamTracer = vtkStreamTracer.newInstance({
-        integrationDirection: 'BOTH',
-        maximumPropagation: 100,
-        initialStepLength: 0.1,
-        numberOfSteps: 200,
-      });
-      streamTracer.setInputData(imageData);
-      
-      // 设置种子点（可以根据需要调整）
-      const seeds = [];
-      for (let i = 0; i < 10; i++) {
-        for (let j = 0; j < 10; j++) {
-          seeds.push([i * 5, j * 5, 0]); // 生成网格状种子点
-        }
-      }
-      
-      // 创建种子点源
-      const lineSource = vtkLineSource.newInstance();
-      lineSource.setPoints(seeds);
-      streamTracer.setSourceConnection(lineSource.getOutputPort());
-      
-      // 创建管道过滤器（让流线显示为管子）
-      const tubeFilter = vtkTubeFilter.newInstance({
-        radius: 0.2,
-        numberOfSides: 12,
-      });
-      tubeFilter.setInputConnection(streamTracer.getOutputPort());
-      
-      // 创建流线映射器和演员
-      const streamMapper = vtkMapper.newInstance();
-      streamMapper.setInputConnection(tubeFilter.getOutputPort());
-      
-      const streamActor = vtkActor.newInstance();
-      streamActor.setMapper(streamMapper);
-      streamActor.getProperty().setColor(0.5, 0.5, 1); // 蓝色流线
-      
-      // 将演员添加到渲染器
-      renderer.addActor(outlineActor);
-      renderer.addActor(streamActor);
-      
-      // 调整相机并渲染
-      renderer.resetCamera();
-      renderWindow.render();
-    }).catch(error => {
-      console.error('数据加载失败:', error);
-    });
-  </script>
+            if (v02Array && v03Array) {
+                // 如果有速度分量，计算速度大小
+                scalarName = 'velocityMagnitude';
+                calculator.setFormulaSimple(
+                    FieldDataTypes.POINT,
+                    ['v02', 'v03'],
+                    scalarName,
+                    (v02, v03) => Math.sqrt(v02 * v02 + v03 * v03)
+                );
+            } else if (prsArray) {
+                // 如果没有速度，使用压力
+                console.log("Using 'prs' array.");
+                scalarName = 'prs';
+                // 当直接透传时，其实不需要 setFormulaSimple，但为了保持管道一致性，
+                // 我们可以简单地设置输入连接，或者如果不计算直接用原始数据
+                // 这里为了简单，我们还是让 calculator 跑一遍，或者直接不使用 calculator
+                // 既然逻辑里使用了 calculator，我们可以写一个透传公式：
+                calculator.setFormulaSimple(
+                    FieldDataTypes.POINT,
+                    ['prs'],
+                    scalarName,
+                    (v) => v
+                );
+            } else {
+                alert("Error: No suitable arrays (v02, v03, or prs) found.");
+                return;
+            }
+            
+            calculator.setInputConnection(reader.getOutputPort());
+            calculator.update(); // 触发计算确保数据生成
+            
+            // 获取范围
+            const outputData = calculator.getOutputData();
+            const scalarArray = outputData.getPointData().getArrayByName(scalarName); 
+            
+            if (!scalarArray) {
+                console.error("Scalar array not found:", scalarName);
+                return;
+            }
+
+            const scalarRange = scalarArray.getRange();
+            const midValue = (scalarRange[0] + scalarRange[1]) / 2;
+            
+            const marchingCubes = vtkImageMarchingCubes.newInstance();
+            marchingCubes.setInputConnection(calculator.getOutputPort());
+            marchingCubes.setContourValue(midValue);
+            marchingCubes.setComputeNormals(true);
+            // -----------------------------------------------------------
+            // 修改点：删除了 marchingCubes.setComputeScalars(true);
+            // vtkImageMarchingCubes 默认会处理标量，且没有该 API
+            // -----------------------------------------------------------
+            
+            const mapper = vtkMapper.newInstance();
+            mapper.setInputConnection(marchingCubes.getOutputPort());
+            mapper.setScalarRange(scalarRange);
+            mapper.setColorByArrayName(scalarName);
+            
+            const colorTransferFunction = vtkColorTransferFunction.newInstance();
+            colorTransferFunction.addRGBPoint(scalarRange[0], 0.0, 0.0, 1.0);
+            colorTransferFunction.addRGBPoint(midValue, 1.0, 1.0, 1.0);
+            colorTransferFunction.addRGBPoint(scalarRange[1], 1.0, 0.0, 0.0);
+            
+            mapper.setLookupTable(colorTransferFunction);
+            
+            const actor = vtkActor.newInstance();
+            actor.setMapper(mapper);
+            
+            renderer.addActor(actor);
+            
+            const axes = vtkAnnotatedCubeActor.newInstance();
+            axes.setDefaultStyle({
+                fontStyle: 'bold', fontFamily: 'Arial', fontColor: 'white',
+                faceColor: '#444444', edgeThickness: 0.1, edgeColor: 'white', resolution: 400
+            });
+            axes.setXPlusFaceProperty({ text: '+X' }); axes.setXMinusFaceProperty({ text: '-X' });
+            axes.setYPlusFaceProperty({ text: '+Y' }); axes.setYMinusFaceProperty({ text: '-Y' });
+            axes.setZPlusFaceProperty({ text: '+Z' }); axes.setZMinusFaceProperty({ text: '-Z' });
+            
+            const orientationWidget = vtkOrientationMarkerWidget.newInstance({
+                actor: axes, interactor: interactor
+            });
+            orientationWidget.setEnabled(true);
+            orientationWidget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+            orientationWidget.setViewportSize(0.15);
+            
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+    </script>
 </body>
 </html>

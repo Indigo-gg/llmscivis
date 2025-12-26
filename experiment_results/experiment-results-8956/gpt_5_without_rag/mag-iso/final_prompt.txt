@@ -1,0 +1,20 @@
+
+Generate only the HTML code without any additional text.
+User Requirements:
+Generate an HTML page using vtk.js to visualize the Deepwater dataset with isosurface rendering. 
+ 
+Load the dataset from: http://127.0.0.1:5000/dataset/deepwater.vti 
+ 
+Compute velocity magnitude from arrays v02 and v03; if not available, use prs as the scalar 
+ 
+Generate an isosurface at the mid-value of the scalar range 
+ 
+Use a blue → white → red color map spanning the scalar range (min to max) 
+ 
+Set the isosurface to fully opaque with smooth shading 
+ 
+Add an XYZ orientation marker in the bottom-right corner
+
+Relevant VTK.js Examples:
+
+--------------------------------------------------------------------------------No relevant VTK.js examples found.

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VTK.js Isabel Dataset Streamline Visualization</title>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; }
+    #vtkContainer { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="vtkContainer"></div>
+
+  <script type="module">
+    import vtk from 'https://unpkg.com/vtk.js@34.10.0/vtk.js';
+
+    // Get container and create renderer, render window, and interactor
+    const container = document.getElementById('vtkContainer');
+    const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({ container });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+
+    // Create XML Image Data Reader to load the Isabel dataset
+    const reader = vtk.IO.XML.vtkXMLImageDataReader.newInstance();
+    
+    // Load dataset from specified URL
+    reader.setUrl('http://127.0.0.1:5000/dataset/isabel.vti').then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData(0);
+        
+        // Get dataset bounds to compute center for seed points
+        const bounds = imageData.getBounds();
+        const center = [
+          (bounds[0] + bounds[1]) / 2,
+          (bounds[2] + bounds[3]) / 2,
+          (bounds[4] + bounds[5]) / 2
+        ];
+        
+        // Create seed source at center with sufficient density (grid of seeds)
+        const seedSource = vtk.Filters.Sources.vtkPointSource.newInstance();
+        seedSource.setNumberOfPoints(100); // Sufficient density
+        seedSource.setCenter(center);
+        seedSource.setRadius(Math.min(
+          (bounds[1] - bounds[0]) / 4,
+          (bounds[3] - bounds[2]) / 4,
+          (bounds[5] - bounds[4]) / 4
+        ));
+        
+        // Create streamline filter using Velocity array as vector field
+        const streamTracer = vtk.Filters.Flow.vtkStreamTracer.newInstance();
+        streamTracer.setInputData(imageData);
+        streamTracer.setVectors('Velocity'); // Use Velocity array as vector field
+        streamTracer.setSeedData(seedSource.getOutputData());
+        streamTracer.setMaximumPropagation(100);
+        streamTracer.setIntegrationStepUnit(1); // Cell Length unit
+        streamTracer.setInitialIntegrationStep(0.5);
+        streamTracer.setMaximumIntegrationStep(1.0);
+        streamTracer.setIntegratorType(4); // Runge-Kutta 4
+
+        // Create mapper and actor for streamlines
+        const streamlineMapper = vtk.Rendering.Core.vtkMapper.newInstance();
+        streamlineMapper.setInputConnection(streamTracer.getOutputPort());
+        
+        const streamlineActor = vtk.Rendering.Core.vtkActor.newInstance();
+        streamlineActor.setMapper(streamlineMapper);
+        streamlineActor.getProperty().setColor(0, 1, 1); // Cyan color [0, 1, 1]
+        streamlineActor.getProperty().setLineWidth(2); // Specified line width
+        
+        // Create outline filter for dataset boundary
+        const outlineFilter = vtk.Filters.General.vtkOutlineFilter.newInstance();
+        outlineFilter.setInputData(imageData);
+        
+        // Create mapper and actor for outline
+        const outlineMapper = vtk.Rendering.Core.vtkMapper.newInstance();
+        outlineMapper.setInputConnection(outlineFilter.getOutputPort());
+        
+        const outlineActor = vtk.Rendering.Core.vtkActor.newInstance();
+        outlineActor.setMapper(outlineMapper);
+        outlineActor.getProperty().setColor(1, 0, 0); // Red color [1, 0, 0]
+        outlineActor.getProperty().setLineWidth(3); // Specified line width
+        
+        // Add actors to renderer
+        renderer.addActor(streamlineActor);
+        renderer.addActor(outlineActor);
+        
+        // Set background and reset camera
+        renderer.setBackground(0.1, 0.1, 0.1);
+        renderer.resetCamera();
+        
+        // Render the scene
+        renderWindow.render();
+      });
+    });
+
+    // Add interactor style for camera control
+    const interactorStyle = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance();
+    fullScreenRenderer.getInteractor().setInteractorStyle(interactorStyle);
+  </script>
+</body>
+</html>

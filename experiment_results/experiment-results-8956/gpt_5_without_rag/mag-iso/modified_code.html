@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Deepwater Isosurface - vtk.js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Requirement: Use vtk.js library from CDN (version 34.10.0) -->
+  <script src="https://unpkg.com/vtk.js@34.10.0/vtk.js"></script>
+  <style>
+    /* Simple full-window container without any UI controls (Requirement #5) */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #0e0e10;
+    }
+    #container {
+      position: absolute;
+      inset: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Render container -->
+  <div id="container"></div>
+
+  <script>
+    // Access vtk.js API from the UMD global
+    const vtkXMLImageDataReader = vtk.IO.XML.vtkXMLImageDataReader;              // Requirement #7: Correct IO module for VTI
+    const vtkFullScreenRenderWindow = vtk.Rendering.Misc.vtkFullScreenRenderWindow;
+    const vtkImageMarchingCubes = vtk.Filters.General.vtkImageMarchingCubes;     // For isosurface extraction
+    const vtkColorTransferFunction = vtk.Rendering.Core.vtkColorTransferFunction;
+    const vtkMapper = vtk.Rendering.Core.vtkMapper;
+    const vtkActor = vtk.Rendering.Core.vtkActor;
+    const vtkAxesActor = vtk.Rendering.Core.vtkAxesActor;                         // XYZ orientation marker actor
+    const vtkOrientationMarkerWidget = vtk.Interaction.Widgets.vtkOrientationMarkerWidget;
+
+    // Create a renderer + renderWindow bound to our container
+    const container = document.getElementById('container');
+    const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+      rootContainer: container,
+      container,
+      background: [0.08, 0.08, 0.09],
+    });
+    const renderer = fullScreenRenderer.getRenderer();
+    const renderWindow = fullScreenRenderer.getRenderWindow();
+    const interactor = fullScreenRenderer.getInteractor();
+
+    // Requirement: Add an XYZ orientation marker in the bottom-right corner
+    // - Using vtkAxesActor + vtkOrientationMarkerWidget
+    const axes = vtkAxesActor.newInstance();
+    const orientationMarker = vtkOrientationMarkerWidget.newInstance({
+      actor: axes,
+      interactor,
+    });
+    orientationMarker.setEnabled(true);
+    orientationMarker.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_RIGHT);
+    orientationMarker.setViewportSize(0.18);
+    orientationMarker.setMinPixelSize(80);
+    orientationMarker.setMaxPixelSize(300);
+
+    // Build pipeline components (will be configured after data loads)
+    let marchingCube = null;
+    let mapper = null;
+    let actor = null;
+
+    // Requirement: Load the dataset from the specified URL using vtkXMLImageDataReader
+    const DATA_URL = 'http://127.0.0.1:5000/dataset/deepwater.vti';
+
+    const reader = vtkXMLImageDataReader.newInstance();
+    reader.setUrl(DATA_URL).then(() => {
+      reader.loadData().then(() => {
+        const imageData = reader.getOutputData(0);
+
+        // Access point data arrays
+        const pointData = imageData.getPointData();
+        const v02 = pointData.getArrayByName('v02');
+        const v03 = pointData.getArrayByName('v03');
+
+        // Requirement: Compute velocity magnitude from arrays v02 and v03
+        if (v02 && v03) {
+          const v02Data = v02.getData();
+          const v03Data = v03.getData();
+          const numPoints = imageData.getNumberOfPoints();
+          const magnitudeData = new Float64Array(numPoints);
+
+          for (let i = 0; i < numPoints; i++) {
+            const v2 = v02Data[i];
+            const v3 = v03Data[i];
+            magnitudeData[i] = Math.sqrt(v2 * v2 + v3 * v3);
+          }
+
+          const vtkDataArray = vtk.Common.Core.vtkDataArray;
+          const magnitudeVtkArray = vtkDataArray.newInstance({
+            numberOfComponents: 1,
+            values: magnitudeData,
+            name: 'velocityMagnitude',
+          });
+          imageData.getPointData().addArray(magnitudeVtkArray);
+          imageData.getPointData().setActiveScalars('velocityMagnitude');
+        } else {
+          // Fallback to 'prs' if velocity arrays are not available
+          const prs = pointData.getArrayByName('prs');
+          if (prs) {
+            imageData.getPointData().setActiveScalars('prs');
+          }
+        }
+
+        // Get scalar range and compute isosurface value
+        const activeScalars = imageData.getPointData().getScalars();
+        const [minVal, maxVal] = activeScalars.getRange();
+        const isoValue = minVal + 0.5 * (maxVal - minVal);
+
+        // Create pipeline components after data is loaded
+        if (!marchingCube) {
+          marchingCube = vtkImageMarchingCubes.newInstance({
+            contourValue: isoValue,
+            computeNormals: true,
+            mergePoints: true,
+          });
+          marchingCube.setInputData(imageData);
+
+          mapper = vtkMapper.newInstance();
+          mapper.setInputConnection(marchingCube.getOutputPort());
+
+          actor = vtkActor.newInstance();
+          actor.setMapper(mapper);
+          actor.getProperty().setOpacity(1.0);
+          actor.getProperty().setInterpolationToPhong();
+
+          renderer.addActor(actor);
+        } else {
+          marchingCube.setInputData(imageData);
+          marchingCube.setContourValue(0, isoValue);
+        }
+
+        // Requirement: Use a blue → white → red color map spanning the scalar range
+        const lut = vtkColorTransferFunction.newInstance();
+        lut.addRGBPoint(minVal, 0.0, 0.0, 1.0);          // Blue at min
+        lut.addRGBPoint(minVal + 0.25 * (maxVal - minVal), 0.0, 0.5, 1.0);
+        lut.addRGBPoint(isoValue, 1.0, 1.0, 1.0);        // White at iso value
+        lut.addRGBPoint(minVal + 0.75 * (maxVal - minVal), 1.0, 0.5, 0.0);
+        lut.addRGBPoint(maxVal, 1.0, 0.0, 0.0);          // Red at max
+
+        mapper.setLookupTable(lut);
+        mapper.setScalarRange(minVal, maxVal);
+
+        // Render and set up camera
+        renderer.resetCamera();
+        renderWindow.render();
+      });
+    }).catch(err => {
+      console.error('Failed to load dataset:', err);
+    });
+  </script>
+</body>
+</html>
