@@ -1,4 +1,4 @@
-# LLM4VIS: Structure-Aware Scientific Visualization Pipeline Construction
+# SivPolit: Structure-Aware Scientific Visualization Pipeline Construction
 
 **Toward Reliable Scientific Visualization Pipeline Construction with Structure-Aware Retrieval-Augmented LLMs**
 
@@ -12,7 +12,7 @@ Scientific visualization pipelines involve strict execution dependencies, includ
 
 ### Core Innovations
 
-LLM4VIS is a research system designed to provide reliable generation of procedural visualization pipelines amidst the challenges of functionality and reliability. Key innovations include:
+SivPolit is a research system designed to provide reliable generation of procedural visualization pipelines amidst the challenges of functionality and reliability. Key innovations include:
 
 1. **Structure-Aware RAG Workflow**
    * Explicitly models pipeline structure, module compatibility, and execution order.
@@ -269,15 +269,15 @@ data/
 
 ### Structure-Aware RAG
 
-The retrieval system of LLM4VIS not only retrieves software code but also explicitly models pipeline structure, module compatibility, and execution order. Compared to naive text retrieval, this structure-aware method improves pipeline executability.
+The retrieval system of SivPolit not only retrieves software code but also explicitly models pipeline structure, module compatibility, and execution order. Compared to naive text retrieval, this structure-aware method improves pipeline executability.
 
 ### Correction Cost Metric
 
-LLM4VIS introduces the **Correction Cost** metric to measure the amount of manual intervention required to obtain a valid pipeline. Compared to simple executability metrics, correction cost better reflects the actual usability of the generated pipeline.
+SivPolit introduces the **Correction Cost** metric to measure the amount of manual intervention required to obtain a valid pipeline. Compared to simple executability metrics, correction cost better reflects the actual usability of the generated pipeline.
 
 ### Human-in-the-Loop Interactive Insights
 
-LLM4VIS is not a fully automated system but a platform for human-computer interactive insights. Users can inspect retrieval scores, check generated pipeline steps, execute pipelines in the browser, and continuously provide feedback to improve the pipeline.
+SivPolit is not a fully automated system but a platform for human-computer interactive insights. Users can inspect retrieval scores, check generated pipeline steps, execute pipelines in the browser, and continuously provide feedback to improve the pipeline.
 
 ## FAQ
 
