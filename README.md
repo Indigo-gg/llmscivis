@@ -1,5 +1,3 @@
-Here is the English translation of the project documentation:
-
 # LLM4VIS: Structure-Aware Scientific Visualization Pipeline Construction
 
 **Toward Reliable Scientific Visualization Pipeline Construction with Structure-Aware Retrieval-Augmented LLMs**
