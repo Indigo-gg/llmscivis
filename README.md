@@ -231,7 +231,9 @@ The following files contain test functions:
 
 ## Data Construction
 
-### Building the RAG Vector Database
+### Building the RAG Vector Database (Deprecated)
+
+> **Note**: This section describes a deprecated approach for building the RAG vector database. It is an old version scheme and is no longer recommended.
 
 **PowerShell**
 
@@ -256,7 +258,7 @@ data/
 ## Main Dependencies
 
 * **Backend Framework** : Flask
-* **Vector Database** : FAISS
+* **Vector Database** : FAISS (Deprecated: old version approach)
 * **Vector Model** : sentence-transformers
 * **LLM Invocation** : LangChain + Ollama/OpenAI API
 * **Database** : MongoDB

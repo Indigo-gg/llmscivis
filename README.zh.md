@@ -1,6 +1,6 @@
 # LLM4VIS: Structure-Aware Scientific Visualization Pipeline Construction
 
-**Toward Reliable Scientific Visualization Pipeline Construction with Structure-Aware Retrieval-Augmented LLMs** 
+**Toward Reliable Scientific Visualization Pipeline Construction with Structure-Aware Retrieval-Augmented LLMs**
 
 一个基于大语言模型（LLM）的科学可视化管道生成系统，通过**结构感知的检索增强生成**（Structure-Aware RAG）工作流，自动从自然语言描述生成**可执行的**VTK.js可视化管道。
 
@@ -225,7 +225,9 @@ class Secrets:
 
 ## 数据构建
 
-### 构建RAG向量数据库
+### 构建RAG向量数据库（已废弃）
+
+> **注意**：RAG向量数据库构建方式已废弃，是旧版本方案，不再推荐使用。
 
 ```powershell
 conda activate llm3.12
@@ -248,7 +250,7 @@ data/
 ## 主要依赖
 
 - **后端框架**：Flask
-- **向量数据库**：FAISS
+- **向量数据库**：FAISS（已废弃：旧版本方案）
 - **向量模型**：sentence-transformers
 - **LLM调用**：LangChain + Ollama/OpenAI API
 - **数据库**：MongoDB
@@ -259,7 +261,7 @@ data/
 
 ### 结构感知的RAG
 
-LLM4VIS的检索系统不仅检索代码软件，还显式编程管道结构、模块兼容性和执行顺序。相比于樇晷的文本检索，这种结构感知的方法提高了管道可执行性。
+LLM4VIS的检索系统不仅检索代码软件，还显式编程管道结构、模块兼容性和执行顺序。相比于通用的文本检索，这种结构感知的方法提高了管道可执行性。
 
 ### 修正成本指标
 
